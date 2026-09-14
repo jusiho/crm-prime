@@ -1,31 +1,32 @@
-import { Global, Logger, Module } from "@nestjs/common";
+import { Global, Module } from "@nestjs/common";
+import { AiSettingsService } from "./ai-settings.service";
 import { LLM_PROVIDER } from "./llm.provider";
 import { FakeLLMProvider } from "./providers/fake-llm.provider";
 import { AnthropicLLMProvider } from "./providers/anthropic-llm.provider";
+import { OpenAILLMProvider } from "./providers/openai-llm.provider";
+import { RoutingLLMProvider } from "./providers/routing-llm.provider";
 
 /**
- * Expone LLM_PROVIDER. Elige el adaptador en arranque:
- * - Anthropic real si ANTHROPIC_API_KEY está definida.
- * - Simulado en caso contrario.
+ * Expone LLM_PROVIDER. El adaptador concreto (OpenAI / Anthropic / simulado)
+ * se elige en cada llamada según Ajustes › Inteligencia Artificial, con
+ * respaldo en OPENAI_API_KEY / ANTHROPIC_API_KEY del entorno.
  */
 @Global()
 @Module({
   providers: [
+    AiSettingsService,
     FakeLLMProvider,
     AnthropicLLMProvider,
-    {
-      provide: LLM_PROVIDER,
-      inject: [FakeLLMProvider, AnthropicLLMProvider],
-      useFactory: (fake: FakeLLMProvider, anthropic: AnthropicLLMProvider) => {
-        const useReal = !!process.env.ANTHROPIC_API_KEY;
-        const provider = useReal ? anthropic : fake;
-        new Logger("AI").log(
-          `LLM activo: ${provider.name}${useReal ? "" : " (simulado — sin ANTHROPIC_API_KEY)"}`,
-        );
-        return provider;
-      },
-    },
+    OpenAILLMProvider,
+    RoutingLLMProvider,
+    { provide: LLM_PROVIDER, useExisting: RoutingLLMProvider },
   ],
-  exports: [LLM_PROVIDER],
+  exports: [
+    LLM_PROVIDER,
+    AiSettingsService,
+    FakeLLMProvider,
+    AnthropicLLMProvider,
+    OpenAILLMProvider,
+  ],
 })
 export class LlmModule {}

@@ -11,6 +11,14 @@ import {
   updateProduct,
 } from "@/lib/bff";
 
+// Al pegar una imagen es fácil olvidar el esquema ("midominio.com/foto.jpg").
+// Se añade https:// para que no lo rechace la validación de URL.
+function normalizeUrl(raw: string): string | null {
+  const value = raw.trim();
+  if (!value) return null;
+  return /^https?:\/\//i.test(value) ? value : `https://${value}`;
+}
+
 function formatPrice(price: number, currency: string): string {
   try {
     return price.toLocaleString("es", { style: "currency", currency });
@@ -139,7 +147,7 @@ function ProductForm({
         sku: sku.trim() || null,
         price: Number(price) || 0,
         currency: currency.trim().toUpperCase().slice(0, 3) || "USD",
-        imageUrl: imageUrl.trim() || null,
+        imageUrl: normalizeUrl(imageUrl),
         description: description.trim() || null,
         isActive,
       };
@@ -241,7 +249,7 @@ const primaryBtn: React.CSSProperties = {
   borderRadius: 8,
   border: "none",
   background: "var(--accent)",
-  color: "#04210f",
+  color: "#f3f8ff",
   fontWeight: 600,
   cursor: "pointer",
   whiteSpace: "nowrap",

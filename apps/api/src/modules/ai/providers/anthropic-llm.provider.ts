@@ -1,6 +1,8 @@
 import { Injectable, Logger } from "@nestjs/common";
 import Anthropic from "@anthropic-ai/sdk";
 import type { Classification } from "@crm/shared";
+import { env } from "../../../common/utils/env";
+import { AiSettingsService } from "../ai-settings.service";
 import type { LLMProvider } from "../llm.provider";
 import type {
   LlmAnyBlock,
@@ -11,8 +13,12 @@ import type {
 } from "../llm.types";
 
 /**
- * Adaptador real de la API de Claude (Anthropic). Se activa cuando
- * ANTHROPIC_API_KEY está configurada. Modelo por defecto: claude-opus-4-8.
+ * Adaptador real de la API de Claude (Anthropic).
+ *
+ * La API key y el modelo por defecto se resuelven en cada llamada desde
+ * Ajustes › Inteligencia Artificial (BD, con respaldo en ANTHROPIC_API_KEY /
+ * ANTHROPIC_MODEL del entorno), para que cambiarlos en la UI surta efecto
+ * sin reiniciar la API.
  *
  * Notas de diseño:
  * - Streaming + finalMessage() para evitar timeouts en respuestas largas.
@@ -25,10 +31,24 @@ import type {
 export class AnthropicLLMProvider implements LLMProvider {
   readonly name = "anthropic";
   private readonly logger = new Logger("AnthropicLLM");
-  private readonly client = new Anthropic();
-  private readonly model = process.env.ANTHROPIC_MODEL ?? "claude-opus-4-8";
+
+  constructor(private readonly settings: AiSettingsService) {}
+
+  private async config(): Promise<{ client: Anthropic; model: string }> {
+    const c = await this.settings.resolveFor("anthropic");
+    if (!c.apiKey) {
+      throw new Error(
+        "Falta la API key de Anthropic. Configúrala en Ajustes › Inteligencia Artificial.",
+      );
+    }
+    return {
+      client: new Anthropic({ apiKey: c.apiKey }),
+      model: c.model || env("ANTHROPIC_MODEL") || "claude-opus-4-8",
+    };
+  }
 
   async generate(req: LlmRequest): Promise<LlmResponse> {
+    const cfg = await this.config();
     // Cuerpo construido de forma laxa: algunos parámetros (output_config)
     // pueden no estar en los tipos del SDK según la versión instalada.
     // RAG: si hay fragmentos recuperados, se anteponen al system prompt.
@@ -37,7 +57,7 @@ export class AnthropicLLMProvider implements LLMProvider {
       : req.system;
 
     const body: Record<string, unknown> = {
-      model: this.model,
+      model: this.resolveModel(req.model, cfg.model),
       max_tokens: req.maxTokens ?? 1024,
       system: [
         {
@@ -57,7 +77,7 @@ export class AnthropicLLMProvider implements LLMProvider {
       }));
     }
 
-    const stream = this.client.messages.stream(
+    const stream = cfg.client.messages.stream(
       body as unknown as Anthropic.MessageStreamParams,
     );
     const msg = await stream.finalMessage();
@@ -88,9 +108,10 @@ export class AnthropicLLMProvider implements LLMProvider {
   }
 
   async classify(text: string): Promise<Classification> {
+    const cfg = await this.config();
     // Salida estructurada (output_config.format) para una clasificación fiable.
     const body: Record<string, unknown> = {
-      model: this.model,
+      model: cfg.model,
       max_tokens: 256,
       output_config: {
         format: {
@@ -115,7 +136,7 @@ export class AnthropicLLMProvider implements LLMProvider {
         "Clasifica el último mensaje del cliente. Responde solo con el JSON pedido.",
       messages: [{ role: "user", content: text }],
     };
-    const msg = await this.client.messages.create(
+    const msg = await cfg.client.messages.create(
       body as unknown as Anthropic.MessageCreateParamsNonStreaming,
     );
     const block = msg.content.find((b) => b.type === "text");
@@ -130,6 +151,13 @@ export class AnthropicLLMProvider implements LLMProvider {
         requiresHuman: false,
       };
     }
+  }
+
+  // Usa el modelo pedido por el bot solo si es de Anthropic (claude-*); si no,
+  // cae al modelo configurado por defecto.
+  private resolveModel(requested: string | undefined, fallback: string): string {
+    if (requested && /^claude/i.test(requested)) return requested;
+    return fallback;
   }
 
   private toSdkMessage(m: LlmMessage): Anthropic.MessageParam {

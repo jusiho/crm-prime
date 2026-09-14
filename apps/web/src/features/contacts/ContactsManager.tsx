@@ -5,8 +5,10 @@ import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { confirmDialog } from "@/lib/confirm";
 import {
+  contactOriginLabels,
   customFieldTypes,
   type ContactListItem,
+  type ContactOrigin,
   type CustomFieldDto,
   type SourceDto,
 } from "@crm/shared";
@@ -84,6 +86,7 @@ export function ContactsManager() {
         <thead>
           <tr>
             <Th>Contacto</Th>
+            <Th>Llegó por</Th>
             <Th>Fuente</Th>
             <Th>Etiquetas</Th>
             <Th>Opt-in</Th>
@@ -284,6 +287,9 @@ function ContactRow({
         </div>
       </td>
       <td style={td}>
+        <OriginBadge origin={c.origin} detail={c.originDetail} />
+      </td>
+      <td style={td}>
         <select
           value={c.source?.id ?? ""}
           onChange={(e) => saveSource.mutate(e.target.value || null)}
@@ -343,7 +349,7 @@ function ContactRow({
     </tr>
     {expanded && fields.length > 0 && (
       <tr style={tr}>
-        <td style={{ ...td, background: "#0d1320" }} colSpan={5}>
+        <td style={{ ...td, background: "#0d1320" }} colSpan={6}>
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
             {fields.map((f) => (
               <div key={f.id} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -426,6 +432,59 @@ function NewContactForm({
       </button>
     </div>
   );
+}
+
+// Procedencia técnica: por qué vía entró el contacto. `detail` precisa cuál
+// (el número de WhatsApp que lo recibió, la integración del webhook…).
+function OriginBadge({
+  origin,
+  detail,
+}: {
+  origin: ContactOrigin;
+  detail: string | null;
+}) {
+  return (
+    <span
+      style={originBadge(ORIGIN_COLORS[origin])}
+      title={detail ? `${contactOriginLabels[origin]} · ${detail}` : contactOriginLabels[origin]}
+    >
+      {ORIGIN_ICONS[origin]} {contactOriginLabels[origin]}
+      {detail && (
+        <span style={{ opacity: 0.65, marginLeft: 5 }}>
+          {detail.length > 18 ? `${detail.slice(0, 18)}…` : detail}
+        </span>
+      )}
+    </span>
+  );
+}
+
+const ORIGIN_COLORS: Record<ContactOrigin, string> = {
+  ad: "#7a5fb0",
+  whatsapp: "#1f4d38",
+  webhook: "#2c4b7a",
+  manual: "#3a3a3a",
+  import: "#5a4a2a",
+};
+
+const ORIGIN_ICONS: Record<ContactOrigin, string> = {
+  ad: "📣",
+  whatsapp: "💬",
+  webhook: "🔗",
+  manual: "✍️",
+  import: "📥",
+};
+
+function originBadge(bg: string): React.CSSProperties {
+  return {
+    display: "inline-flex",
+    alignItems: "center",
+    fontSize: 11.5,
+    padding: "3px 9px",
+    borderRadius: 999,
+    background: bg,
+    color: "#eaf2ff",
+    whiteSpace: "nowrap",
+  };
 }
 
 function Th({ children }: { children: React.ReactNode }) {
@@ -523,7 +582,7 @@ const primaryBtn: React.CSSProperties = {
   borderRadius: 8,
   border: "none",
   background: "var(--accent)",
-  color: "#04210f",
+  color: "#f3f8ff",
   fontWeight: 600,
   cursor: "pointer",
   whiteSpace: "nowrap",
@@ -545,7 +604,7 @@ const miniBtn: React.CSSProperties = {
   borderRadius: 6,
   border: "none",
   background: "var(--accent)",
-  color: "#04210f",
+  color: "#f3f8ff",
   cursor: "pointer",
   fontWeight: 700,
 };

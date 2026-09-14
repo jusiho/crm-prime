@@ -1,10 +1,12 @@
 import { BadRequestException, Injectable, Logger } from "@nestjs/common";
 import type {
+  ChannelTestResult,
   ConnectWhatsappInput,
   WhatsappChannel,
   WhatsappConnectionStatus,
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
+import { IntegrationSettingsService } from "../integrations/integration-settings.service";
 
 export interface WhatsappCreds {
   token: string;
@@ -17,7 +19,10 @@ export class WhatsappConnectionService {
   private readonly logger = new Logger("WhatsAppConnection");
   private readonly version = process.env.WHATSAPP_GRAPH_VERSION ?? "v21.0";
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly settings: IntegrationSettingsService,
+  ) {}
 
   // ── Resolución de credenciales para enviar ───────────────────
   /**
@@ -97,6 +102,7 @@ export class WhatsappConnectionService {
       wabaId: c.wabaId,
       mode: c.mode,
       status: c.status,
+      statusReason: c.statusReason,
       source: "embedded",
       isActive: c.isActive,
       connectedAt: c.connectedAt.toISOString(),
@@ -111,6 +117,7 @@ export class WhatsappConnectionService {
       !rows.some((r) => r.phoneNumberId === envPhone)
     ) {
       channels.push({
+        statusReason: null,
         id: "env",
         phoneNumberId: envPhone,
         displayPhoneNumber: null,
@@ -192,10 +199,72 @@ export class WhatsappConnectionService {
         mode: input.mode,
         isActive: true,
         status: "connected",
+        statusReason: null,
       },
     });
     this.logger.log(`WhatsApp conectado (${input.mode}) ${input.phoneNumberId}`);
     return this.listChannels();
+  }
+
+  /**
+   * Marca un canal como caído. Se llama cuando Meta rechaza el token
+   * (OAuthException 190): sin esto el canal seguía figurando "conectado" y
+   * los envíos fallaban en silencio, solo visibles en el log.
+   */
+  async markError(phoneNumberId: string, reason: string): Promise<void> {
+    await this.prisma.whatsappConnection
+      .updateMany({
+        where: { phoneNumberId },
+        data: { status: "error", statusReason: reason.slice(0, 300) },
+      })
+      .catch(() => undefined);
+    this.logger.error(`Canal ${phoneNumberId} en error: ${reason}`);
+  }
+
+  /** Comprueba contra Meta que el token del canal sigue sirviendo. */
+  async testChannel(phoneNumberId: string): Promise<ChannelTestResult> {
+    const creds = await this.resolveCreds(phoneNumberId);
+    if (!creds) {
+      return {
+        ok: false,
+        message: "El canal no tiene credenciales configuradas.",
+        displayPhoneNumber: null,
+      };
+    }
+    try {
+      const res = await fetch(
+        `https://graph.facebook.com/${creds.version}/${creds.phoneNumberId}?fields=display_phone_number,verified_name`,
+        { headers: { Authorization: `Bearer ${creds.token}` } },
+      );
+      const data = (await res.json()) as {
+        display_phone_number?: string;
+        verified_name?: string;
+        error?: { message?: string; code?: number };
+      };
+      if (!res.ok || data.error) {
+        const reason = data.error?.message ?? `HTTP ${res.status}`;
+        await this.markError(phoneNumberId, reason);
+        return { ok: false, message: reason, displayPhoneNumber: null };
+      }
+      // Funciona: si estaba marcado en error, se restablece.
+      await this.prisma.whatsappConnection
+        .updateMany({
+          where: { phoneNumberId },
+          data: { status: "connected", statusReason: null },
+        })
+        .catch(() => undefined);
+      return {
+        ok: true,
+        message: `Token válido · ${data.verified_name ?? "sin nombre verificado"}`,
+        displayPhoneNumber: data.display_phone_number ?? null,
+      };
+    } catch (e) {
+      return {
+        ok: false,
+        message: (e as Error).message.slice(0, 200),
+        displayPhoneNumber: null,
+      };
+    }
   }
 
   // ── Desconectar un número concreto ───────────────────────────
@@ -210,15 +279,15 @@ export class WhatsappConnectionService {
 
   // Canjea el code del Embedded Signup por un token de acceso.
   private async exchangeCode(code: string): Promise<string> {
-    const appId = process.env.WHATSAPP_APP_ID;
-    const appSecret = process.env.WHATSAPP_APP_SECRET;
+    // App ID y secret salen de Ajustes › Integraciones (respaldo en .env).
+    const { appId, appSecret, graphVersion } = await this.settings.whatsappApp();
     if (!appId || !appSecret) {
       throw new BadRequestException(
-        "Faltan WHATSAPP_APP_ID o WHATSAPP_APP_SECRET en el servidor",
+        "Faltan el App ID o el App secret de Meta. Configúralos en Ajustes › Integraciones.",
       );
     }
     const url =
-      `https://graph.facebook.com/${this.version}/oauth/access_token` +
+      `https://graph.facebook.com/${graphVersion}/oauth/access_token` +
       `?client_id=${appId}&client_secret=${appSecret}&code=${encodeURIComponent(code)}`;
     const res = await fetch(url);
     if (!res.ok) {

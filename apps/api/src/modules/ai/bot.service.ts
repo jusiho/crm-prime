@@ -14,11 +14,15 @@ import type {
   UpdateBotInput,
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
+import { AgentActionsService } from "./agent-actions.service";
 import { availableTools } from "./tools.registry";
 
 @Injectable()
 export class BotService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly actions: AgentActionsService,
+  ) {}
 
   // ── Lectura ──────────────────────────────────────────────────
   async list(): Promise<{
@@ -26,7 +30,9 @@ export class BotService {
     availableTools: ReturnType<typeof availableTools>;
     channels: BotChannelRef[];
   }> {
-    const [rows, channels] = await Promise.all([
+    // El contexto real (etiquetas, etapas, vendedores) decide qué acciones
+    // se pueden ofrecer y cuáles hay que marcar como no disponibles.
+    const [rows, channels, toolContext] = await Promise.all([
       this.prisma.agentConfig.findMany({
         orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
         include: { channel: true },
@@ -35,10 +41,11 @@ export class BotService {
         where: { isActive: true },
         orderBy: { connectedAt: "desc" },
       }),
+      this.actions.loadContext(),
     ]);
     return {
       bots: rows.map((r) => this.toDto(r)),
-      availableTools: availableTools(),
+      availableTools: availableTools(toolContext),
       channels: channels.map((c) => ({
         id: c.id,
         label: c.label,

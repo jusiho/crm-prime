@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { EventEmitterModule } from "@nestjs/event-emitter";
+import { StorageModule } from "./infra/storage/storage.module";
 import { PrismaModule } from "./infra/prisma/prisma.module";
 import { QueueModule } from "./infra/queue/queue.module";
 import { AuthModule } from "./modules/auth/auth.module";
@@ -17,6 +18,8 @@ import { SourcesModule } from "./modules/sources/sources.module";
 import { TagsModule } from "./modules/tags/tags.module";
 import { ProductsModule } from "./modules/products/products.module";
 import { LeadsModule } from "./modules/leads/leads.module";
+import { ApiKeysModule } from "./modules/api-keys/api-keys.module";
+import { IntegrationsModule } from "./modules/integrations/integrations.module";
 import { HealthController } from "./health.controller";
 
 @Module({
@@ -28,6 +31,7 @@ import { HealthController } from "./health.controller";
     }),
     EventEmitterModule.forRoot(),
     PrismaModule,
+    StorageModule,
     QueueModule,
     AuthModule,
     MessagingModule,
@@ -43,6 +47,8 @@ import { HealthController } from "./health.controller";
     TagsModule,
     ProductsModule,
     LeadsModule,
+    ApiKeysModule,
+    IntegrationsModule,
   ],
   controllers: [HealthController],
 })

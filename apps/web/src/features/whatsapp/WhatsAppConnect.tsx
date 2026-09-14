@@ -7,6 +7,7 @@ import {
   connectWhatsapp,
   disconnectWhatsapp,
   fetchWhatsappChannels,
+  testWhatsappChannel,
 } from "@/lib/bff";
 
 const APP_ID = process.env.NEXT_PUBLIC_WHATSAPP_APP_ID ?? "";
@@ -24,6 +25,10 @@ declare global {
 export function WhatsAppConnect() {
   const queryClient = useQueryClient();
   const [sdkReady, setSdkReady] = useState(false);
+  const [manualOpen, setManualOpen] = useState(false);
+  // Canal cuyo token se va a renovar: precarga el formulario manual.
+  const [editing, setEditing] = useState<WhatsappChannel | null>(null);
+  const manualRef = useRef<HTMLDivElement | null>(null);
   const signupRef = useRef<{ phoneNumberId?: string; wabaId?: string }>({});
 
   const { data: channels, isPending } = useQuery({
@@ -158,6 +163,17 @@ export function WhatsAppConnect() {
               <ChannelRow
                 key={ch.id}
                 channel={ch}
+                onUpdateToken={() => {
+                  setEditing(ch);
+                  setManualOpen(true);
+                  // Que el formulario quede a la vista al abrirlo desde arriba.
+                  requestAnimationFrame(() =>
+                    manualRef.current?.scrollIntoView({
+                      behavior: "smooth",
+                      block: "center",
+                    }),
+                  );
+                }}
                 onDisconnect={() => disconnect.mutate(ch.phoneNumberId)}
                 disconnecting={
                   disconnect.isPending &&
@@ -185,16 +201,277 @@ export function WhatsAppConnect() {
           </div>
           <p style={{ color: "var(--muted)", fontSize: 12, marginTop: 14 }}>
             Al conectar aceptas nuestra{" "}
-            <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: "#25d366" }}>
+            <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: "#3578ff" }}>
               Política de Privacidad
             </a>
             .
           </p>
         </>
       )}
+
+      {/* Alta manual: para pruebas y para entornos sin Embedded Signup
+          (en localhost el popup de Facebook no es viable). */}
+      <div style={{ marginTop: 18 }} ref={manualRef}>
+        <button
+          onClick={() => {
+            setManualOpen((v) => !v);
+            setEditing(null);
+          }}
+          style={linkBtn}
+        >
+          {manualOpen ? "▾" : "▸"}{" "}
+          {editing
+            ? `Actualizar el token de ${editing.label ?? editing.phoneNumberId}`
+            : "Añadir un número a mano (token de Meta)"}
+        </button>
+        {manualOpen && (
+          <ManualConnect
+            channel={editing}
+            onDone={() => {
+              setEditing(null);
+              queryClient.invalidateQueries({ queryKey: ["wa-channels"] });
+            }}
+          />
+        )}
+      </div>
+
+      <WebhookInfo />
     </div>
   );
 }
+
+/**
+ * Alta manual de un número con credenciales de Meta.
+ * Útil para probar en local: el Embedded Signup exige una app registrada con
+ * dominio HTTPS, mientras que aquí basta con pegar el token y el Phone number
+ * ID que Meta muestra en el panel de la app.
+ */
+function ManualConnect({
+  channel,
+  onDone,
+}: {
+  /** Canal existente: solo hay que renovarle el token. */
+  channel: WhatsappChannel | null;
+  onDone: () => void;
+}) {
+  const renewing = !!channel;
+  const [phoneNumberId, setPhoneNumberId] = useState(
+    channel?.phoneNumberId ?? "",
+  );
+  const [accessToken, setAccessToken] = useState("");
+  const [displayPhoneNumber, setDisplayPhoneNumber] = useState(
+    channel?.displayPhoneNumber ?? "",
+  );
+  const [label, setLabel] = useState(channel?.label ?? "");
+  const [wabaId, setWabaId] = useState(channel?.wabaId ?? "");
+  const [mode, setMode] = useState<"api" | "coexistence">(
+    channel?.mode === "coexistence" ? "coexistence" : "api",
+  );
+
+  const save = useMutation({
+    mutationFn: () =>
+      connectWhatsapp({
+        phoneNumberId: phoneNumberId.trim(),
+        accessToken: accessToken.trim(),
+        displayPhoneNumber: displayPhoneNumber.trim() || undefined,
+        label: label.trim() || undefined,
+        wabaId: wabaId.trim() || undefined,
+        mode,
+      }),
+    onSuccess: () => {
+      setAccessToken("");
+      onDone();
+    },
+  });
+
+  const ready = !!phoneNumberId.trim() && !!accessToken.trim();
+
+  return (
+    <div style={{ ...card, marginTop: 10 }}>
+      <p style={{ color: "var(--muted)", fontSize: 13, marginTop: 0 }}>
+        {renewing ? (
+          <>
+            Pega el <strong>token nuevo</strong> de Meta → tu app → WhatsApp →{" "}
+            <em>API Setup</em>. El resto de datos ya están rellenos: al guardar
+            se <strong>actualiza este mismo número</strong>, no se duplica.
+          </>
+        ) : (
+          <>
+            En Meta → tu app → WhatsApp → <em>API Setup</em> están el{" "}
+            <strong>Phone number ID</strong> y un <strong>token temporal</strong>{" "}
+            (caduca en 24 h; para algo permanente, un token de usuario de
+            sistema).
+          </>
+        )}
+      </p>
+
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+        <div style={{ flex: "1 1 200px" }}>
+          <label style={fieldLabel}>Phone number ID *</label>
+          <input
+            style={{ ...field, opacity: renewing ? 0.6 : 1 }}
+            value={phoneNumberId}
+            placeholder="106540352242922"
+            readOnly={renewing}
+            title={renewing ? "Identifica el canal que se actualiza" : undefined}
+            onChange={(e) => setPhoneNumberId(e.target.value)}
+          />
+        </div>
+        <div style={{ flex: "1 1 160px" }}>
+          <label style={fieldLabel}>Número visible</label>
+          <input
+            style={field}
+            value={displayPhoneNumber}
+            placeholder="+1 555 078 3881"
+            onChange={(e) => setDisplayPhoneNumber(e.target.value)}
+          />
+        </div>
+      </div>
+
+      <label style={{ ...fieldLabel, marginTop: 10 }}>Access token *</label>
+      <input
+        autoFocus={renewing}
+        style={{ ...field, fontFamily: "ui-monospace, monospace" }}
+        type="password"
+        autoComplete="off"
+        value={accessToken}
+        placeholder="EAAG…"
+        onChange={(e) => setAccessToken(e.target.value)}
+      />
+
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 10 }}>
+        <div style={{ flex: "1 1 160px" }}>
+          <label style={fieldLabel}>Alias</label>
+          <input
+            style={field}
+            value={label}
+            placeholder="Pruebas"
+            onChange={(e) => setLabel(e.target.value)}
+          />
+        </div>
+        <div style={{ flex: "1 1 160px" }}>
+          <label style={fieldLabel}>WABA ID</label>
+          <input
+            style={field}
+            value={wabaId}
+            placeholder="opcional"
+            onChange={(e) => setWabaId(e.target.value)}
+          />
+        </div>
+        <div style={{ flex: "0 1 180px" }}>
+          <label style={fieldLabel}>Modo</label>
+          <select
+            style={field}
+            value={mode}
+            onChange={(e) => setMode(e.target.value as "api" | "coexistence")}
+          >
+            <option value="api">API (número de prueba)</option>
+            <option value="coexistence">Coexistencia (app del celular)</option>
+          </select>
+        </div>
+      </div>
+
+      {save.isError && (
+        <p style={{ color: "#ff6b6b", fontSize: 13 }}>
+          {(save.error as Error).message}
+        </p>
+      )}
+      {save.isSuccess && (
+        <p style={{ color: "#7ee2a8", fontSize: 13 }}>
+          {renewing ? "Token actualizado ✓" : "Número conectado ✓"}
+        </p>
+      )}
+
+      <button
+        onClick={() => save.mutate()}
+        disabled={!ready || save.isPending}
+        style={{ ...addBtn, marginTop: 12, opacity: ready ? 1 : 0.5 }}
+      >
+        {save.isPending
+          ? "Guardando…"
+          : renewing
+            ? "Actualizar token"
+            : "Conectar número"}
+      </button>
+    </div>
+  );
+}
+
+/**
+ * Lo que hay que pegar en Meta para recibir mensajes. En localhost la URL no
+ * es accesible desde fuera, así que se avisa de que hace falta un túnel.
+ */
+function WebhookInfo() {
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const isLocal = /localhost|127\.0\.0\.1/.test(origin);
+
+  return (
+    <div style={{ ...syncNote, borderColor: isLocal ? "#7a6f4a" : "#1f6f46" }}>
+      <strong style={{ color: "var(--text)" }}>
+        URL del webhook (para recibir mensajes)
+      </strong>
+      <p style={{ margin: "6px 0 0" }}>
+        En Meta → WhatsApp → Configuración → Webhooks, pon como{" "}
+        <strong>Callback URL</strong>:
+      </p>
+      <code style={urlBox}>
+        {isLocal ? "https://TU-TUNEL.ngrok-free.app" : origin}
+        /api/v1/whatsapp/webhook
+      </code>
+      <p style={{ margin: "8px 0 0" }}>
+        El <strong>Verify token</strong> es el de Ajustes › Integraciones.
+        Suscribe los campos <code>messages</code> y <code>message_echoes</code>.
+      </p>
+      {isLocal && (
+        <p style={{ margin: "8px 0 0", color: "#e0b766" }}>
+          ⚠️ Estás en localhost: Meta no puede alcanzar tu máquina. Para{" "}
+          <strong>recibir</strong> mensajes necesitas exponer el puerto 3001 con
+          un túnel, por ejemplo <code>ngrok http 3001</code> o{" "}
+          <code>cloudflared tunnel --url http://localhost:3001</code>.{" "}
+          <strong>Enviar</strong> sí funciona sin túnel.
+        </p>
+      )}
+    </div>
+  );
+}
+
+const urlBox: React.CSSProperties = {
+  display: "block",
+  marginTop: 8,
+  padding: "8px 10px",
+  borderRadius: 7,
+  background: "#0d1320",
+  border: "1px solid var(--border)",
+  fontSize: 12,
+  wordBreak: "break-all",
+};
+
+const linkBtn: React.CSSProperties = {
+  border: "none",
+  background: "transparent",
+  color: "var(--muted)",
+  cursor: "pointer",
+  fontSize: 13,
+  padding: 0,
+};
+
+const fieldLabel: React.CSSProperties = {
+  display: "block",
+  fontSize: 12.5,
+  color: "var(--muted)",
+  marginBottom: 5,
+};
+
+const field: React.CSSProperties = {
+  width: "100%",
+  padding: "9px 11px",
+  borderRadius: 8,
+  border: "1px solid var(--border)",
+  background: "var(--field)",
+  color: "var(--text)",
+  fontSize: 14,
+  boxSizing: "border-box",
+};
 
 const syncNote: React.CSSProperties = {
   marginTop: 16,
@@ -210,16 +487,28 @@ const syncNote: React.CSSProperties = {
 function ChannelRow({
   channel,
   onDisconnect,
+  onUpdateToken,
   disconnecting,
 }: {
   channel: WhatsappChannel;
   onDisconnect: () => void;
+  onUpdateToken: () => void;
   disconnecting: boolean;
 }) {
   const online = channel.isActive && channel.status === "connected";
+  const broken = channel.status === "error";
+  const queryClient = useQueryClient();
+
+  const test = useMutation({
+    mutationFn: () => testWhatsappChannel(channel.phoneNumberId),
+    // Probar puede cambiar el estado del canal (lo repara o lo marca roto).
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ["wa-channels"] }),
+  });
+
   return (
     <div style={row}>
-      <span style={dot(online ? "#25d366" : "#7a8aa0")} />
+      <span style={dot(online ? "#3578ff" : "#7a8aa0")} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <strong style={{ fontSize: 15 }}>
@@ -232,13 +521,54 @@ function ChannelRow({
             {channel.source === "env" ? " · .env" : ""}
           </span>
           {!online && <span style={pill("#5a4a2a")}>Inactivo</span>}
+          {broken && <span style={pill("#6b3232")}>⚠ Token caducado</span>}
         </div>
         {(channel.displayPhoneNumber || channel.label) && (
           <div style={{ color: "var(--muted)", fontSize: 13, marginTop: 2 }}>
             {channel.displayPhoneNumber ?? channel.phoneNumberId}
           </div>
         )}
+        {broken && (
+          <div style={errorNote}>
+            {channel.statusReason}
+            <div style={{ marginTop: 4, opacity: 0.85 }}>
+              Vuelve a conectarlo abajo con un token nuevo. Para no repetirlo
+              cada 24 h, usa un token de usuario de sistema (no caduca).
+            </div>
+          </div>
+        )}
+        {test.data && (
+          <div
+            style={{
+              ...errorNote,
+              borderColor: test.data.ok ? "#2f6b52" : "#6b3232",
+              background: test.data.ok
+                ? "rgba(63,140,110,0.12)"
+                : "rgba(200,80,80,0.12)",
+              color: test.data.ok ? "#8fe6c0" : "#ffb3b3",
+            }}
+          >
+            {test.data.ok ? "✓" : "✕"} {test.data.message}
+          </div>
+        )}
       </div>
+      <button
+        onClick={() => test.mutate()}
+        disabled={test.isPending}
+        style={ghostBtn}
+        title="Comprobar que el token sigue valiendo"
+      >
+        {test.isPending ? "…" : "Probar"}
+      </button>
+      {channel.source !== "env" && (
+        <button
+          onClick={onUpdateToken}
+          style={broken ? primaryBtn : ghostBtn}
+          title="Pegar un token nuevo para este número"
+        >
+          Actualizar token
+        </button>
+      )}
       {channel.source !== "env" && online && (
         <button onClick={onDisconnect} disabled={disconnecting} style={ghostBtn}>
           {disconnecting ? "…" : "Desconectar"}
@@ -247,6 +577,29 @@ function ChannelRow({
     </div>
   );
 }
+
+const primaryBtn: React.CSSProperties = {
+  padding: "8px 13px",
+  borderRadius: 8,
+  border: "none",
+  background: "var(--accent)",
+  color: "#f3f8ff",
+  cursor: "pointer",
+  fontSize: 13,
+  fontWeight: 600,
+  whiteSpace: "nowrap",
+};
+
+const errorNote: React.CSSProperties = {
+  marginTop: 6,
+  padding: "7px 9px",
+  borderRadius: 7,
+  border: "1px solid #6b3232",
+  background: "rgba(200,80,80,0.12)",
+  color: "#ffb3b3",
+  fontSize: 12.5,
+  lineHeight: 1.45,
+};
 
 function Empty({
   ready,
@@ -343,8 +696,8 @@ const waBtn: React.CSSProperties = {
   padding: "12px 20px",
   borderRadius: 10,
   border: "none",
-  background: "#25d366",
-  color: "#04210f",
+  background: "#3578ff",
+  color: "#f3f8ff",
   fontWeight: 700,
   fontSize: 15,
   cursor: "pointer",
@@ -357,8 +710,8 @@ const addBtn: React.CSSProperties = {
   padding: "8px 14px",
   borderRadius: 9,
   border: "none",
-  background: "#25d366",
-  color: "#04210f",
+  background: "#3578ff",
+  color: "#f3f8ff",
   fontWeight: 600,
   fontSize: 13,
   cursor: "pointer",

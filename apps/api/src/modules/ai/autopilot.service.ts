@@ -1,4 +1,4 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Inject, Injectable, Logger } from "@nestjs/common";
 import {
   AiMode,
   ConversationStatus,
@@ -8,6 +8,10 @@ import {
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { MessagingService } from "../messaging/messaging.service";
 import { AgentService } from "./agent.service";
+import {
+  WHATSAPP_PROVIDER,
+  type WhatsAppProvider,
+} from "../whatsapp/whatsapp-provider.interface";
 
 /**
  * Responde automáticamente a mensajes entrantes cuando la conversación está
@@ -25,7 +29,30 @@ export class AutopilotService {
     private readonly prisma: PrismaService,
     private readonly agent: AgentService,
     private readonly messaging: MessagingService,
+    @Inject(WHATSAPP_PROVIDER) private readonly wa: WhatsAppProvider,
   ) {}
+
+  /**
+   * Muestra "escribiendo…" al cliente. Necesita el waMessageId del último
+   * entrante, que es sobre el que Meta cuelga el indicador. El indicador
+   * caduca solo a los 25 s, así que no hay nada que limpiar.
+   */
+  private async showTyping(conversationId: string): Promise<void> {
+    try {
+      const last = await this.prisma.message.findFirst({
+        where: { conversationId, direction: "INBOUND", waMessageId: { not: null } },
+        orderBy: { createdAt: "desc" },
+        select: { waMessageId: true, conversation: { select: { channel: true } } },
+      });
+      if (!last?.waMessageId) return;
+      await this.wa.sendTypingIndicator(
+        last.waMessageId,
+        last.conversation.channel?.phoneNumberId,
+      );
+    } catch (e) {
+      this.logger.debug(`No se pudo mostrar "escribiendo…": ${(e as Error).message}`);
+    }
+  }
 
   /**
    * Ejecuta el agente en autopilot para una conversación. Lo invoca
@@ -43,6 +70,10 @@ export class AutopilotService {
         this.logger.debug(`IA pausada (humano activo) en ${conversationId}`);
         return;
       }
+
+      // "Escribiendo…" en el móvil del cliente mientras el modelo redacta.
+      // Se lanza sin await: es cosmético y no debe retrasar la respuesta.
+      void this.showTyping(conversationId);
 
       const res = await this.agent.suggest(conversationId);
 

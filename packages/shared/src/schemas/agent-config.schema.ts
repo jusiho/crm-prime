@@ -12,9 +12,15 @@ export const escalationRulesSchema = z.object({
 export type EscalationRules = z.infer<typeof escalationRulesSchema>;
 
 // Herramienta disponible (para los checkboxes del panel).
+// `isAction` distingue las que ESCRIBEN en el CRM (etiquetar, mover de etapa…)
+// de las de solo lectura: las de escritura pasan por aprobación en copilot.
 export const agentToolInfoSchema = z.object({
   name: z.string(),
+  label: z.string(),
   description: z.string(),
+  isAction: z.boolean(),
+  // Aviso cuando la acción no puede usarse todavía (p. ej. no hay etiquetas).
+  unavailableReason: z.string().nullable(),
 });
 export type AgentToolInfo = z.infer<typeof agentToolInfoSchema>;
 

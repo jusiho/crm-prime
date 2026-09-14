@@ -61,6 +61,8 @@ export class ContactsController {
       source: c.source
         ? { id: c.source.id, name: c.source.name, color: c.source.color }
         : null,
+      origin: (c.origin ?? "manual") as ContactListItem["origin"],
+      originDetail: c.originDetail,
       fields: this.fieldsFrom(c.metadata),
     }));
   }
@@ -69,13 +71,19 @@ export class ContactsController {
   async create(
     @Body(new ZodValidationPipe(createContactSchema)) body: CreateContactInput,
   ): Promise<{ id: string }> {
-    const phone = body.phone.trim();
+    // Ya viene normalizado a E.164 por el esquema (phoneField).
+    const phone = body.phone;
     const existing = await this.prisma.contact.findUnique({ where: { phone } });
     if (existing) {
       throw new ConflictException("Ya existe un contacto con ese teléfono");
     }
     const c = await this.prisma.contact.create({
-      data: { phone, name: body.name, sourceId: body.sourceId },
+      data: {
+        phone,
+        name: body.name,
+        sourceId: body.sourceId,
+        origin: "manual",
+      },
     });
     return { id: c.id };
   }

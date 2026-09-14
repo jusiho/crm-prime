@@ -210,7 +210,7 @@ const brandMark: React.CSSProperties = {
   height: 28,
   borderRadius: 8,
   background: "var(--accent)",
-  color: "#04210f",
+  color: "#f3f8ff",
   fontWeight: 800,
   display: "inline-flex",
   alignItems: "center",

@@ -23,7 +23,22 @@ export type IconName =
   | "jump"
   | "play"
   | "tag"
-  | "settings";
+  | "settings"
+  // Bandeja / conversación
+  | "check"
+  | "check-double"
+  | "paperclip"
+  | "sparkles"
+  | "send"
+  | "pause"
+  | "image"
+  | "file"
+  | "search"
+  | "arrow-down"
+  | "reply"
+  | "zap"
+  | "x"
+  | "alert";
 
 export function NavIcon({ name, size = 18 }: { name: IconName; size?: number }) {
   const p = {
@@ -168,6 +183,104 @@ export function NavIcon({ name, size = 18 }: { name: IconName; size?: number }) 
         <svg {...p}>
           <path d="M3 12V5a2 2 0 0 1 2-2h7l9 9-9 9-9-9z" />
           <circle cx="7.5" cy="7.5" r="1.3" />
+        </svg>
+      );
+    // Un tick: enviado. Dos: entregado (y en azul, leído).
+    case "check":
+      return (
+        <svg {...p}>
+          <path d="M4 12.5 9 17.5 20 6.5" />
+        </svg>
+      );
+    case "check-double":
+      return (
+        <svg {...p}>
+          <path d="M2 12.5 6.5 17 15.5 8" />
+          <path d="M9 15.2 11 17.2 21 7" />
+        </svg>
+      );
+    case "paperclip":
+      return (
+        <svg {...p}>
+          <path d="M20.4 11.5 12 19.9a5 5 0 0 1-7.1-7.1l8.5-8.4a3.3 3.3 0 1 1 4.7 4.7l-8.4 8.4a1.7 1.7 0 0 1-2.4-2.4l7.8-7.7" />
+        </svg>
+      );
+    // Chispa: la IA. Sustituye al emoji ✨.
+    case "sparkles":
+      return (
+        <svg {...p}>
+          <path d="M12 3.5 13.6 8 18 9.6 13.6 11.2 12 15.7 10.4 11.2 6 9.6 10.4 8z" />
+          <path d="M18.5 15.5l.7 1.9 1.8.7-1.8.7-.7 1.9-.7-1.9-1.9-.7 1.9-.7z" />
+        </svg>
+      );
+    case "send":
+      return (
+        <svg {...p}>
+          <path d="M21.5 2.5 10.8 13.2" />
+          <path d="M21.5 2.5 14.7 21.5l-3.9-8.3-8.3-3.9z" />
+        </svg>
+      );
+    case "pause":
+      return (
+        <svg {...p}>
+          <rect x="7" y="5" width="3.6" height="14" rx="1.2" />
+          <rect x="13.4" y="5" width="3.6" height="14" rx="1.2" />
+        </svg>
+      );
+    case "image":
+      return (
+        <svg {...p}>
+          <rect x="3" y="4.5" width="18" height="15" rx="2.5" />
+          <circle cx="8.6" cy="10" r="1.6" />
+          <path d="M3.5 17.5 9 12.4l4 3.6 3-2.4 4.5 3.9" />
+        </svg>
+      );
+    case "file":
+      return (
+        <svg {...p}>
+          <path d="M14 2.8v4.4a1.5 1.5 0 0 0 1.5 1.5h4.4" />
+          <path d="M19.9 8.7V19a2.5 2.5 0 0 1-2.5 2.5H6.6A2.5 2.5 0 0 1 4.1 19V5A2.5 2.5 0 0 1 6.6 2.5h7.2z" />
+        </svg>
+      );
+    case "search":
+      return (
+        <svg {...p}>
+          <circle cx="10.8" cy="10.8" r="7" />
+          <path d="M15.9 15.9 21 21" />
+        </svg>
+      );
+    case "arrow-down":
+      return (
+        <svg {...p}>
+          <path d="M12 4.5v15" />
+          <path d="M5.8 13.2 12 19.5l6.2-6.3" />
+        </svg>
+      );
+    case "reply":
+      return (
+        <svg {...p}>
+          <path d="M9 5.5 3 11l6 5.5" />
+          <path d="M3.4 11h9.1a8 8 0 0 1 8 8v0.5" />
+        </svg>
+      );
+    case "zap":
+      return (
+        <svg {...p}>
+          <path d="M13.2 2.5 4.5 13.4h6.2l-.9 8.1 8.7-10.9h-6.2z" />
+        </svg>
+      );
+    case "x":
+      return (
+        <svg {...p}>
+          <path d="M6 6l12 12M18 6 6 18" />
+        </svg>
+      );
+    case "alert":
+      return (
+        <svg {...p}>
+          <path d="M12 8.5v5" />
+          <circle cx="12" cy="17" r="0.9" fill="currentColor" stroke="none" />
+          <path d="M10.3 3.6 1.9 18a2 2 0 0 0 1.7 3h16.8a2 2 0 0 0 1.7-3L13.7 3.6a2 2 0 0 0-3.4 0z" />
         </svg>
       );
     case "settings":

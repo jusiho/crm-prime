@@ -27,6 +27,7 @@ import type {
   SendMessageInput,
   ConnectWhatsappInput,
   WhatsappChannel,
+  ChannelTestResult,
   BotsResponse,
   BotDto,
   CreateBotInput,
@@ -35,8 +36,21 @@ import type {
   FlowDto,
   CreateFlowInput,
   UpdateFlowInput,
+  FlowAssistantRequest,
+  FlowAssistantReply,
+  AiSettingsDto,
+  UpdateAiSettingsInput,
+  AiConnectionTest,
+  ApiKeyDto,
+  CreateApiKeyInput,
+  CreatedApiKey,
+  UpdateApiKeyInput,
+  IntegrationSettingsDto,
+  UpdateIntegrationSettingsInput,
+  IntegrationTestResult,
   PlaygroundRequest,
   PlaygroundReply,
+  ResolveActionsResult,
   TemplateDto,
   CreateTemplateInput,
   UpdateTemplateInput,
@@ -290,6 +304,139 @@ export async function testAgent(
   return res.json();
 }
 
+// Aplica o descarta las acciones que la IA dejó pendientes en un run.
+export async function resolveAiActions(
+  conversationId: string,
+  runId: string,
+  approve: boolean,
+): Promise<ResolveActionsResult> {
+  const res = await fetch(
+    `/api/bff/conversations/${conversationId}/ai/runs/${runId}/actions`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ approve }),
+    },
+  );
+  if (!res.ok) {
+    throw new Error(await errorMessage(res, "No se pudieron aplicar las acciones"));
+  }
+  return res.json();
+}
+
+/** Comprueba contra Meta que el token de un canal sigue valiendo. */
+export async function testWhatsappChannel(
+  phoneNumberId: string,
+): Promise<ChannelTestResult> {
+  const res = await fetch("/api/bff/whatsapp/test", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ phoneNumberId }),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo probar el canal"));
+  return res.json();
+}
+
+// ── Claves de API (integraciones entrantes) ──────────────────
+export async function fetchApiKeys(): Promise<ApiKeyDto[]> {
+  const res = await fetch("/api/bff/api-keys");
+  if (!res.ok) throw new Error("No se pudieron cargar las claves de API");
+  return res.json();
+}
+
+// Única llamada que devuelve el secreto completo: hay que mostrarlo al vuelo.
+export async function createApiKey(
+  input: CreateApiKeyInput,
+): Promise<CreatedApiKey> {
+  const res = await fetch("/api/bff/api-keys", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo crear la clave"));
+  return res.json();
+}
+
+export async function updateApiKey(
+  id: string,
+  input: UpdateApiKeyInput,
+): Promise<ApiKeyDto> {
+  const res = await fetch(`/api/bff/api-keys/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo guardar la clave"));
+  return res.json();
+}
+
+export async function revokeApiKey(id: string): Promise<ApiKeyDto> {
+  const res = await fetch(`/api/bff/api-keys/${id}/revoke`, { method: "POST" });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo revocar la clave"));
+  return res.json();
+}
+
+export async function deleteApiKey(id: string): Promise<void> {
+  const res = await fetch(`/api/bff/api-keys/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo eliminar la clave"));
+}
+
+// ── Integraciones (credenciales que consume el CRM) ──────────
+export async function fetchIntegrationSettings(): Promise<IntegrationSettingsDto> {
+  const res = await fetch("/api/bff/integrations");
+  if (!res.ok) throw new Error("No se pudieron cargar las integraciones");
+  return res.json();
+}
+
+export async function updateIntegrationSettings(
+  input: UpdateIntegrationSettingsInput,
+): Promise<IntegrationSettingsDto> {
+  const res = await fetch("/api/bff/integrations", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    throw new Error(await errorMessage(res, "No se pudieron guardar las integraciones"));
+  }
+  return res.json();
+}
+
+export async function testIntegration(): Promise<IntegrationTestResult> {
+  const res = await fetch("/api/bff/integrations/test", { method: "POST" });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo probar"));
+  return res.json();
+}
+
+// ── Medios del inbox (imágenes y documentos) ─────────────────
+export interface UploadedMedia {
+  mediaUrl: string; // referencia interna, es lo que se manda en sendMessage
+  previewUrl: string;
+  kind: "IMAGE" | "DOCUMENT";
+  mimeType: string;
+  size: number;
+  fileName: string;
+}
+
+export async function uploadMedia(file: File): Promise<UploadedMedia> {
+  const form = new FormData();
+  form.append("file", file);
+  // Sin Content-Type a mano: el navegador pone el boundary del multipart.
+  const res = await fetch("/api/bff/media", { method: "POST", body: form });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo subir el archivo"));
+  return res.json();
+}
+
+/** URL para pintar un medio en el CRM a partir de su referencia interna. */
+export function mediaSrc(mediaUrl: string | null): string | null {
+  if (!mediaUrl) return null;
+  if (mediaUrl.startsWith("storage://")) {
+    return `/api/bff/media/${mediaUrl.slice("storage://".length)}`;
+  }
+  // URL externa (o un medio antiguo previo al almacenamiento propio).
+  return mediaUrl.startsWith("http") ? mediaUrl : null;
+}
+
 // ── Flujos (constructor visual) ──────────────────────────────
 export async function fetchFlows(): Promise<FlowsResponse> {
   const res = await fetch("/api/bff/flows");
@@ -335,6 +482,50 @@ export async function updateFlow(
 export async function deleteFlow(id: string): Promise<void> {
   const res = await fetch(`/api/bff/flows/${id}`, { method: "DELETE" });
   if (!res.ok) throw new Error("No se pudo eliminar el flujo");
+}
+
+// Asistente IA del constructor: propone un grafo, no lo guarda.
+export async function askFlowAssistant(
+  input: FlowAssistantRequest,
+): Promise<FlowAssistantReply> {
+  const res = await fetch("/api/bff/flows/assistant", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    throw new Error(await errorMessage(res, "El asistente no pudo responder"));
+  }
+  return res.json();
+}
+
+// ── Ajustes de IA (proveedor + API key) ──────────────────────
+export async function fetchAiSettings(): Promise<AiSettingsDto> {
+  const res = await fetch("/api/bff/ai-settings");
+  if (!res.ok) throw new Error("No se pudieron cargar los ajustes de IA");
+  return res.json();
+}
+
+export async function updateAiSettings(
+  input: UpdateAiSettingsInput,
+): Promise<AiSettingsDto> {
+  const res = await fetch("/api/bff/ai-settings", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    throw new Error(await errorMessage(res, "No se pudieron guardar los ajustes"));
+  }
+  return res.json();
+}
+
+export async function testAiConnection(): Promise<AiConnectionTest> {
+  const res = await fetch("/api/bff/ai-settings/test", { method: "POST" });
+  if (!res.ok) {
+    throw new Error(await errorMessage(res, "No se pudo probar la conexión"));
+  }
+  return res.json();
 }
 
 // ── Plantillas ───────────────────────────────────────────────

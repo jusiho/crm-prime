@@ -8,6 +8,7 @@ import type {
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { KnowledgeService } from "../knowledge/knowledge.service";
+import { AgentActionsService } from "./agent-actions.service";
 import { BotService } from "./bot.service";
 import { LLM_PROVIDER, type LLMProvider } from "./llm.provider";
 import type {
@@ -15,7 +16,7 @@ import type {
   LlmToolResultBlock,
   LlmToolUseBlock,
 } from "./llm.types";
-import { resolveTools } from "./tools.registry";
+import { isActionTool, resolveTools } from "./tools.registry";
 
 // Precios por millón de tokens (para estimar costo).
 const PRICES: Record<string, { in: number; out: number }> = {
@@ -30,6 +31,7 @@ export class AgentService {
     private readonly prisma: PrismaService,
     private readonly knowledge: KnowledgeService,
     private readonly bots: BotService,
+    private readonly actions: AgentActionsService,
     @Inject(LLM_PROVIDER) private readonly llm: LLMProvider,
   ) {}
 
@@ -49,7 +51,13 @@ export class AgentService {
 
     const system = this.buildSystem(config?.systemPrompt, conversation.contact);
     const messages = await this.buildHistory(conversationId);
-    const tools = resolveTools(config?.enabledTools ?? []);
+    // Las acciones necesitan los valores reales (etiquetas, etapas, vendedores)
+    // para que el modelo elija de una lista cerrada en vez de inventarlos.
+    const toolContext = await this.actions.loadContext();
+    const tools = resolveTools(config?.enabledTools ?? [], toolContext);
+    // En autopilot la IA aplica sus acciones sola; en copilot quedan
+    // pendientes hasta que el humano envía la respuesta.
+    const autoApply = conversation.aiMode === "AUTOPILOT";
     const maxIterations = config?.maxIterations ?? 6;
     const effort = config?.effort ?? "medium";
 
@@ -92,6 +100,7 @@ export class AgentService {
           knowledge: knowledge.length ? knowledge : undefined,
           effort,
           maxTokens: 1024,
+          model: config?.model,
         });
         inputTokens += res.usage.inputTokens;
         outputTokens += res.usage.outputTokens;
@@ -128,6 +137,8 @@ export class AgentService {
             run.id,
             conversation.contact,
             tu,
+            autoApply,
+            conversationId,
           );
           if (escalated) {
             escalate = true;
@@ -186,6 +197,12 @@ export class AgentService {
       },
     });
 
+    // Lo que quedó pendiente de aprobación (vacío en autopilot: ya se aplicó).
+    const pendingActions = (await this.actions.pendingFor(run.id)).map((p) => ({
+      ...p,
+      applied: false,
+    }));
+
     return {
       runId: run.id,
       suggestion,
@@ -201,6 +218,7 @@ export class AgentService {
           ...(knowledge.length ? ["search_knowledge"] : []),
         ]),
       ],
+      pendingActions,
     };
   }
 
@@ -214,7 +232,10 @@ export class AgentService {
 
     const contact = { name: "Cliente de prueba", phone: "+000000000" };
     const system = this.buildSystem(config?.systemPrompt, contact);
-    const tools = resolveTools(config?.enabledTools ?? []);
+    const toolContext = await this.actions.loadContext();
+    const tools = resolveTools(config?.enabledTools ?? [], toolContext);
+    // En el playground las acciones no se aplican: solo se listan.
+    const simulatedActions: string[] = [];
     const maxIterations = config?.maxIterations ?? 6;
     const effort = config?.effort ?? "medium";
 
@@ -245,6 +266,7 @@ export class AgentService {
           knowledge: knowledge.length ? knowledge : undefined,
           effort,
           maxTokens: 1024,
+          model: config?.model,
         });
         inputTokens += res.usage.inputTokens;
         outputTokens += res.usage.outputTokens;
@@ -277,7 +299,10 @@ export class AgentService {
             null,
             { ...contact, id: "playground", optIn: true, lastMessageAt: null },
             tu,
+            false,
+            null,
           );
+          if (isActionTool(tu.name)) simulatedActions.push(output);
           if (escalated) {
             escalate = true;
             escalationReason = reason ?? "Escalado por la IA.";
@@ -298,6 +323,7 @@ export class AgentService {
 
     return {
       reply,
+      simulatedActions,
       escalate,
       escalationReason,
       model,
@@ -353,10 +379,17 @@ export class AgentService {
       lastMessageAt: Date | null;
     },
     tu: LlmToolUseBlock,
+    autoApply: boolean,
+    conversationId: string | null,
   ): Promise<{ output: string; escalated: boolean; reason?: string }> {
     let output = "";
     let escalated = false;
     let reason: string | undefined;
+
+    // ── Acciones que escriben en el CRM ──────────────────────────
+    if (isActionTool(tu.name)) {
+      return this.runAction(aiRunId, contact.id, conversationId, tu, autoApply);
+    }
 
     if (tu.name === "search_contact") {
       output = JSON.stringify({
@@ -370,6 +403,77 @@ export class AgentService {
       output = JSON.stringify(
         hits.map((h) => ({ doc: h.docTitle, content: h.content })),
       );
+    } else if (tu.name === "search_products") {
+      // Etapa 1: el agente lee el catálogo. Si hay término, filtra; si no
+      // encuentra nada (o no hay término), devuelve el catálogo completo para
+      // que el agente tenga la información y no responda "no hay" por error.
+      const q = String(tu.input.query ?? "").trim();
+      const MAX = 50;
+      const select = {
+        id: true,
+        name: true,
+        price: true,
+        currency: true,
+        sku: true,
+        description: true,
+        imageUrl: true,
+      } as const;
+      const baseWhere = { isActive: true } as const;
+
+      let rows = q
+        ? await this.prisma.product.findMany({
+            where: {
+              ...baseWhere,
+              OR: [
+                { name: { contains: q, mode: "insensitive" } },
+                { description: { contains: q, mode: "insensitive" } },
+                { sku: { contains: q, mode: "insensitive" } },
+              ],
+            },
+            orderBy: { name: "asc" },
+            take: MAX,
+            select,
+          })
+        : [];
+
+      // Sin término o sin coincidencias → catálogo completo (hasta MAX).
+      let listedAll = false;
+      if (rows.length === 0) {
+        rows = await this.prisma.product.findMany({
+          where: baseWhere,
+          orderBy: { name: "asc" },
+          take: MAX,
+          select,
+        });
+        listedAll = true;
+      }
+
+      const total = await this.prisma.product.count({ where: baseWhere });
+      const items = rows.map((p) => ({
+        name: p.name,
+        price: Number(p.price),
+        currency: p.currency,
+        sku: p.sku,
+        description: p.description,
+        // Se expone solo si TIENE foto, no la URL: así el modelo sabe que
+        // puede mandarla (con send_product_image) pero no puede inventarse
+        // ni filtrar un enlace.
+        hasImage: !!p.imageUrl,
+      }));
+      output = JSON.stringify({
+        // Nota para el agente: si filtró y no hubo match, le devolvemos todo.
+        note:
+          total === 0
+            ? "El catálogo está vacío."
+            : q && listedAll
+              ? `Sin coincidencias exactas para "${q}"; se lista el catálogo completo.`
+              : listedAll
+                ? "Catálogo completo."
+                : `Resultados para "${q}".`,
+        total,
+        truncated: total > MAX,
+        products: items,
+      });
     } else if (tu.name === "handoff_to_human") {
       reason = String(tu.input.reason ?? "Escalado solicitado por la IA.");
       escalated = true;
@@ -393,6 +497,59 @@ export class AgentService {
     }
 
     return { output, escalated, reason };
+  }
+
+  /**
+   * Ejecuta (o aparca) una acción sobre el CRM y le devuelve al modelo un
+   * tool_result honesto: si queda pendiente de aprobación, se lo decimos,
+   * para que no le prometa al cliente algo que aún no ha pasado.
+   */
+  private async runAction(
+    aiRunId: string | null,
+    contactId: string,
+    conversationId: string | null,
+    tu: LlmToolUseBlock,
+    autoApply: boolean,
+  ): Promise<{ output: string; escalated: boolean; reason?: string }> {
+    const summary = this.actions.summarize(tu.name, tu.input);
+
+    // Playground: nada toca la BD, solo se describe lo que haría.
+    if (!aiRunId) {
+      return {
+        output: `(simulado, no se aplicó) ${summary}`,
+        escalated: false,
+      };
+    }
+
+    if (!autoApply) {
+      await this.actions.record(
+        aiRunId,
+        tu.name,
+        tu.input,
+        "PENDING_APPROVAL",
+        summary,
+      );
+      return {
+        output: `Acción registrada: ${summary}. Queda PENDIENTE hasta que el agente humano apruebe la respuesta; todavía no se ha aplicado.`,
+        escalated: false,
+      };
+    }
+
+    try {
+      const result = await this.actions.execute(
+        tu.name,
+        tu.input,
+        contactId,
+        conversationId,
+      );
+      await this.actions.record(aiRunId, tu.name, tu.input, "EXECUTED", result);
+      return { output: result, escalated: false };
+    } catch (e) {
+      const message = (e as Error).message;
+      this.logger.warn(`Acción ${tu.name} falló: ${message}`);
+      await this.actions.record(aiRunId, tu.name, tu.input, "ERROR", message);
+      return { output: `No se pudo aplicar: ${message}`, escalated: false };
+    }
   }
 
   // ── Construcción del contexto ──────────────────────────────────

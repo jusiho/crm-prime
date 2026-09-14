@@ -9,6 +9,8 @@ export const whatsappChannelSchema = z.object({
   wabaId: z.string().nullable(),
   mode: z.string(), // coexistence | api
   status: z.string(), // connected | error
+  // Por qué está en error (token caducado, permisos…). Null si va bien.
+  statusReason: z.string().nullable(),
   source: z.string(), // embedded | env
   isActive: z.boolean(),
   connectedAt: z.string().nullable(),
@@ -20,6 +22,19 @@ export const whatsappChannelsSchema = z.object({
   channels: z.array(whatsappChannelSchema),
 });
 export type WhatsappChannels = z.infer<typeof whatsappChannelsSchema>;
+
+// Comprobar que el token de un canal sigue siendo válido contra Meta.
+export const testChannelSchema = z.object({
+  phoneNumberId: z.string().min(1),
+});
+export type TestChannelInput = z.infer<typeof testChannelSchema>;
+
+export const channelTestResultSchema = z.object({
+  ok: z.boolean(),
+  message: z.string(),
+  displayPhoneNumber: z.string().nullable(),
+});
+export type ChannelTestResult = z.infer<typeof channelTestResultSchema>;
 
 // Estado agregado (compatibilidad: ¿hay al menos un número conectado?).
 export const whatsappConnectionStatusSchema = z.object({

@@ -1,4 +1,32 @@
 import { z } from "zod";
+import { isValidPhone, normalizePhone } from "../phone.js";
+
+// Por qué vía entró el contacto al CRM (distinto de la fuente comercial).
+export const contactOrigins = [
+  "ad",
+  "whatsapp",
+  "webhook",
+  "manual",
+  "import",
+] as const;
+export type ContactOrigin = (typeof contactOrigins)[number];
+
+export const contactOriginLabels: Record<ContactOrigin, string> = {
+  ad: "Anuncio",
+  whatsapp: "WhatsApp",
+  webhook: "Webhook / API",
+  manual: "Alta manual",
+  import: "Importado",
+};
+
+// Teléfono normalizado a E.164 en la propia validación: da igual que llegue
+// con espacios, con 00 o sin "+", siempre se guarda igual.
+export const phoneField = z
+  .string()
+  .min(6)
+  .max(24)
+  .transform(normalizePhone)
+  .refine(isValidPhone, "Teléfono inválido: usa formato internacional (+34600111222)");
 
 // Contacto enriquecido para la sección de Contactos (directorio).
 export const contactListItemSchema = z.object({
@@ -12,6 +40,9 @@ export const contactListItemSchema = z.object({
   source: z
     .object({ id: z.string(), name: z.string(), color: z.string().nullable() })
     .nullable(),
+  // Procedencia técnica: qué API/pantalla creó el contacto.
+  origin: z.enum(contactOrigins).catch("manual"),
+  originDetail: z.string().nullable(),
   // Valores de campos personalizados (key → valor).
   fields: z.record(z.string()).default({}),
 });
@@ -56,7 +87,7 @@ export type UpdateCustomFieldInput = z.infer<typeof updateCustomFieldSchema>;
 // Crear un contacto manualmente.
 export const createContactSchema = z.object({
   name: z.string().max(160).nullable().default(null),
-  phone: z.string().min(6).max(24),
+  phone: phoneField,
   sourceId: z.string().nullable().default(null),
 });
 export type CreateContactInput = z.infer<typeof createContactSchema>;

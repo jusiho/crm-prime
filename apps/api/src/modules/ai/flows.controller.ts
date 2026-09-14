@@ -10,9 +10,11 @@ import {
 } from "@nestjs/common";
 import {
   createFlowSchema,
+  flowAssistantRequestSchema,
   updateFlowSchema,
   Role,
   type CreateFlowInput,
+  type FlowAssistantRequest,
   type UpdateFlowInput,
 } from "@crm/shared";
 import { ZodValidationPipe } from "../../common/pipes/zod-validation.pipe";
@@ -20,15 +22,30 @@ import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../common/guards/roles.guard";
 import { Roles } from "../../common/decorators/roles.decorator";
 import { FlowService } from "./flow.service";
+import { FlowAssistantService } from "./flow-assistant.service";
 
 @Controller("flows")
 @UseGuards(JwtAuthGuard)
 export class FlowsController {
-  constructor(private readonly flows: FlowService) {}
+  constructor(
+    private readonly flows: FlowService,
+    private readonly assistant: FlowAssistantService,
+  ) {}
 
   @Get()
   list() {
     return this.flows.list();
+  }
+
+  // Asistente IA: propone un grafo de bloques; no guarda nada.
+  @Post("assistant")
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
+  assist(
+    @Body(new ZodValidationPipe(flowAssistantRequestSchema))
+    body: FlowAssistantRequest,
+  ) {
+    return this.assistant.run(body);
   }
 
   @Get(":id")

@@ -235,7 +235,7 @@ function chip(active: boolean): React.CSSProperties {
     borderRadius: 999,
     border: "1px solid var(--border)",
     background: active ? "var(--accent)" : "transparent",
-    color: active ? "#04210f" : "var(--muted)",
+    color: active ? "#f3f8ff" : "var(--muted)",
     fontSize: 12,
     fontWeight: 600,
     cursor: "pointer",

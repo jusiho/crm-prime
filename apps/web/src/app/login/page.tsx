@@ -105,7 +105,7 @@ const btn: React.CSSProperties = {
   borderRadius: 8,
   border: "none",
   background: "var(--accent)",
-  color: "#04210f",
+  color: "#f3f8ff",
   fontWeight: 600,
   cursor: "pointer",
 };

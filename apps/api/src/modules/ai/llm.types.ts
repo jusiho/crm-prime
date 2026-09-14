@@ -38,6 +38,7 @@ export interface LlmRequest {
   knowledge?: string[]; // fragmentos recuperados del RAG para fundamentar la respuesta
   effort?: string; // low | medium | high | xhigh | max
   maxTokens?: number;
+  model?: string; // modelo elegido por el bot; el proveedor lo usa si le corresponde
 }
 
 export type LlmStopReason =

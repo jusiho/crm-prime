@@ -3,6 +3,29 @@ import { auth } from "@/auth";
 const API_URL = process.env.API_URL ?? "http://localhost:3001";
 
 /**
+ * Sesión inutilizable: o no hay token, o el refresco contra el backend falló
+ * y `auth.ts` la marcó con error. Sin esto, una sesión zombi devuelve 401 en
+ * TODAS las llamadas y la interfaz parece rota sin decir por qué.
+ */
+function deadSession(session: unknown): boolean {
+  const s = session as { accessToken?: string; error?: string } | null;
+  return !s?.accessToken || s.error === "RefreshError";
+}
+
+const SESSION_EXPIRED = JSON.stringify({
+  message: "Tu sesión expiró. Vuelve a iniciar sesión.",
+  code: "SESSION_EXPIRED",
+  statusCode: 401,
+});
+
+export function sessionExpiredResponse(): Response {
+  return new Response(SESSION_EXPIRED, {
+    status: 401,
+    headers: { "content-type": "application/json" },
+  });
+}
+
+/**
  * Cliente de API server-side (BFF): se ejecuta en el servidor de Next,
  * lee el access token de la sesión (cookie httpOnly) y lo adjunta como
  * Bearer al llamar a NestJS. El navegador nunca maneja el JWT.
@@ -43,6 +66,7 @@ export async function apiForward(
   init: RequestInit = {},
 ): Promise<Response> {
   const session = await auth();
+  if (deadSession(session)) return sessionExpiredResponse();
   const accessToken = (session as { accessToken?: string } | null)?.accessToken;
   return fetch(`${API_URL}/api/v1${path}`, {
     ...init,

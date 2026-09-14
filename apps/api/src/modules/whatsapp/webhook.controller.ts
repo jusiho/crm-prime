@@ -14,21 +14,26 @@ import { Queue } from "bullmq";
 import { QUEUE_INBOUND } from "../../infra/queue/queue.constants";
 import { WebhookSignatureGuard } from "./webhook-signature.guard";
 import { normalizeWebhook, type MetaWebhookBody } from "./webhook.types";
+import { IntegrationSettingsService } from "../integrations/integration-settings.service";
 
 @Controller("whatsapp/webhook")
 export class WebhookController {
   private readonly logger = new Logger("Webhook");
 
-  constructor(@InjectQueue(QUEUE_INBOUND) private readonly inbound: Queue) {}
+  constructor(
+    @InjectQueue(QUEUE_INBOUND) private readonly inbound: Queue,
+    private readonly settings: IntegrationSettingsService,
+  ) {}
 
   // Verificación del webhook (Meta hace GET una sola vez al configurarlo).
   @Get()
-  verify(
+  async verify(
     @Query("hub.mode") mode: string,
     @Query("hub.verify_token") token: string,
     @Query("hub.challenge") challenge: string,
-  ): string {
-    if (mode === "subscribe" && token === process.env.WHATSAPP_VERIFY_TOKEN) {
+  ): Promise<string> {
+    const expected = await this.settings.whatsappVerifyToken();
+    if (mode === "subscribe" && !!expected && token === expected) {
       this.logger.log("Webhook verificado");
       return challenge;
     }

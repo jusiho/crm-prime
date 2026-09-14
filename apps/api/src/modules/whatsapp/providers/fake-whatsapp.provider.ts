@@ -15,7 +15,12 @@ export class FakeWhatsAppProvider implements WhatsAppProvider {
   readonly name = "fake";
   private readonly logger = new Logger("FakeWhatsApp");
 
-  async sendText(to: string, text: string): Promise<SendResult> {
+  async sendText(
+    to: string,
+    text: string,
+    _fromPhoneNumberId?: string,
+    _replyToWaMessageId?: string,
+  ): Promise<SendResult> {
     const waMessageId = `wamid.fake.${randomUUID()}`;
     this.logger.log(`→ [text] a ${to}: "${text}"  (${waMessageId})`);
     return { waMessageId };
@@ -57,6 +62,32 @@ export class FakeWhatsAppProvider implements WhatsAppProvider {
       `→ [reaction:${emoji || "✕"}] a ${to} sobre ${targetWaMessageId}  (${waMessageId})`,
     );
     return { waMessageId };
+  }
+
+  async uploadMedia(
+    buffer: Buffer,
+    mimeType: string,
+    filename: string,
+  ): Promise<string> {
+    const id = `fake-media-${Date.now()}`;
+    this.logger.log(
+      `[simulado] subido ${filename} (${mimeType}, ${buffer.byteLength} bytes) -> ${id}`,
+    );
+    return id;
+  }
+
+  async sendMediaById(
+    to: string,
+    kind: "IMAGE" | "DOCUMENT",
+    mediaId: string,
+    caption?: string,
+  ): Promise<SendResult> {
+    this.logger.log(`[simulado] ${kind} ${mediaId} -> ${to} ${caption ?? ""}`);
+    return { waMessageId: `wamid.fake.${Date.now()}` };
+  }
+
+  async sendTypingIndicator(waMessageId: string): Promise<void> {
+    this.logger.log(`[simulado] escribiendo… (sobre ${waMessageId})`);
   }
 
   async downloadMedia(mediaId: string): Promise<DownloadedMedia> {

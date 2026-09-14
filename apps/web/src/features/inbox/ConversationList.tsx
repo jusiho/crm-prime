@@ -102,7 +102,7 @@ export function ConversationList({
                     {c.status === "PENDING" ? "pendiente" : "cerrada"}
                   </span>
                 )}
-                <span style={badge(c.assignedAgent ? "#3f7d57" : "#43506a")}>
+                <span style={badge(c.assignedAgent ? "#3a5f9d" : "#43506a")}>
                   {c.assignedAgent
                     ? (c.assignedAgent.name ?? "asignado")
                     : "sin asignar"}
@@ -177,8 +177,8 @@ const avatar: React.CSSProperties = {
   width: 40,
   height: 40,
   borderRadius: "50%",
-  background: "#25623f",
-  color: "#d8ffe9",
+  background: "#1f3a6b",
+  color: "#dbe7ff",
   display: "grid",
   placeItems: "center",
   fontSize: 14,

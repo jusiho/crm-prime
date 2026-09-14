@@ -147,7 +147,7 @@ function BotCard({
   return (
     <button onClick={onClick} style={card(active)}>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <span style={dot(bot.isActive ? "#25d366" : "#7a8aa0")} />
+        <span style={dot(bot.isActive ? "#3578ff" : "#7a8aa0")} />
         <strong style={{ fontSize: 14 }}>{bot.name}</strong>
       </div>
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>

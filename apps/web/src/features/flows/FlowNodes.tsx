@@ -91,7 +91,7 @@ function AddNextButton({
   );
 }
 
-const handleStyle = { width: 9, height: 9, background: "#25d366", border: "none" };
+const handleStyle = { width: 9, height: 9, background: "#3578ff", border: "none" };
 const targetStyle = { width: 9, height: 9, background: "#5a6b85", border: "none" };
 
 function shell(selected: boolean, color: string): React.CSSProperties {
@@ -100,11 +100,11 @@ function shell(selected: boolean, color: string): React.CSSProperties {
     minWidth: 180,
     maxWidth: 240,
     borderRadius: 10,
-    border: `1.5px solid ${selected ? "#25d366" : color}`,
+    border: `1.5px solid ${selected ? "#3578ff" : color}`,
     background: "#0f1726",
     color: "#e6edf6",
     fontSize: 12,
-    boxShadow: selected ? "0 0 0 2px rgba(37,211,102,0.25)" : "none",
+    boxShadow: selected ? "0 0 0 2px rgba(53,120,255,0.3)" : "none",
   };
 }
 
@@ -309,8 +309,8 @@ const plusBtn: React.CSSProperties = {
   height: 22,
   borderRadius: "50%",
   border: "none",
-  background: "#25d366",
-  color: "#04210f",
+  background: "#3578ff",
+  color: "#f3f8ff",
   fontSize: 16,
   fontWeight: 700,
   lineHeight: 1,

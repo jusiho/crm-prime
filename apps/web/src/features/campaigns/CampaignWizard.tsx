@@ -308,7 +308,7 @@ const stepDot: React.CSSProperties = {
   height: 22,
   borderRadius: "50%",
   background: "var(--accent)",
-  color: "#04210f",
+  color: "#f3f8ff",
   fontSize: 12,
   fontWeight: 700,
   display: "inline-flex",

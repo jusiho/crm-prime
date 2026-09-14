@@ -31,6 +31,7 @@ import { createFlow, fetchFlow, updateFlow } from "@/lib/bff";
 import { NavIcon } from "@/components/NavIcons";
 import { nodeTypes } from "./FlowNodes";
 import { NodeInspector } from "./NodeInspector";
+import { FlowAssistant } from "./FlowAssistant";
 import {
   FlowActionsContext,
   NODE_PALETTE,
@@ -74,6 +75,12 @@ export function FlowBuilder({
   const [triggerKeywords, setTriggerKeywords] = useState("");
   const [channelId, setChannelId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [assistantOpen, setAssistantOpen] = useState(false);
+  // Snapshot previo a la última propuesta aplicada por el asistente.
+  const [undoPoint, setUndoPoint] = useState<{
+    nodes: Node[];
+    edges: Edge[];
+  } | null>(null);
   const idCounter = useRef(1);
   const initialized = useRef(false);
 
@@ -154,6 +161,26 @@ export function FlowBuilder({
     [setNodes, setEdges],
   );
 
+  // El asistente devuelve el grafo completo: se reemplaza el lienzo entero,
+  // guardando antes un punto de retorno para poder deshacer.
+  function applyAssistantProposal(
+    nextNodes: FlowNode[],
+    nextEdges: FlowEdge[],
+  ) {
+    setUndoPoint({ nodes, edges });
+    setNodes(nextNodes as unknown as Node[]);
+    setEdges(nextEdges as unknown as Edge[]);
+    setSelectedId(null);
+  }
+
+  function undoAssistant() {
+    if (!undoPoint) return;
+    setNodes(undoPoint.nodes);
+    setEdges(undoPoint.edges);
+    setUndoPoint(null);
+    setSelectedId(null);
+  }
+
   function updateNodeData(data: FlowNodeData) {
     if (!selectedId) return;
     setNodes((nds) =>
@@ -175,6 +202,26 @@ export function FlowBuilder({
   const selectedNode = useMemo(
     () => nodes.find((n) => n.id === selectedId) ?? null,
     [nodes, selectedId],
+  );
+
+  // El grafo en el formato compartido, que es lo que entiende el asistente.
+  const graph = useMemo(
+    () => ({
+      nodes: nodes.map((n) => ({
+        id: n.id,
+        type: n.type as FlowNode["type"],
+        position: n.position,
+        data: n.data as FlowNodeData,
+      })),
+      edges: edges.map((e) => ({
+        id: e.id,
+        source: e.source,
+        target: e.target,
+        sourceHandle: e.sourceHandle ?? null,
+        label: typeof e.label === "string" ? e.label : undefined,
+      })) as FlowEdge[],
+    }),
+    [nodes, edges],
   );
 
   // Valor del contexto: addNext + qué salidas ya están enlazadas (reactivo a
@@ -278,6 +325,19 @@ export function FlowBuilder({
           Activo
         </label>
         <div style={{ flex: 1 }} />
+        {undoPoint && (
+          <button onClick={undoAssistant} style={ghost} title="Volver al flujo anterior">
+            ↩ Deshacer IA
+          </button>
+        )}
+        <button
+          onClick={() => setAssistantOpen((v) => !v)}
+          style={assistantOpen ? assistantBtnOn : assistantBtnOff}
+          title="Armar el flujo con IA"
+        >
+          <NavIcon name="bot" size={15} />
+          Asistente
+        </button>
         {save.isError && (
           <span style={{ color: "#ff6b6b", fontSize: 12 }}>
             {(save.error as Error).message}
@@ -342,6 +402,17 @@ export function FlowBuilder({
             />
           </aside>
         )}
+
+        {/* Asistente IA */}
+        {assistantOpen && (
+          <FlowAssistant
+            flowId={flowId}
+            nodes={graph.nodes}
+            edges={graph.edges}
+            onApply={applyAssistantProposal}
+            onClose={() => setAssistantOpen(false)}
+          />
+        )}
       </div>
     </div>
   );
@@ -401,10 +472,28 @@ const primary: React.CSSProperties = {
   borderRadius: 7,
   border: "none",
   background: "var(--accent)",
-  color: "#04210f",
+  color: "#f3f8ff",
   fontWeight: 600,
   cursor: "pointer",
 };
+
+function assistantBtn(active: boolean): React.CSSProperties {
+  return {
+    display: "flex",
+    alignItems: "center",
+    gap: 7,
+    padding: "7px 12px",
+    borderRadius: 7,
+    border: `1px solid ${active ? "var(--accent)" : "var(--border)"}`,
+    background: active ? "rgba(53,120,255,0.12)" : "transparent",
+    color: active ? "var(--accent)" : "var(--text)",
+    cursor: "pointer",
+    fontSize: 13,
+    fontWeight: 600,
+  };
+}
+const assistantBtnOn = assistantBtn(true);
+const assistantBtnOff = assistantBtn(false);
 
 const paletteBtn: React.CSSProperties = {
   display: "flex",

@@ -87,7 +87,7 @@ function SessionRow({
 }) {
   return (
     <div style={row}>
-      <span style={dot(s.current ? "#25d366" : "#7a8aa0")} />
+      <span style={dot(s.current ? "#3578ff" : "#7a8aa0")} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <strong>{s.deviceName || PLATFORM_LABEL[s.platform] || s.platform}</strong>
@@ -126,7 +126,7 @@ const badge: React.CSSProperties = {
   padding: "2px 8px",
   borderRadius: 999,
   background: "#1f6f46",
-  color: "#eafff3",
+  color: "#eaf2ff",
 };
 
 const ghostBtn: React.CSSProperties = {

@@ -1,20 +1,15 @@
-import {
-  Body,
-  Controller,
-  Headers,
-  HttpCode,
-  Post,
-  UnauthorizedException,
-} from "@nestjs/common";
-import { timingSafeEqual } from "node:crypto";
+import { Body, Controller, HttpCode, Post, Req, UseGuards } from "@nestjs/common";
 import { leadWebhookSchema, type LeadWebhookInput } from "@crm/shared";
 import { ZodValidationPipe } from "../../common/pipes/zod-validation.pipe";
+import { ApiKeyGuard } from "../../common/guards/api-key.guard";
+import { Scopes } from "../../common/decorators/scopes.decorator";
+import type { AuthenticatedApiKey } from "../api-keys/api-key.service";
 import { LeadService } from "./lead.service";
 
 /**
  * Webhook público para recibir leads de sistemas externos (landing pages,
- * anuncios, n8n, Zapier…). Se autentica con un token en la cabecera
- * `x-webhook-token` que debe coincidir con LEAD_WEBHOOK_TOKEN del .env.
+ * anuncios, n8n, Zapier…). Se autentica con una clave de API creada en
+ * Ajustes › Claves de API (`Authorization: Bearer crm_…`).
  */
 @Controller("webhooks/lead")
 export class LeadWebhookController {
@@ -22,25 +17,14 @@ export class LeadWebhookController {
 
   @Post()
   @HttpCode(200)
+  @UseGuards(ApiKeyGuard)
+  @Scopes("leads:write")
   ingest(
-    @Headers("x-webhook-token") token: string | undefined,
     @Body(new ZodValidationPipe(leadWebhookSchema)) body: LeadWebhookInput,
+    @Req() req: { apiKey?: AuthenticatedApiKey | null },
   ) {
-    this.assertToken(token);
-    return this.leads.ingestLead(body);
-  }
-
-  private assertToken(token: string | undefined): void {
-    const expected = process.env.LEAD_WEBHOOK_TOKEN;
-    if (!expected) {
-      throw new UnauthorizedException(
-        "Webhook deshabilitado: falta LEAD_WEBHOOK_TOKEN en el servidor",
-      );
-    }
-    const a = Buffer.from(token ?? "");
-    const b = Buffer.from(expected);
-    if (a.length !== b.length || !timingSafeEqual(a, b)) {
-      throw new UnauthorizedException("Token de webhook inválido");
-    }
+    // El nombre de la clave manda sobre el campo `integration` del cuerpo:
+    // aquel lo verifica el servidor, este lo declara quien llama.
+    return this.leads.ingestLead(body, req.apiKey?.name ?? null);
   }
 }

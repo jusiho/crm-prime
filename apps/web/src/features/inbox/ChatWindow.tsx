@@ -21,14 +21,22 @@ import {
   setAiMode,
   setConversationStatus,
   setContactSource,
+  resolveAiActions,
   suggestReply,
+  uploadMedia,
+  type UploadedMedia,
 } from "@/lib/bff";
+import { toast } from "@/lib/toast";
+import { MessageText } from "./MessageText";
+import { MediaBubble } from "./MediaBubble";
 import type { MessageDto } from "@crm/shared";
 
 export function ChatWindow({ conversation }: { conversation: ConversationDto }) {
   const queryClient = useQueryClient();
   const [text, setText] = useState("");
   const [showNotes, setShowNotes] = useState(false);
+  // Archivo ya subido y pendiente de enviar (se manda al pulsar Enviar).
+  const [attachment, setAttachment] = useState<UploadedMedia | null>(null);
   const [ai, setAi] = useState<AiSuggestion | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
@@ -54,18 +62,54 @@ export function ChatWindow({ conversation }: { conversation: ConversationDto }) 
     queryClient.invalidateQueries({ queryKey: ["conversations"] });
 
   const sendMut = useMutation({
-    mutationFn: () =>
-      sendMessage({
+    mutationFn: async () => {
+      await sendMessage({
         conversationId: conversation.id,
-        type: MessageType.TEXT,
-        text: text.trim(),
-      }),
-    onSuccess: () => {
+        // Con adjunto va como IMAGE/DOCUMENT y el texto viaja de pie de foto.
+        ...(attachment
+          ? {
+              type:
+                attachment.kind === "IMAGE"
+                  ? MessageType.IMAGE
+                  : MessageType.DOCUMENT,
+              mediaUrl: attachment.mediaUrl,
+              caption: text.trim() || undefined,
+            }
+          : { type: MessageType.TEXT, text: text.trim() }),
+      });
+      // Enviar la respuesta es la aprobación: se aplican las acciones que la
+      // IA dejó pendientes (etiquetar, mover de etapa…).
+      if (ai?.runId && ai.pendingActions.length) {
+        return resolveAiActions(conversation.id, ai.runId, true);
+      }
+      return null;
+    },
+    onSuccess: (result) => {
       setText("");
+      setAttachment(null);
+      setAi(null);
+      if (result?.executed.length) {
+        toast.success(`Acciones aplicadas: ${result.executed.length}`);
+        // Las acciones tocan contacto, etiquetas y pipeline.
+        queryClient.invalidateQueries({ queryKey: ["contacts"] });
+        queryClient.invalidateQueries({ queryKey: ["pipeline"] });
+      }
+      for (const err of result?.errors ?? []) toast.error(err);
       queryClient.invalidateQueries({ queryKey: ["messages", conversation.id] });
       invalidateConvs();
     },
   });
+
+  // Descartar la sugerencia rechaza también sus acciones pendientes.
+  const discardAi = () => {
+    const current = ai;
+    setAi(null);
+    if (current?.runId && current.pendingActions.length) {
+      void resolveAiActions(conversation.id, current.runId, false).catch(
+        () => undefined,
+      );
+    }
+  };
 
   const reactMut = useMutation({
     mutationFn: ({ messageId, emoji }: { messageId: string; emoji: string }) =>
@@ -152,7 +196,7 @@ export function ChatWindow({ conversation }: { conversation: ConversationDto }) 
               ...control,
               borderColor:
                 conversation.aiMode === AiMode.AUTOPILOT
-                  ? "#2e7d4f"
+                  ? "#3a64c8"
                   : conversation.aiMode === AiMode.COPILOT
                     ? "#3a4a6a"
                     : "var(--border)",
@@ -234,6 +278,20 @@ export function ChatWindow({ conversation }: { conversation: ConversationDto }) 
               de enviar.
             </span>
           )}
+          {ai.pendingActions.length > 0 && (
+            <div style={actionsBox}>
+              <strong style={{ fontSize: 12 }}>
+                Al enviar se aplicará en el CRM:
+              </strong>
+              <ul style={{ margin: "5px 0 0", paddingLeft: 18 }}>
+                {ai.pendingActions.map((a) => (
+                  <li key={a.id} style={{ fontSize: 12.5 }}>
+                    {a.summary}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           <span style={{ color: "var(--muted)", fontSize: 11 }}>
             {ai.classification && (
               <>
@@ -243,15 +301,26 @@ export function ChatWindow({ conversation }: { conversation: ConversationDto }) 
             )}
             {ai.provider}/{ai.model}
             {ai.toolsUsed.length ? ` · ${ai.toolsUsed.join(", ")}` : ""}
+            {" · "}
+            <button onClick={discardAi} style={discardBtn}>
+              descartar
+            </button>
           </span>
         </div>
+      )}
+
+      {attachment && (
+        <AttachmentPreview
+          attachment={attachment}
+          onRemove={() => setAttachment(null)}
+        />
       )}
 
       {conversation.windowOpen ? (
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            if (text.trim()) sendMut.mutate();
+            if (text.trim() || attachment) sendMut.mutate();
           }}
           style={composer}
         >
@@ -264,13 +333,24 @@ export function ChatWindow({ conversation }: { conversation: ConversationDto }) 
           >
             {suggestMut.isPending ? "✨…" : "✨ IA"}
           </button>
+          <AttachButton
+            attachment={attachment}
+            onAttached={setAttachment}
+            disabled={sendMut.isPending}
+          />
           <input
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="Escribe un mensaje…"
+            placeholder={
+              attachment ? "Añade un pie de foto (opcional)…" : "Escribe un mensaje…"
+            }
             style={input}
           />
-          <button type="submit" disabled={sendMut.isPending} style={sendBtn}>
+          <button
+            type="submit"
+            disabled={sendMut.isPending || (!text.trim() && !attachment)}
+            style={sendBtn}
+          >
             {sendMut.isPending ? "…" : "Enviar"}
           </button>
         </form>
@@ -288,6 +368,114 @@ export function ChatWindow({ conversation }: { conversation: ConversationDto }) 
     </div>
   );
 }
+
+/** Botón de clip: sube el archivo al elegirlo y deja la referencia lista. */
+function AttachButton({
+  attachment,
+  onAttached,
+  disabled,
+}: {
+  attachment: UploadedMedia | null;
+  onAttached: (m: UploadedMedia) => void;
+  disabled: boolean;
+}) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  const upload = useMutation({
+    mutationFn: (file: File) => uploadMedia(file),
+    onSuccess: onAttached,
+    onError: (e) => toast.error((e as Error).message),
+  });
+
+  return (
+    <>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,application/pdf,.doc,.docx,.xls,.xlsx,.txt,.csv"
+        style={{ display: "none" }}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) upload.mutate(file);
+          // Permite volver a elegir el mismo archivo tras quitarlo.
+          e.target.value = "";
+        }}
+      />
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        disabled={disabled || upload.isPending || !!attachment}
+        title={attachment ? "Ya hay un archivo adjunto" : "Adjuntar archivo"}
+        style={attachBtn}
+      >
+        {upload.isPending ? "…" : "📎"}
+      </button>
+    </>
+  );
+}
+
+function AttachmentPreview({
+  attachment,
+  onRemove,
+}: {
+  attachment: UploadedMedia;
+  onRemove: () => void;
+}) {
+  const kb = Math.round(attachment.size / 1024);
+  return (
+    <div style={previewBar}>
+      {attachment.kind === "IMAGE" ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={attachment.previewUrl.replace("/api/v1/media/", "/api/bff/media/")}
+          alt={attachment.fileName}
+          style={{ height: 44, borderRadius: 6, objectFit: "cover" }}
+        />
+      ) : (
+        <span style={{ fontSize: 22 }}>📄</span>
+      )}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {attachment.fileName}
+        </div>
+        <div style={{ fontSize: 11, color: "var(--muted)" }}>
+          {kb < 1024 ? `${kb} KB` : `${(kb / 1024).toFixed(1)} MB`}
+        </div>
+      </div>
+      <button onClick={onRemove} style={removeBtn} title="Quitar">
+        ✕
+      </button>
+    </div>
+  );
+}
+
+const attachBtn = {
+  padding: "8px 10px",
+  borderRadius: 8,
+  border: "1px solid var(--border)",
+  background: "transparent",
+  color: "var(--text)",
+  cursor: "pointer",
+  fontSize: 16,
+  lineHeight: 1,
+} as React.CSSProperties;
+
+const previewBar: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 10,
+  padding: "8px 16px",
+  borderTop: "1px solid var(--border)",
+  background: "var(--panel)",
+};
+
+const removeBtn: React.CSSProperties = {
+  border: "none",
+  background: "transparent",
+  color: "var(--muted)",
+  cursor: "pointer",
+  fontSize: 14,
+};
 
 function NotesPanel({ conversationId }: { conversationId: string }) {
   const queryClient = useQueryClient();
@@ -364,7 +552,8 @@ function MessageBubble({
       className="msg-row"
       style={{
         alignSelf: out ? "flex-end" : "flex-start",
-        maxWidth: "70%",
+        maxWidth: "78%",
+        minWidth: 0,
         display: "flex",
         flexDirection: out ? "row-reverse" : "row",
         alignItems: "center",
@@ -374,16 +563,29 @@ function MessageBubble({
     >
       <div
         style={{
-          background: out ? "#155e3b" : "#1c2738",
+          background: out ? "#1c3a6e" : "#1c2738",
           color: "var(--text)",
           padding: "8px 12px",
           borderRadius: 10,
           position: "relative",
         }}
       >
-        <div>{m.content ?? `[${m.type}]`}</div>
+        {m.mediaUrl && (
+          <MediaBubble
+            mediaUrl={m.mediaUrl}
+            type={m.type}
+            caption={m.content}
+          />
+        )}
+        {m.content ? (
+          <MessageText text={m.content} />
+        ) : (
+          !m.mediaUrl && (
+            <div style={{ opacity: 0.6 }}>[{m.type.toLowerCase()}]</div>
+          )
+        )}
         {out && (
-          <div style={{ fontSize: 11, color: "#9fd9b6", textAlign: "right", marginTop: 2 }}>
+          <div style={{ fontSize: 11, color: "#a9c3ff", textAlign: "right", marginTop: 2 }}>
             {m.author === "AI" ? "IA · " : ""}
             {m.status.toLowerCase()}
           </div>
@@ -585,7 +787,7 @@ const sendBtn: React.CSSProperties = {
   borderRadius: 8,
   border: "none",
   background: "var(--accent)",
-  color: "#04210f",
+  color: "#f3f8ff",
   fontWeight: 600,
   cursor: "pointer",
 };
@@ -612,12 +814,34 @@ const aiBanner: React.CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
+  flexWrap: "wrap",
   gap: 12,
   padding: "8px 16px",
   borderTop: "1px solid var(--border)",
   background: "#101a2e",
   color: "#a9c3ff",
   fontSize: 13,
+};
+
+// Ocupa toda la fila del banner (que es flex) para quedar bajo el texto.
+const actionsBox: React.CSSProperties = {
+  flexBasis: "100%",
+  order: 3,
+  padding: "8px 10px",
+  borderRadius: 8,
+  background: "rgba(255,255,255,0.05)",
+  border: "1px solid var(--border)",
+  color: "var(--text)",
+};
+
+const discardBtn: React.CSSProperties = {
+  border: "none",
+  background: "transparent",
+  color: "var(--muted)",
+  cursor: "pointer",
+  fontSize: 11,
+  textDecoration: "underline",
+  padding: 0,
 };
 
 const aiBannerWarn: React.CSSProperties = {

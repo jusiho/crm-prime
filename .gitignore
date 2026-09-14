@@ -37,3 +37,6 @@ Thumbs.db
 
 # misc
 coverage/
+
+# Medios recibidos/enviados por WhatsApp (almacenamiento local)
+storage/

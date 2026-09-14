@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { phoneField } from "./contact.schema.js";
 import {
   AiMode,
   ConversationStatus,
@@ -18,6 +19,8 @@ export const sendMessageSchema = z
     text: z.string().max(4096).optional(),
     mediaUrl: z.string().url().optional(),
     caption: z.string().max(1024).optional(),
+    // Id de NUESTRO mensaje citado; se traduce al waMessageId para Meta.
+    replyToId: z.string().optional(),
   })
   .refine(
     (v) => (v.type === MessageType.TEXT ? !!v.text : !!v.mediaUrl),
@@ -27,7 +30,9 @@ export type SendMessageInput = z.infer<typeof sendMessageSchema>;
 
 // ── Simular un mensaje entrante (solo dev) ──────────────────
 export const simulateInboundSchema = z.object({
-  phone: z.string().min(6),
+  // Normalizado igual que la entrada real de Meta, para que simular no cree
+  // contactos con un formato distinto al de producción.
+  phone: phoneField,
   name: z.string().optional(),
   text: z.string().min(1),
 });
@@ -44,6 +49,15 @@ export const messageDtoSchema = z.object({
   reaction: z.string().nullable(),
   status: z.nativeEnum(MessageStatus),
   createdAt: z.string(),
+  // Mensaje citado, aplanado a lo justo para pintar la cita sin otra consulta.
+  replyTo: z
+    .object({
+      id: z.string(),
+      content: z.string().nullable(),
+      type: z.nativeEnum(MessageType),
+      direction: z.nativeEnum(MessageDirection),
+    })
+    .nullable(),
 });
 export type MessageDto = z.infer<typeof messageDtoSchema>;
 

@@ -301,7 +301,7 @@ function DealDetail({
           </Field>
           <div style={{ display: "flex", gap: 8 }}>
             {won && (
-              <button onClick={() => setStage.mutate(won.id)} style={{ ...primaryBtn, flex: 1, background: "#1f6f46", color: "#eafff3" }}>
+              <button onClick={() => setStage.mutate(won.id)} style={{ ...primaryBtn, flex: 1, background: "#1f6f46", color: "#eaf2ff" }}>
                 🏆 Ganado
               </button>
             )}
@@ -641,7 +641,7 @@ const primaryBtn: React.CSSProperties = {
   borderRadius: 8,
   border: "none",
   background: "var(--accent)",
-  color: "#04210f",
+  color: "#f3f8ff",
   fontWeight: 600,
   cursor: "pointer",
 };

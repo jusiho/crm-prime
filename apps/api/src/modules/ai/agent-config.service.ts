@@ -6,15 +6,19 @@ import type {
   UpdateAgentConfigInput,
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
-import { availableTools } from "./tools.registry";
+import { AgentActionsService } from "./agent-actions.service";
+import { availableTools, type ToolContext } from "./tools.registry";
 
 @Injectable()
 export class AgentConfigService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly actions: AgentActionsService,
+  ) {}
 
   async getConfig(): Promise<AgentConfigDto> {
     const config = await this.ensureDefault();
-    return this.toDto(config);
+    return this.toDto(config, await this.actions.loadContext());
   }
 
   async updateConfig(input: UpdateAgentConfigInput): Promise<AgentConfigDto> {
@@ -45,7 +49,7 @@ export class AgentConfigService {
           : {}),
       },
     });
-    return this.toDto(updated);
+    return this.toDto(updated, await this.actions.loadContext());
   }
 
   private async ensureDefault() {
@@ -67,17 +71,20 @@ export class AgentConfigService {
     });
   }
 
-  private toDto(c: {
-    id: string;
-    name: string;
-    model: string;
-    effort: string;
-    systemPrompt: string;
-    enabledTools: string[];
-    maxIterations: number;
-    escalationRules: unknown;
-    monthlyTokenBudget: number;
-  }): AgentConfigDto {
+  private toDto(
+    c: {
+      id: string;
+      name: string;
+      model: string;
+      effort: string;
+      systemPrompt: string;
+      enabledTools: string[];
+      maxIterations: number;
+      escalationRules: unknown;
+      monthlyTokenBudget: number;
+    },
+    toolContext: ToolContext,
+  ): AgentConfigDto {
     return {
       id: c.id,
       name: c.name,
@@ -88,7 +95,7 @@ export class AgentConfigService {
       maxIterations: c.maxIterations,
       escalationRules: (c.escalationRules as EscalationRules | null) ?? {},
       monthlyTokenBudget: c.monthlyTokenBudget,
-      availableTools: availableTools(),
+      availableTools: availableTools(toolContext),
     };
   }
 }

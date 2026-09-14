@@ -92,7 +92,7 @@ export default function PrivacyPage() {
         <p>
           Puedes ejercer tus derechos de acceso, rectificación, supresión,
           oposición y portabilidad escribiendo a:{" "}
-          <a href={`mailto:${email}`} style={{ color: "#25d366" }}>
+          <a href={`mailto:${email}`} style={{ color: "#3578ff" }}>
             {email}
           </a>
           .
@@ -110,7 +110,7 @@ export default function PrivacyPage() {
       <Section title="9. Contacto">
         <p>
           Para cualquier consulta sobre privacidad, escríbenos a{" "}
-          <a href={`mailto:${email}`} style={{ color: "#25d366" }}>
+          <a href={`mailto:${email}`} style={{ color: "#3578ff" }}>
             {email}
           </a>
           .

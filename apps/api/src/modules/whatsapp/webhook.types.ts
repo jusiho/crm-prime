@@ -1,4 +1,4 @@
-import { MessageStatus, MessageType } from "@crm/shared";
+import { MessageStatus, MessageType, normalizePhone } from "@crm/shared";
 
 // ── Payloads de los jobs de la cola inbound ──────────────────
 export interface InboundMessageJob {
@@ -9,6 +9,8 @@ export interface InboundMessageJob {
   type: MessageType;
   text?: string;
   mediaId?: string;
+  // Anuncio que originó la conversación (solo en el primer mensaje).
+  referral?: MetaReferral;
   // phone_number_id del número que recibió el mensaje (multi-número).
   channelPhoneNumberId?: string;
 }
@@ -77,6 +79,23 @@ interface MetaContact {
   profile?: { name?: string };
   wa_id: string;
 }
+// Anuncio Click-to-WhatsApp que originó el mensaje. Meta lo adjunta al
+// PRIMER mensaje de una conversación abierta desde el anuncio.
+// https://developers.facebook.com/documentation/business-messaging/whatsapp/webhooks/reference/messages/text
+export interface MetaReferral {
+  source_url?: string; // enlace corto del anuncio
+  source_id?: string; // id del anuncio
+  source_type?: string; // ad | post
+  headline?: string;
+  body?: string;
+  media_type?: string; // image | video
+  image_url?: string;
+  video_url?: string;
+  thumbnail_url?: string;
+  ctwa_clid?: string; // click id: necesario para devolver conversiones a Meta
+  welcome_message?: { text?: string };
+}
+
 interface MetaMessage {
   from: string;
   id: string;
@@ -85,6 +104,9 @@ interface MetaMessage {
   image?: { id: string; caption?: string };
   document?: { id: string; caption?: string };
   reaction?: { message_id: string; emoji?: string };
+  referral?: MetaReferral;
+  // El cliente respondió citando un mensaje nuestro.
+  context?: { id?: string; from?: string };
 }
 interface MetaStatus {
   id: string;
@@ -152,7 +174,12 @@ const STATUS_MAP: Record<string, MessageStatus> = {
   failed: MessageStatus.FAILED,
 };
 
-/** Convierte un webhook de Meta en una lista plana de jobs para la cola. */
+/**
+ * Convierte un webhook de Meta en una lista plana de jobs para la cola.
+ * Los teléfonos se normalizan aquí (Meta manda el `wa_id` sin "+"), para que
+ * aguas abajo todo el mundo vea el mismo formato E.164 y no se dupliquen
+ * contactos con y sin "+".
+ */
 export function normalizeWebhook(body: MetaWebhookBody): InboundJob[] {
   const jobs: InboundJob[] = [];
   for (const entry of body.entry ?? []) {
@@ -180,13 +207,15 @@ export function normalizeWebhook(body: MetaWebhookBody): InboundJob[] {
         const type = TYPE_MAP[m.type] ?? MessageType.TEXT;
         jobs.push({
           kind: "message",
-          from: m.from,
+          from: normalizePhone(m.from),
           name: nameByWaId.get(m.from),
           waMessageId: m.id,
           type,
           text: m.text?.body,
           mediaId: m.image?.id ?? m.document?.id,
           channelPhoneNumberId,
+          ...(m.referral ? { referral: m.referral } : {}),
+          ...(m.context?.id ? { replyToWaMessageId: m.context.id } : {}),
         });
       }
 
@@ -200,7 +229,7 @@ export function normalizeWebhook(body: MetaWebhookBody): InboundJob[] {
         if (!e.to) continue;
         jobs.push({
           kind: "echo",
-          to: e.to,
+          to: normalizePhone(e.to),
           waMessageId: e.id,
           type: TYPE_MAP[e.type] ?? MessageType.TEXT,
           text: e.text?.body ?? e.image?.caption ?? e.document?.caption,
@@ -214,7 +243,7 @@ export function normalizeWebhook(body: MetaWebhookBody): InboundJob[] {
           for (const m of thread.messages ?? []) {
             jobs.push({
               kind: "history",
-              customerWaId: thread.id,
+              customerWaId: normalizePhone(thread.id),
               fromCustomer: m.from === thread.id,
               waMessageId: m.id,
               type: TYPE_MAP[m.type] ?? MessageType.TEXT,
@@ -234,7 +263,7 @@ export function normalizeWebhook(body: MetaWebhookBody): InboundJob[] {
             return {
               kind: "contact",
               action,
-              phone: s.contact.phone_number,
+              phone: normalizePhone(s.contact.phone_number),
               name: s.contact.full_name,
             };
           }

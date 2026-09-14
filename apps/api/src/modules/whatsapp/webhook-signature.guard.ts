@@ -8,20 +8,24 @@ import {
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { RawBodyRequest } from "@nestjs/common";
 import type { Request } from "express";
+import { IntegrationSettingsService } from "../integrations/integration-settings.service";
 
 /**
  * Valida la firma X-Hub-Signature-256 de los webhooks de Meta.
- * Si WHATSAPP_APP_SECRET está vacío (modo simulado) se omite con un aviso.
+ * El app secret sale de Ajustes › Integraciones (con respaldo en
+ * WHATSAPP_APP_SECRET); si no hay ninguno, se omite con un aviso.
  */
 @Injectable()
 export class WebhookSignatureGuard implements CanActivate {
   private readonly logger = new Logger("WebhookSignature");
 
-  canActivate(context: ExecutionContext): boolean {
-    const secret = process.env.WHATSAPP_APP_SECRET ?? "";
+  constructor(private readonly settings: IntegrationSettingsService) {}
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const secret = (await this.settings.whatsappAppSecret()) ?? "";
     if (!secret) {
       this.logger.warn(
-        "WHATSAPP_APP_SECRET vacío: firma del webhook NO verificada (modo dev).",
+        "Sin app secret de WhatsApp: firma del webhook NO verificada (modo dev). Configúralo en Ajustes › Integraciones.",
       );
       return true;
     }

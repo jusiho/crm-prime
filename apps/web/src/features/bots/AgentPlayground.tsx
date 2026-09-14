@@ -102,7 +102,7 @@ export function AgentPlayground({
 
           {messages.map((m, i) =>
             m.role === "user" ? (
-              <div key={i} style={{ alignSelf: "flex-end", ...bubble("#155e3b") }}>
+              <div key={i} style={{ alignSelf: "flex-end", ...bubble("#1c3a6e") }}>
                 {m.content}
               </div>
             ) : (
@@ -111,6 +111,20 @@ export function AgentPlayground({
                   <div style={escalateTag}>⚠️ Recomienda escalar a un humano</div>
                 )}
                 <div style={bubble("#1c2738")}>{m.content}</div>
+                {!!m.meta?.simulatedActions.length && (
+                  <div style={simActions}>
+                    <strong style={{ fontSize: 11.5 }}>
+                      Acciones (no aplicadas, es una prueba):
+                    </strong>
+                    <ul style={{ margin: "4px 0 0", paddingLeft: 16 }}>
+                      {m.meta.simulatedActions.map((a, k) => (
+                        <li key={k} style={{ fontSize: 12 }}>
+                          {a}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
                 {m.meta && (
                   <div style={metaLine}>
                     {m.meta.provider}/{m.meta.model}
@@ -222,6 +236,15 @@ function bubble(bg: string): React.CSSProperties {
   };
 }
 
+const simActions: React.CSSProperties = {
+  marginTop: 7,
+  padding: "7px 9px",
+  borderRadius: 7,
+  background: "rgba(224,183,102,0.10)",
+  border: "1px solid #5a4a2a",
+  color: "#e0b766",
+};
+
 const metaLine: React.CSSProperties = {
   fontSize: 11,
   color: "var(--muted)",
@@ -256,7 +279,7 @@ const sendBtn: React.CSSProperties = {
   borderRadius: 8,
   border: "none",
   background: "var(--accent)",
-  color: "#04210f",
+  color: "#f3f8ff",
   fontWeight: 600,
   cursor: "pointer",
 };

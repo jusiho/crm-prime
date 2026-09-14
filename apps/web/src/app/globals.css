@@ -5,8 +5,8 @@
   --border: #223049;
   --text: #e6edf6;
   --muted: #8aa0bd;
-  --accent: #25d366;
-  --accent-soft: rgba(37, 211, 102, 0.12);
+  --accent: #3578ff;
+  --accent-soft: rgba(53, 120, 255, 0.14);
 
   --sidebar: #0d121d;
   --sidebar-hover: #16202f;
@@ -52,8 +52,8 @@ a:hover {
 }
 
 ::selection {
-  background: rgba(37, 211, 102, 0.28);
-  color: #eafff3;
+  background: rgba(53, 120, 255, 0.30);
+  color: #eaf2ff;
 }
 
 /* ── Pulido global de controles (no pisa estilos inline) ──────── */
@@ -135,7 +135,7 @@ code {
 
 .nav-item.active {
   background: var(--accent-soft);
-  color: #eafff3;
+  color: #eaf2ff;
 }
 
 .nav-item.active::before {
@@ -317,7 +317,7 @@ code {
   justify-content: center;
   font-size: 12px;
   font-weight: 800;
-  color: #04210f;
+  color: #f3f8ff;
 }
 .toast-icon-success {
   background: var(--accent);
@@ -397,7 +397,7 @@ code {
   border-radius: 8px;
   border: none;
   background: var(--accent);
-  color: #04210f;
+  color: #f3f8ff;
   font-weight: 600;
   cursor: pointer;
   font-size: 14px;
@@ -414,6 +414,33 @@ code {
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
+  }
+}
+
+/* Bandeja: latido del esqueleto de carga y puntos de "IA escribiendo".
+   Ambos son decorativos sobre contenido que ya dice lo suyo en texto, así que
+   el bloque de prefers-reduced-motion de abajo puede congelarlos sin perder
+   información. */
+@keyframes chatPulse {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+@keyframes chatDot {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.45;
+  }
+  30% {
+    transform: translateY(-3px);
+    opacity: 1;
   }
 }
 

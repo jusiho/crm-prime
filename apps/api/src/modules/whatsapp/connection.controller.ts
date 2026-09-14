@@ -2,9 +2,12 @@ import { Body, Controller, Get, Post, UseGuards } from "@nestjs/common";
 import {
   connectWhatsappSchema,
   disconnectWhatsappSchema,
+  testChannelSchema,
   Role,
+  type ChannelTestResult,
   type ConnectWhatsappInput,
   type DisconnectWhatsappInput,
+  type TestChannelInput,
 } from "@crm/shared";
 import { ZodValidationPipe } from "../../common/pipes/zod-validation.pipe";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
@@ -33,6 +36,16 @@ export class ConnectionController {
   ) {
     const channels = await this.connection.connect(body);
     return { channels };
+  }
+
+  // Comprueba contra Meta que el token del canal sigue valiendo.
+  @Post("test")
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
+  async test(
+    @Body(new ZodValidationPipe(testChannelSchema)) body: TestChannelInput,
+  ): Promise<ChannelTestResult> {
+    return this.connection.testChannel(body.phoneNumberId);
   }
 
   @Post("disconnect")

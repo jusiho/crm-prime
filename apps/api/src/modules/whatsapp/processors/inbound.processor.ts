@@ -81,6 +81,9 @@ export class InboundProcessor extends WorkerHost {
       text: data.text,
       mediaUrl,
       channelPhoneNumberId: data.channelPhoneNumberId,
+      // Anuncio Click-to-WhatsApp que originó la conversación.
+      referral: data.referral,
+      replyToWaMessageId: data.replyToWaMessageId,
     });
   }
 }

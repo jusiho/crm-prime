@@ -18,11 +18,22 @@ import {
 import { createBot, updateBot } from "@/lib/bff";
 import { box, field, input, label as lbl, primaryBtn, ghostBtn, toggle } from "./styles";
 
-const MODELS = [
-  "claude-opus-4-8",
-  "claude-opus-4-7",
-  "claude-sonnet-4-6",
-  "claude-haiku-4-5",
+// Modelos agrupados por proveedor. El proveedor activo (OpenAI o Anthropic) se
+// decide por la env del backend; aquí eliges el modelo dentro de ese proveedor.
+const MODEL_GROUPS: { label: string; models: string[] }[] = [
+  {
+    label: "OpenAI",
+    models: ["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini", "gpt-4.1"],
+  },
+  {
+    label: "Claude (Anthropic)",
+    models: [
+      "claude-opus-4-8",
+      "claude-opus-4-7",
+      "claude-sonnet-4-6",
+      "claude-haiku-4-5",
+    ],
+  },
 ];
 
 const WEEKDAY_LABEL: Record<Weekday, string> = {
@@ -83,11 +94,16 @@ function toForm(bot: BotDto | null): Form {
   if (!bot) {
     return {
       name: "",
-      model: "claude-opus-4-8",
+      model: "gpt-4o-mini",
       effort: "medium",
       systemPrompt:
-        "Eres un asistente de atención al cliente por WhatsApp. Responde en español, con tono cercano y profesional.",
-      enabledTools: ["search_contact", "handoff_to_human"],
+        "Eres un asistente de ventas por WhatsApp. Responde en español, con tono cercano y profesional. Cuando el cliente pregunte por precios, productos o disponibilidad, usa la herramienta de catálogo (search_products) en vez de inventar. Si no tienes la información o el cliente lo amerita, escala a un humano.",
+      enabledTools: [
+        "search_contact",
+        "search_products",
+        "search_knowledge",
+        "handoff_to_human",
+      ],
       maxIterations: 6,
       monthlyTokenBudget: 0,
       isActive: true,
@@ -244,10 +260,14 @@ export function BotEditor({
               value={form.model}
               onChange={(e) => set("model", e.target.value)}
             >
-              {MODELS.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
+              {MODEL_GROUPS.map((g) => (
+                <optgroup key={g.label} label={g.label}>
+                  {g.models.map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </optgroup>
               ))}
             </select>
           </div>
@@ -276,25 +296,41 @@ export function BotEditor({
         </div>
       </div>
 
-      {/* Herramientas */}
+      {/* Herramientas de consulta */}
       <div style={box}>
-        <SectionTitle>Herramientas</SectionTitle>
+        <SectionTitle>Qué puede consultar</SectionTitle>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {availableTools.map((t) => (
-            <label key={t.name} style={toolRow}>
-              <input
-                type="checkbox"
+          {availableTools
+            .filter((t) => !t.isAction)
+            .map((t) => (
+              <ToolRow
+                key={t.name}
+                tool={t}
                 checked={form.enabledTools.includes(t.name)}
-                onChange={() => toggleTool(t.name)}
+                onToggle={() => toggleTool(t.name)}
               />
-              <span>
-                <code style={{ color: "var(--accent)" }}>{t.name}</code>
-                <div style={{ color: "var(--muted)", fontSize: 12 }}>
-                  {t.description}
-                </div>
-              </span>
-            </label>
-          ))}
+            ))}
+        </div>
+      </div>
+
+      {/* Acciones: escriben en el CRM */}
+      <div style={box}>
+        <SectionTitle>Qué puede hacer en el CRM</SectionTitle>
+        <p style={{ color: "var(--muted)", fontSize: 12, margin: "0 0 10px" }}>
+          En autopilot se aplican solas. En copilot quedan pendientes y se
+          aplican cuando el agente humano envía la respuesta.
+        </p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {availableTools
+            .filter((t) => t.isAction)
+            .map((t) => (
+              <ToolRow
+                key={t.name}
+                tool={t}
+                checked={form.enabledTools.includes(t.name)}
+                onToggle={() => toggleTool(t.name)}
+              />
+            ))}
         </div>
       </div>
 
@@ -610,6 +646,36 @@ function KeywordTriggersEditor({
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
     <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 4 }}>{children}</div>
+  );
+}
+
+// Fila de herramienta. Una acción sin datos (p. ej. sin etiquetas creadas) se
+// puede marcar igual, pero se avisa de que no hará nada hasta configurarla.
+function ToolRow({
+  tool,
+  checked,
+  onToggle,
+}: {
+  tool: AgentToolInfo;
+  checked: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <label style={toolRow}>
+      <input type="checkbox" checked={checked} onChange={onToggle} />
+      <span>
+        <strong style={{ fontSize: 13 }}>{tool.label}</strong>{" "}
+        <code style={{ color: "var(--accent)", fontSize: 11 }}>{tool.name}</code>
+        <div style={{ color: "var(--muted)", fontSize: 12 }}>
+          {tool.description}
+        </div>
+        {tool.unavailableReason && (
+          <div style={{ color: "#e0b766", fontSize: 12, marginTop: 3 }}>
+            ⚠️ {tool.unavailableReason}
+          </div>
+        )}
+      </span>
+    </label>
   );
 }
 

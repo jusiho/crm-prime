@@ -61,8 +61,14 @@ export class LeadService {
   }
 
   // ── Webhook de lead entrante ─────────────────────────────────
-  async ingestLead(input: LeadWebhookInput): Promise<{ id: string; created: boolean }> {
-    const phone = input.phone.trim();
+  async ingestLead(
+    input: LeadWebhookInput,
+    // Nombre de la clave de API que autenticó la llamada, si la hubo.
+    // Es la procedencia fiable: la verifica el servidor, no el que llama.
+    viaApiKey: string | null = null,
+  ): Promise<{ id: string; created: boolean }> {
+    // Ya viene normalizado a E.164 por el esquema (phoneField).
+    const phone = input.phone;
     const existing = await this.prisma.contact.findUnique({ where: { phone } });
 
     // Fuente: se crea si no existe.
@@ -90,6 +96,10 @@ export class LeadService {
         optIn: input.optIn ?? true,
         ...(sourceId ? { sourceId } : {}),
         metadata,
+        // Procedencia técnica: entró por el webhook, y de qué integración.
+        origin: "webhook",
+        originDetail:
+          viaApiKey ?? input.integration?.trim() ?? input.source?.trim() ?? null,
       },
       update: {
         ...(input.name ? { name: input.name } : {}),

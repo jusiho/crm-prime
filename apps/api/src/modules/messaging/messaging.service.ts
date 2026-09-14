@@ -13,6 +13,11 @@ import {
   MessageDirection,
   MessageStatus,
   MessageType,
+  adReferralLabel,
+  parseUtms,
+  utmsFromUrl,
+  type AdReferral,
+  type Utms,
   type AiMode,
   type ConversationDto,
   type ConversationFilter,
@@ -30,6 +35,30 @@ import {
   type WhatsAppProvider,
 } from "../whatsapp/whatsapp-provider.interface";
 import { WhatsappConnectionService } from "../whatsapp/whatsapp-connection.service";
+import {
+  STORAGE_PROVIDER,
+  parseStorageRef,
+  type StorageProvider,
+} from "../../infra/storage/storage.provider";
+import type { MetaReferral } from "../whatsapp/webhook.types";
+
+// Aplana el payload de Meta a nuestra forma, en camelCase y con nulls
+// explícitos, para guardarlo en Conversation.referral.
+function toAdReferral(r: MetaReferral): AdReferral {
+  return {
+    sourceUrl: r.source_url ?? null,
+    sourceId: r.source_id ?? null,
+    sourceType: r.source_type ?? null,
+    headline: r.headline ?? null,
+    body: r.body ?? null,
+    mediaType: r.media_type ?? null,
+    imageUrl: r.image_url ?? null,
+    videoUrl: r.video_url ?? null,
+    thumbnailUrl: r.thumbnail_url ?? null,
+    ctwaClid: r.ctwa_clid ?? null,
+    welcomeMessage: r.welcome_message?.text ?? null,
+  };
+}
 
 const WINDOW_MS = 24 * 60 * 60 * 1000;
 const OPT_OUT_KEYWORDS = ["BAJA", "STOP", "CANCELAR"];
@@ -42,6 +71,10 @@ export interface InboundMessage {
   text?: string;
   mediaUrl?: string;
   channelPhoneNumberId?: string; // número que recibió el mensaje (multi-número)
+  // Anuncio Click-to-WhatsApp que abrió la conversación (primer mensaje).
+  referral?: MetaReferral;
+  /** waMessageId que el cliente citó al responder. */
+  replyToWaMessageId?: string;
 }
 
 @Injectable()
@@ -53,6 +86,7 @@ export class MessagingService {
     @InjectQueue(QUEUE_OUTBOUND) private readonly outbound: Queue,
     @Inject(WHATSAPP_PROVIDER) private readonly wa: WhatsAppProvider,
     private readonly connection: WhatsappConnectionService,
+    @Inject(STORAGE_PROVIDER) private readonly storage: StorageProvider,
     private readonly events: EventEmitter2,
   ) {}
 
@@ -62,6 +96,30 @@ export class MessagingService {
 
   // Pausa la IA tras intervención humana (ventana configurable).
   private readonly humanPauseMs = 15 * 60 * 1000;
+
+  // Fusiona los utm_* en metadata SIN pisar los que ya tuviera: interesa la
+  // campaña que trajo al contacto la primera vez.
+  private async mergeUtms(contactId: string, utms: Utms): Promise<void> {
+    const current = await this.prisma.contact.findUnique({
+      where: { id: contactId },
+      select: { metadata: true },
+    });
+    const metadata = {
+      ...((current?.metadata as Record<string, unknown> | null) ?? {}),
+    };
+    let changed = false;
+    for (const [key, value] of Object.entries(utms)) {
+      if (metadata[key] === undefined || metadata[key] === "") {
+        metadata[key] = value;
+        changed = true;
+      }
+    }
+    if (!changed) return;
+    await this.prisma.contact.update({
+      where: { id: contactId },
+      data: { metadata: metadata as Prisma.InputJsonObject },
+    });
+  }
 
   // ── Entrante: persistir (idempotente) + ventana 24h + opt-out ──
   async handleInbound(msg: InboundMessage): Promise<void> {
@@ -76,8 +134,20 @@ export class MessagingService {
     }
 
     const now = new Date();
+
+    // ── Atribución de marketing ────────────────────────────────
+    // Los utm_* pueden venir por dos vías: los "parámetros de URL" del
+    // anuncio (acaban en referral.source_url) y el texto prellenado de un
+    // enlace wa.me. Los del anuncio mandan sobre los del texto.
+    const referral = msg.referral ? toAdReferral(msg.referral) : null;
+    const fromText = parseUtms(msg.text);
+    const utms = { ...fromText.utms, ...utmsFromUrl(referral?.sourceUrl) };
+    const hasUtms = Object.keys(utms).length > 0;
+    // El texto se guarda limpio: el agente no debería ver los parámetros.
+    const text = fromText.cleanText || msg.text;
+
     const optOut =
-      !!msg.text && OPT_OUT_KEYWORDS.includes(msg.text.trim().toUpperCase());
+      !!text && OPT_OUT_KEYWORDS.includes(text.trim().toUpperCase());
 
     const contact = await this.prisma.contact.upsert({
       where: { phone: msg.from },
@@ -86,6 +156,13 @@ export class MessagingService {
         name: msg.name,
         lastMessageAt: now,
         optIn: !optOut,
+        // El origen solo se fija al crear: si el contacto ya existía,
+        // conserva la vía por la que entró originalmente.
+        origin: referral ? "ad" : "whatsapp",
+        originDetail: referral
+          ? adReferralLabel(referral)
+          : (msg.channelPhoneNumberId ?? null),
+        ...(hasUtms ? { metadata: utms as Prisma.InputJsonObject } : {}),
       },
       update: {
         lastMessageAt: now,
@@ -93,6 +170,10 @@ export class MessagingService {
         ...(optOut ? { optIn: false } : {}),
       },
     });
+
+    // Contacto ya existente: fusionar los utm_* nuevos sin pisar los previos
+    // (interesa la PRIMERA campaña que lo trajo, no la última).
+    if (hasUtms) await this.mergeUtms(contact.id, utms);
 
     // Canal (número) por el que entró el mensaje, para responder por el mismo.
     const channelId = msg.channelPhoneNumberId
@@ -127,24 +208,37 @@ export class MessagingService {
             windowExpiresAt,
             lastMessageAt: now,
             awaitingReply: true,
+            // Qué anuncio abrió esta conversación (null si no vino de uno).
+            ...(referral
+              ? { referral: referral as unknown as Prisma.InputJsonObject }
+              : {}),
           },
         });
+
+    // La cita llega como waMessageId de Meta: se traduce al id nuestro.
+    const quoted = msg.replyToWaMessageId
+      ? await this.prisma.message.findUnique({
+          where: { waMessageId: msg.replyToWaMessageId },
+          select: { id: true },
+        })
+      : null;
 
     await this.prisma.message.create({
       data: {
         conversationId: conversation.id,
         waMessageId: msg.waMessageId,
+        replyToId: quoted?.id ?? null,
         direction: MessageDirection.INBOUND,
         type: msg.type,
         author: MessageAuthor.CONTACT,
-        content: msg.text,
+        content: text,
         mediaUrl: msg.mediaUrl,
         status: MessageStatus.DELIVERED,
       },
     });
 
     this.logger.log(
-      `← ${msg.from}: "${msg.text ?? msg.type}"${optOut ? " [OPT-OUT]" : ""}`,
+      `← ${msg.from}: "${text ?? msg.type}"${optOut ? " [OPT-OUT]" : ""}`,
     );
     this.notify(conversation.id);
     // Conversación nueva: dispara la automatización de bienvenida / autopilot
@@ -178,7 +272,12 @@ export class MessagingService {
     const now = new Date();
     const contact = await this.prisma.contact.upsert({
       where: { phone: echo.to },
-      create: { phone: echo.to, lastMessageAt: now },
+      create: {
+        phone: echo.to,
+        lastMessageAt: now,
+        origin: "whatsapp",
+        originDetail: echo.channelPhoneNumberId ?? null,
+      },
       update: { lastMessageAt: now },
     });
 
@@ -284,7 +383,12 @@ export class MessagingService {
     const when = new Date(job.timestampMs);
     const contact = await this.prisma.contact.upsert({
       where: { phone: job.customerWaId },
-      create: { phone: job.customerWaId, lastMessageAt: when },
+      create: {
+        phone: job.customerWaId,
+        lastMessageAt: when,
+        origin: "whatsapp",
+        originDetail: job.channelPhoneNumberId ?? null,
+      },
       update: {},
     });
 
@@ -341,7 +445,12 @@ export class MessagingService {
         if (it.kind === "contact" && it.phone) {
           await this.prisma.contact.upsert({
             where: { phone: it.phone },
-            create: { phone: it.phone, name: it.name },
+            create: {
+              phone: it.phone,
+              name: it.name,
+              origin: "import",
+              originDetail: "Sincronización de WhatsApp",
+            },
             update: it.name ? { name: it.name } : {},
           });
         } else if (it.kind === "label" && it.labelId) {
@@ -439,6 +548,7 @@ export class MessagingService {
         author,
         content: input.type === MessageType.TEXT ? input.text : input.caption,
         mediaUrl: input.mediaUrl,
+        replyToId: input.replyToId ?? null,
         status: MessageStatus.QUEUED,
       },
     });
@@ -461,11 +571,46 @@ export class MessagingService {
     return this.toMessageDto(message);
   }
 
+  /**
+   * Envía un medio. Si el fichero es nuestro (referencia "storage://"), se
+   * sube a Meta en este momento y se manda por media id: así no hace falta
+   * que el archivo sea accesible desde internet. Una URL externa se pasa tal
+   * cual como `link`, que es lo que Meta espera en ese caso.
+   */
+  private async sendMediaMessage(
+    message: { id: string; type: MessageType; mediaUrl: string | null; content: string | null },
+    to: string,
+    from?: string,
+  ): Promise<{ waMessageId: string }> {
+    const kind = message.type === MessageType.IMAGE ? "IMAGE" : "DOCUMENT";
+    const caption = message.content ?? undefined;
+    const storageId = parseStorageRef(message.mediaUrl);
+
+    if (!storageId) {
+      return this.wa.sendMedia(to, kind, message.mediaUrl ?? "", caption, from);
+    }
+
+    const file = await this.storage.read(storageId);
+    if (!file) {
+      throw new Error("El archivo ya no está disponible en el almacenamiento");
+    }
+    const mediaId = await this.wa.uploadMedia(
+      file.buffer,
+      file.mimeType,
+      storageId,
+      from,
+    );
+    return this.wa.sendMediaById(to, kind, mediaId, caption, from);
+  }
+
   async setAiMode(id: string, mode: AiMode): Promise<ConversationDto> {
+    // Cambiar el modo a mano es una orden explícita del agente humano, así que
+    // levanta la pausa que deja su propia intervención: si no, activar
+    // Autopilot no hacía nada visible hasta pasados los 15 minutos.
     const c = await this.prisma.conversation
       .update({
         where: { id },
-        data: { aiMode: mode },
+        data: { aiMode: mode, aiPausedUntil: null },
         include: { contact: { include: { tags: { include: { tag: true } }, source: true } }, assignedAgent: true, channel: true },
       })
       .catch(() => {
@@ -491,14 +636,13 @@ export class MessagingService {
     const from = message.conversation.channel?.phoneNumberId;
     const result =
       message.type === MessageType.TEXT
-        ? await this.wa.sendText(to, message.content ?? "", from)
-        : await this.wa.sendMedia(
+        ? await this.wa.sendText(
             to,
-            message.type === MessageType.IMAGE ? "IMAGE" : "DOCUMENT",
-            message.mediaUrl ?? "",
-            message.content ?? undefined,
+            message.content ?? "",
             from,
-          );
+            message.replyTo?.waMessageId ?? undefined,
+          )
+        : await this.sendMediaMessage(message, to, from);
 
     await this.prisma.message.update({
       where: { id: message.id },
@@ -708,6 +852,12 @@ export class MessagingService {
     author: string;
     content: string | null;
     mediaUrl: string | null;
+    replyTo?: {
+      id: string;
+      content: string | null;
+      type: MessageType;
+      direction: MessageDirection;
+    } | null;
     reaction?: string | null;
     status: string;
     createdAt: Date;
@@ -719,6 +869,14 @@ export class MessagingService {
       author: m.author as MessageAuthor,
       content: m.content,
       mediaUrl: m.mediaUrl,
+      replyTo: m.replyTo
+        ? {
+            id: m.replyTo.id,
+            content: m.replyTo.content,
+            type: m.replyTo.type,
+            direction: m.replyTo.direction,
+          }
+        : null,
       reaction: m.reaction ?? null,
       status: m.status as MessageStatus,
       createdAt: m.createdAt.toISOString(),

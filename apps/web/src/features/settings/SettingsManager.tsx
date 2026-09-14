@@ -3,13 +3,24 @@
 import { useState } from "react";
 import { WhatsAppConnect } from "@/features/whatsapp/WhatsAppConnect";
 import { TagsManager } from "./TagsManager";
+import { AiSettings } from "./AiSettings";
+import { ApiKeysSettings } from "./ApiKeysSettings";
+import { IntegrationsSettings } from "./IntegrationsSettings";
 import {
   CustomFieldsSettings,
   SourcesSettings,
   StagesSettings,
 } from "./SettingsPanels";
 
-type TabKey = "tags" | "channels" | "sources" | "fields" | "stages";
+type TabKey =
+  | "tags"
+  | "channels"
+  | "sources"
+  | "fields"
+  | "stages"
+  | "ai"
+  | "apiKeys"
+  | "integrations";
 
 const TABS: { key: TabKey; label: string; icon: string }[] = [
   { key: "tags", label: "Etiquetas", icon: "🏷️" },
@@ -17,6 +28,9 @@ const TABS: { key: TabKey; label: string; icon: string }[] = [
   { key: "sources", label: "Fuentes", icon: "🎯" },
   { key: "fields", label: "Campos personalizados", icon: "🧩" },
   { key: "stages", label: "Etapas del pipeline", icon: "📊" },
+  { key: "ai", label: "Inteligencia Artificial", icon: "🤖" },
+  { key: "apiKeys", label: "Claves de API", icon: "🔑" },
+  { key: "integrations", label: "Integraciones", icon: "🔌" },
 ];
 
 export function SettingsManager() {
@@ -43,6 +57,9 @@ export function SettingsManager() {
         {tab === "sources" && <SourcesSettings />}
         {tab === "fields" && <CustomFieldsSettings />}
         {tab === "stages" && <StagesSettings />}
+        {tab === "ai" && <AiSettings />}
+        {tab === "apiKeys" && <ApiKeysSettings />}
+        {tab === "integrations" && <IntegrationsSettings />}
       </div>
     </div>
   );

@@ -99,7 +99,7 @@ function FlowRow({
 }) {
   return (
     <div style={row}>
-      <span style={dot(flow.isActive ? "#25d366" : "#7a8aa0")} />
+      <span style={dot(flow.isActive ? "#3578ff" : "#7a8aa0")} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <strong style={{ fontSize: 15 }}>{flow.name}</strong>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 4 }}>
@@ -166,7 +166,7 @@ const primary: React.CSSProperties = {
   borderRadius: 8,
   border: "none",
   background: "var(--accent)",
-  color: "#04210f",
+  color: "#f3f8ff",
   fontWeight: 600,
   cursor: "pointer",
 };

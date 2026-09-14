@@ -1,5 +1,6 @@
 import {
   Body,
+  ConflictException,
   Controller,
   Delete,
   Get,
@@ -48,6 +49,9 @@ export class ProductsController {
   async create(
     @Body(new ZodValidationPipe(createProductSchema)) body: CreateProductInput,
   ): Promise<ProductDto> {
+    // El SKU es único en la BD: sin esta comprobación, un duplicado sale
+    // como un 500 opaco en vez de decirle al usuario qué corregir.
+    await this.assertSkuFree(body.sku, null);
     const p = await this.prisma.product.create({
       data: {
         name: body.name,
@@ -69,6 +73,7 @@ export class ProductsController {
   ): Promise<ProductDto> {
     const existing = await this.prisma.product.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException("Producto no encontrado");
+    if (body.sku !== undefined) await this.assertSkuFree(body.sku, id);
     const p = await this.prisma.product.update({
       where: { id },
       data: {
@@ -90,6 +95,19 @@ export class ProductsController {
     if (!existing) throw new NotFoundException("Producto no encontrado");
     await this.prisma.product.delete({ where: { id } });
     return { ok: true };
+  }
+
+  // Varios productos pueden quedarse sin SKU (null), pero un SKU con valor
+  // no puede repetirse. `ignoreId` permite que un producto conserve el suyo.
+  private async assertSkuFree(
+    sku: string | null | undefined,
+    ignoreId: string | null,
+  ): Promise<void> {
+    if (!sku) return;
+    const dup = await this.prisma.product.findUnique({ where: { sku } });
+    if (dup && dup.id !== ignoreId) {
+      throw new ConflictException(`Ya existe un producto con el SKU "${sku}"`);
+    }
   }
 
   private toDto(p: {
