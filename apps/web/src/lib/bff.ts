@@ -40,6 +40,11 @@ import type {
   UpdateAiSettingsInput,
   AiConnectionTest,
   ApiKeyDto,
+  WebhookSubscriptionDto,
+  CreateWebhookInput,
+  CreatedWebhook,
+  UpdateWebhookInput,
+  WebhookTestResult,
   CreateApiKeyInput,
   CreatedApiKey,
   UpdateApiKeyInput,
@@ -356,6 +361,49 @@ export async function revokeApiKey(id: string): Promise<ApiKeyDto> {
 export async function deleteApiKey(id: string): Promise<void> {
   const res = await fetch(`/api/bff/api-keys/${id}`, { method: "DELETE" });
   if (!res.ok) throw new Error(await errorMessage(res, "No se pudo eliminar la clave"));
+}
+
+// ── Webhooks salientes (el CRM avisa a otros sistemas) ───────
+export async function fetchWebhooksOut(): Promise<WebhookSubscriptionDto[]> {
+  const res = await fetch("/api/bff/webhooks-out");
+  if (!res.ok) throw new Error("No se pudieron cargar los webhooks");
+  return res.json();
+}
+
+export async function createWebhookOut(
+  input: CreateWebhookInput,
+): Promise<CreatedWebhook> {
+  const res = await fetch("/api/bff/webhooks-out", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo crear el webhook"));
+  return res.json();
+}
+
+export async function updateWebhookOut(
+  id: string,
+  input: UpdateWebhookInput,
+): Promise<WebhookSubscriptionDto> {
+  const res = await fetch(`/api/bff/webhooks-out/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo guardar"));
+  return res.json();
+}
+
+export async function deleteWebhookOut(id: string): Promise<void> {
+  const res = await fetch(`/api/bff/webhooks-out/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo eliminar"));
+}
+
+export async function testWebhookOut(id: string): Promise<WebhookTestResult> {
+  const res = await fetch(`/api/bff/webhooks-out/${id}/test`, { method: "POST" });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo probar"));
+  return res.json();
 }
 
 // ── Integraciones (credenciales que consume el CRM) ──────────

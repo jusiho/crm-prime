@@ -6,6 +6,7 @@ import { TagsManager } from "./TagsManager";
 import { AiSettings } from "./AiSettings";
 import { ApiKeysSettings } from "./ApiKeysSettings";
 import { IntegrationsSettings } from "./IntegrationsSettings";
+import { WebhooksOutSettings } from "./WebhooksOutSettings";
 import {
   CustomFieldsSettings,
   SourcesSettings,
@@ -20,7 +21,8 @@ type TabKey =
   | "stages"
   | "ai"
   | "apiKeys"
-  | "integrations";
+  | "integrations"
+  | "webhooksOut";
 
 const TABS: { key: TabKey; label: string; icon: string }[] = [
   { key: "tags", label: "Etiquetas", icon: "🏷️" },
@@ -31,6 +33,7 @@ const TABS: { key: TabKey; label: string; icon: string }[] = [
   { key: "ai", label: "Inteligencia Artificial", icon: "🤖" },
   { key: "apiKeys", label: "Claves de API", icon: "🔑" },
   { key: "integrations", label: "Integraciones", icon: "🔌" },
+  { key: "webhooksOut", label: "Webhooks salientes", icon: "📡" },
 ];
 
 export function SettingsManager() {
@@ -60,6 +63,7 @@ export function SettingsManager() {
         {tab === "ai" && <AiSettings />}
         {tab === "apiKeys" && <ApiKeysSettings />}
         {tab === "integrations" && <IntegrationsSettings />}
+        {tab === "webhooksOut" && <WebhooksOutSettings />}
       </div>
     </div>
   );

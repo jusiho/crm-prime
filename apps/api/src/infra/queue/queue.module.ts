@@ -5,6 +5,7 @@ import {
   QUEUE_FLOW,
   QUEUE_INBOUND,
   QUEUE_OUTBOUND,
+  QUEUE_WEBHOOK,
 } from "./queue.constants";
 
 /**
@@ -58,6 +59,17 @@ import {
           backoff: { type: "exponential", delay: 5000 },
           removeOnComplete: 1000,
           removeOnFail: 5000,
+        },
+      },
+      {
+        name: QUEUE_WEBHOOK,
+        defaultJobOptions: {
+          // Reintentos espaciados: el sistema del otro lado puede estar caído
+          // un rato y no queremos martillearlo.
+          attempts: 5,
+          backoff: { type: "exponential", delay: 60_000 },
+          removeOnComplete: 500,
+          removeOnFail: 1000,
         },
       },
     ),

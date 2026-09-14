@@ -17,6 +17,7 @@ export const apiScopes = [
   "contacts:write",
   "deals:write",
   "messages:send",
+  "analytics:read",
 ] as const;
 export type ApiScope = (typeof apiScopes)[number];
 
@@ -26,6 +27,7 @@ export const apiScopeLabels: Record<ApiScope, string> = {
   "contacts:write": "Editar contactos",
   "deals:write": "Crear y mover oportunidades",
   "messages:send": "Enviar mensajes",
+  "analytics:read": "Leer métricas",
 };
 
 export const apiScopeHints: Record<ApiScope, string> = {
@@ -34,6 +36,7 @@ export const apiScopeHints: Record<ApiScope, string> = {
   "contacts:write": "Modificar nombre, etiquetas y campos de un contacto.",
   "deals:write": "Crear oportunidades y cambiarlas de etapa.",
   "messages:send": "Enviar mensajes de WhatsApp en nombre del negocio.",
+  "analytics:read": "Consultar métricas agregadas para un dashboard externo.",
 };
 
 // La clave NUNCA se devuelve entera salvo al crearla: solo su prefijo.

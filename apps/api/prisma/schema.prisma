@@ -828,3 +828,31 @@ model IntegrationSetting {
 
   @@map("integration_settings")
 }
+
+// ─────────────────────────────────────────────────────────────
+// Webhooks salientes: el CRM avisa a sistemas externos
+// ─────────────────────────────────────────────────────────────
+
+// Una suscripción por destino. El `secret` firma cada entrega (HMAC-SHA256)
+// para que el receptor pueda verificar que el aviso viene de este CRM.
+model WebhookSubscription {
+  id          String   @id @default(cuid())
+  name        String // "n8n · pedidos"
+  url         String
+  events      String[] // message.received, deal.won…
+  secret      String // se muestra una vez al crearla
+  isActive    Boolean  @default(true)
+
+  // Diagnóstico: por qué dejó de funcionar sin tener que mirar logs.
+  lastStatus     Int? // código HTTP de la última entrega
+  lastError      String?
+  lastDeliveryAt DateTime?
+  deliveredCount Int       @default(0)
+  failedCount    Int       @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+  @@map("webhook_subscriptions")
+}

@@ -35,6 +35,7 @@ import {
   type WhatsAppProvider,
 } from "../whatsapp/whatsapp-provider.interface";
 import { WhatsappConnectionService } from "../whatsapp/whatsapp-connection.service";
+import { WebhookOutService } from "../webhooks-out/webhook-out.service";
 import {
   STORAGE_PROVIDER,
   parseStorageRef,
@@ -88,6 +89,7 @@ export class MessagingService {
     private readonly connection: WhatsappConnectionService,
     @Inject(STORAGE_PROVIDER) private readonly storage: StorageProvider,
     private readonly events: EventEmitter2,
+    private readonly webhooks: WebhookOutService,
   ) {}
 
   private notify(conversationId: string): void {
@@ -240,6 +242,15 @@ export class MessagingService {
     this.logger.log(
       `← ${msg.from}: "${text ?? msg.type}"${optOut ? " [OPT-OUT]" : ""}`,
     );
+
+    // Aviso a sistemas externos. Sin await: un webhook lento no puede
+    // retrasar el procesado del mensaje.
+    void this.webhooks.emit("message.received", {
+      contact: { id: contact.id, phone: contact.phone, name: contact.name },
+      conversationId: conversation.id,
+      message: { type: msg.type, text: text ?? null },
+      isNewConversation,
+    });
     this.notify(conversation.id);
     // Conversación nueva: dispara la automatización de bienvenida / autopilot
     // por defecto (AutomationService) antes del flujo normal de entrante.

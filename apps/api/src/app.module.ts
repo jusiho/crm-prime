@@ -19,6 +19,8 @@ import { TagsModule } from "./modules/tags/tags.module";
 import { ProductsModule } from "./modules/products/products.module";
 import { LeadsModule } from "./modules/leads/leads.module";
 import { ApiKeysModule } from "./modules/api-keys/api-keys.module";
+import { PublicApiModule } from "./modules/public-api/public-api.module";
+import { WebhooksOutModule } from "./modules/webhooks-out/webhooks-out.module";
 import { IntegrationsModule } from "./modules/integrations/integrations.module";
 import { HealthController } from "./health.controller";
 
@@ -48,6 +50,8 @@ import { HealthController } from "./health.controller";
     ProductsModule,
     LeadsModule,
     ApiKeysModule,
+    PublicApiModule,
+    WebhooksOutModule,
     IntegrationsModule,
   ],
   controllers: [HealthController],

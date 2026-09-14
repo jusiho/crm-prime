@@ -8,6 +8,7 @@ import {
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { MessagingService } from "../messaging/messaging.service";
 import { AgentService } from "./agent.service";
+import { WebhookOutService } from "../webhooks-out/webhook-out.service";
 import {
   WHATSAPP_PROVIDER,
   type WhatsAppProvider,
@@ -30,6 +31,7 @@ export class AutopilotService {
     private readonly agent: AgentService,
     private readonly messaging: MessagingService,
     @Inject(WHATSAPP_PROVIDER) private readonly wa: WhatsAppProvider,
+    private readonly webhooks: WebhookOutService,
   ) {}
 
   /**
@@ -78,6 +80,13 @@ export class AutopilotService {
       const res = await this.agent.suggest(conversationId);
 
       if (res.escalate || !res.suggestion || !res.windowOpen) {
+        // La IA se rinde: alguien fuera puede querer enterarse (avisar a un
+        // supervisor, abrir un ticket…).
+        void this.webhooks.emit("conversation.escalated", {
+          conversationId,
+          contact: { id: convo.contact.id, phone: convo.contact.phone },
+          reason: res.escalationReason,
+        });
         if (convo.status !== ConversationStatus.PENDING) {
           await this.messaging.setStatus(
             conversationId,
