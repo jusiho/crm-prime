@@ -69,24 +69,52 @@ function linkify(input: string): Token[] {
   return out;
 }
 
-export function MessageText({ text }: { text: string }) {
+export function MessageText({
+  text,
+  highlight,
+}: {
+  text: string;
+  /** Término del buscador: se marca dentro del texto ya formateado. */
+  highlight?: string | null;
+}) {
   return (
     <div style={body}>
       {tokenize(text).map((t, i) => (
-        <Fragment key={i}>{render(t)}</Fragment>
+        <Fragment key={i}>{render(t, highlight)}</Fragment>
       ))}
     </div>
   );
 }
 
-function render(t: Token): React.ReactNode {
+// Parte un texto plano por el término buscado y marca las coincidencias.
+function mark(value: string, term: string | null | undefined): React.ReactNode {
+  if (!term) return value;
+  const i = value.toLowerCase().indexOf(term.toLowerCase());
+  if (i === -1) return value;
+  return (
+    <>
+      {value.slice(0, i)}
+      <mark style={hit}>{value.slice(i, i + term.length)}</mark>
+      {mark(value.slice(i + term.length), term)}
+    </>
+  );
+}
+
+const hit: React.CSSProperties = {
+  background: "rgba(224,164,88,0.35)",
+  color: "inherit",
+  borderRadius: 3,
+  padding: "0 1px",
+};
+
+function render(t: Token, highlight?: string | null): React.ReactNode {
   switch (t.kind) {
     case "bold":
-      return <strong>{t.value}</strong>;
+      return <strong>{mark(t.value, highlight)}</strong>;
     case "italic":
-      return <em>{t.value}</em>;
+      return <em>{mark(t.value, highlight)}</em>;
     case "strike":
-      return <s>{t.value}</s>;
+      return <s>{mark(t.value, highlight)}</s>;
     case "mono":
       return <code style={mono}>{t.value}</code>;
     case "link":
@@ -101,7 +129,7 @@ function render(t: Token): React.ReactNode {
         </a>
       );
     default:
-      return t.value;
+      return mark(t.value, highlight);
   }
 }
 

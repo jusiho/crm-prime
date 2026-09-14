@@ -11,6 +11,8 @@ export interface InboundMessageJob {
   mediaId?: string;
   // Anuncio que originó la conversación (solo en el primer mensaje).
   referral?: MetaReferral;
+  /** waMessageId citado por el cliente, si respondió a un mensaje. */
+  replyToWaMessageId?: string;
   // phone_number_id del número que recibió el mensaje (multi-número).
   channelPhoneNumberId?: string;
 }

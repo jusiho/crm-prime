@@ -1,6 +1,16 @@
 {
   "name": "crm-prime",
   "version": "0.0.0",
+  "description": "CRM para WhatsApp con agentes de IA: bandeja multi-numero en tiempo real, bots copilot/autopilot, flujos visuales, pipeline y campanas.",
+  "license": "AGPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jusiho/crm-prime.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jusiho/crm-prime/issues"
+  },
+  "homepage": "https://github.com/jusiho/crm-prime#readme",
   "private": true,
   "workspaces": [
     "apps/*",

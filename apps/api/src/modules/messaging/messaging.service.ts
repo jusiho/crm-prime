@@ -626,6 +626,8 @@ export class MessagingService {
       where: { id: messageId },
       include: {
         conversation: { include: { contact: true, channel: true } },
+        // El waMessageId del citado es lo que Meta necesita en `context`.
+        replyTo: { select: { waMessageId: true } },
       },
     });
     if (!message) return;

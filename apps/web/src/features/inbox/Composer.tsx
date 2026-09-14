@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { MessageDto, TemplateDto } from "@crm/shared";
 import { fetchTemplates, type UploadedMedia } from "@/lib/bff";
 import { NavIcon } from "@/components/NavIcons";
+import { EmojiPicker } from "./EmojiPicker";
 
 /**
  * Cuadro de redacción del inbox.
@@ -40,6 +41,7 @@ export function Composer({
   const fileRef = useRef<HTMLInputElement | null>(null);
   const areaRef = useRef<HTMLTextAreaElement | null>(null);
   const [quickOpen, setQuickOpen] = useState(false);
+  const [emojiOpen, setEmojiOpen] = useState(false);
 
   // Las plantillas solo se piden cuando el usuario abre el menú.
   const { data: templates = [] } = useQuery({
@@ -84,6 +86,24 @@ export function Composer({
 
   const showQuick = quickOpen && slashQuery !== null;
   const canSend = (!!text.trim() || !!attachment) && !sending;
+
+  /**
+   * Inserta el emoji donde está el cursor y lo deja justo detrás. Añadirlo al
+   * final sería lo fácil, pero rompe la escritura en cuanto el vendedor vuelve
+   * atrás a corregir una palabra.
+   */
+  function insertEmoji(emoji: string) {
+    const el = areaRef.current;
+    const start = el?.selectionStart ?? text.length;
+    const end = el?.selectionEnd ?? text.length;
+    onTextChange(text.slice(0, start) + emoji + text.slice(end));
+    requestAnimationFrame(() => {
+      if (!el) return;
+      el.focus();
+      const at = start + emoji.length;
+      el.setSelectionRange(at, at);
+    });
+  }
 
   function insertTemplate(t: TemplateDto) {
     onTextChange(t.body);
@@ -183,6 +203,10 @@ export function Composer({
         </div>
       )}
 
+      {emojiOpen && (
+        <EmojiPicker onPick={insertEmoji} onClose={() => setEmojiOpen(false)} />
+      )}
+
       <div style={bar}>
         <input
           ref={fileRef}
@@ -195,6 +219,18 @@ export function Composer({
             e.target.value = "";
           }}
         />
+        <button
+          type="button"
+          onClick={() => setEmojiOpen((v) => !v)}
+          title="Emojis"
+          style={{
+            ...iconBtn,
+            color: emojiOpen ? "var(--accent, #25d366)" : "var(--muted)",
+          }}
+        >
+          <NavIcon name="smile" size={18} />
+        </button>
+
         <button
           type="button"
           onClick={() => fileRef.current?.click()}

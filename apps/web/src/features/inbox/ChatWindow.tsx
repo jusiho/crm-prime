@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AiMode,
@@ -29,6 +29,16 @@ import {
 import { toast } from "@/lib/toast";
 import { MessageText } from "./MessageText";
 import { MediaBubble } from "./MediaBubble";
+import { AiModeSwitch } from "./AiModeSwitch";
+import { Composer } from "./Composer";
+import {
+  AiTypingBubble,
+  DaySeparator,
+  MessageStatus,
+  MessagesSkeleton,
+  isNewDay,
+} from "./ChatBits";
+import { NavIcon } from "@/components/NavIcons";
 import type { MessageDto } from "@crm/shared";
 
 export function ChatWindow({ conversation }: { conversation: ConversationDto }) {
@@ -37,6 +47,10 @@ export function ChatWindow({ conversation }: { conversation: ConversationDto }) 
   const [showNotes, setShowNotes] = useState(false);
   // Archivo ya subido y pendiente de enviar (se manda al pulsar Enviar).
   const [attachment, setAttachment] = useState<UploadedMedia | null>(null);
+  // Mensaje citado en la respuesta que se está redactando.
+  const [replyTo, setReplyTo] = useState<MessageDto | null>(null);
+  const [search, setSearch] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
   const [ai, setAi] = useState<AiSuggestion | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
@@ -58,6 +72,23 @@ export function ChatWindow({ conversation }: { conversation: ConversationDto }) 
     queryFn: fetchAgents,
   });
 
+  // Filtro del buscador: se aplica sobre lo ya cargado, sin ir al servidor.
+  const searching = searchOpen && search.trim().length > 0;
+  const visible = useMemo(() => {
+    if (!searching) return messages;
+    const q = search.trim().toLowerCase();
+    return messages.filter((m) => (m.content ?? "").toLowerCase().includes(q));
+  }, [messages, search, searching]);
+
+  // La IA está redactando: o la pediste tú (copilot), o el autopilot está al
+  // mando y el contacto escribió lo último.
+  const aiThinking =
+    suggestMut.isPending ||
+    (conversation.aiMode === AiMode.AUTOPILOT &&
+      !conversation.aiPaused &&
+      messages.length > 0 &&
+      messages[messages.length - 1]?.direction === "INBOUND");
+
   const invalidateConvs = () =>
     queryClient.invalidateQueries({ queryKey: ["conversations"] });
 
@@ -66,6 +97,7 @@ export function ChatWindow({ conversation }: { conversation: ConversationDto }) 
       await sendMessage({
         conversationId: conversation.id,
         // Con adjunto va como IMAGE/DOCUMENT y el texto viaja de pie de foto.
+        ...(replyTo ? { replyToId: replyTo.id } : {}),
         ...(attachment
           ? {
               type:
@@ -87,6 +119,7 @@ export function ChatWindow({ conversation }: { conversation: ConversationDto }) 
     onSuccess: (result) => {
       setText("");
       setAttachment(null);
+      setReplyTo(null);
       setAi(null);
       if (result?.executed.length) {
         toast.success(`Acciones aplicadas: ${result.executed.length}`);
@@ -110,6 +143,12 @@ export function ChatWindow({ conversation }: { conversation: ConversationDto }) 
       );
     }
   };
+
+  const uploadMut = useMutation({
+    mutationFn: (file: File) => uploadMedia(file),
+    onSuccess: setAttachment,
+    onError: (e) => toast.error((e as Error).message),
+  });
 
   const reactMut = useMutation({
     mutationFn: ({ messageId, emoji }: { messageId: string; emoji: string }) =>
@@ -153,8 +192,14 @@ export function ChatWindow({ conversation }: { conversation: ConversationDto }) 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       <header style={chatHeader}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          <strong>
+        <div style={{ display: "flex", gap: 12, minWidth: 0 }}>
+          <span style={avatar} aria-hidden>
+            {initials(
+              conversation.contact.name ?? conversation.contact.phone,
+            )}
+          </span>
+          <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
+          <strong style={{ fontSize: 16 }}>
             {conversation.contact.name ?? conversation.contact.phone}
           </strong>
           <span style={{ color: "var(--muted)", fontSize: 13 }}>
@@ -185,35 +230,30 @@ export function ChatWindow({ conversation }: { conversation: ConversationDto }) 
               ))}
             </select>
           </div>
+          </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <select
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <AiModeSwitch
             value={conversation.aiMode}
-            onChange={(e) => aiModeMut.mutate(e.target.value as AiMode)}
+            paused={conversation.aiPaused}
             disabled={aiModeMut.isPending}
-            title="Modo del agente IA"
+            onChange={(m) => aiModeMut.mutate(m)}
+          />
+          <button
+            type="button"
+            onClick={() => {
+              setSearchOpen((v) => !v);
+              setSearch("");
+            }}
+            title="Buscar en la conversación"
             style={{
               ...control,
-              borderColor:
-                conversation.aiMode === AiMode.AUTOPILOT
-                  ? "#3a64c8"
-                  : conversation.aiMode === AiMode.COPILOT
-                    ? "#3a4a6a"
-                    : "var(--border)",
+              padding: "7px 9px",
+              color: searchOpen ? "var(--accent)" : "var(--muted)",
             }}
           >
-            <option value={AiMode.OFF}>🤖 IA: Off</option>
-            <option value={AiMode.COPILOT}>🤖 IA: Copilot</option>
-            <option value={AiMode.AUTOPILOT}>🤖 IA: Autopilot</option>
-          </select>
-          {conversation.aiPaused && (
-            <span
-              title="La IA está en pausa tras intervención humana"
-              style={{ fontSize: 11, color: "#e0a458" }}
-            >
-              ⏸ IA en pausa
-            </span>
-          )}
+            <NavIcon name="search" size={16} />
+          </button>
           <select
             value={conversation.assignedAgent?.id ?? ""}
             onChange={(e) => assignMut.mutate(e.target.value || null)}
@@ -254,16 +294,72 @@ export function ChatWindow({ conversation }: { conversation: ConversationDto }) 
       {showNotes && <NotesPanel conversationId={conversation.id} />}
 
       <div style={messagesArea}>
-        {isLoading && <ChatSkeleton />}
-        {messages.map((m) => (
-          <MessageBubble
-            key={m.id}
-            message={m}
-            onReact={(emoji) => reactMut.mutate({ messageId: m.id, emoji })}
-          />
+        {isLoading && <MessagesSkeleton />}
+        {!isLoading && messages.length === 0 && (
+          <div style={emptyThread}>
+            <NavIcon name="message" size={28} />
+            <p style={{ margin: "10px 0 0", fontWeight: 600 }}>
+              Todavía no hay mensajes
+            </p>
+            <p style={{ margin: "4px 0 0", fontSize: 13 }}>
+              Escribe abajo para empezar la conversación.
+            </p>
+          </div>
+        )}
+        {searching && visible.length === 0 && messages.length > 0 && (
+          <div style={emptyThread}>
+            <NavIcon name="search" size={24} />
+            <p style={{ margin: "10px 0 0", fontSize: 13 }}>
+              Ningún mensaje contiene «{search.trim()}».
+            </p>
+          </div>
+        )}
+        {visible.map((m, i) => (
+          <Fragment key={m.id}>
+            {/* Sin búsqueda activa los separadores orientan; con ella
+                estorbarían, porque el hilo ya no es continuo. */}
+            {!searching && isNewDay(m.createdAt, visible[i - 1]?.createdAt) && (
+              <DaySeparator date={new Date(m.createdAt)} />
+            )}
+            <MessageBubble
+              message={m}
+              highlight={searching ? search.trim() : null}
+              onReact={(emoji) => reactMut.mutate({ messageId: m.id, emoji })}
+              onReply={() => setReplyTo(m)}
+            />
+          </Fragment>
         ))}
+        {aiThinking && <AiTypingBubble />}
         <div ref={bottomRef} />
       </div>
+
+      {searchOpen && (
+        <div style={searchBar}>
+          <NavIcon name="search" size={15} />
+          <input
+            autoFocus
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar en este hilo…"
+            style={searchInput}
+          />
+          <span style={{ fontSize: 12, color: "var(--muted)" }}>
+            {search.trim()
+              ? `${visible.length} de ${messages.length}`
+              : `${messages.length} mensajes`}
+          </span>
+          <button
+            onClick={() => {
+              setSearchOpen(false);
+              setSearch("");
+            }}
+            style={{ ...control, padding: "5px 7px" }}
+            title="Cerrar"
+          >
+            <NavIcon name="x" size={14} />
+          </button>
+        </div>
+      )}
 
       {ai && (
         <div style={ai.escalate ? aiBannerWarn : aiBanner}>
@@ -317,43 +413,32 @@ export function ChatWindow({ conversation }: { conversation: ConversationDto }) 
       )}
 
       {conversation.windowOpen ? (
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (text.trim() || attachment) sendMut.mutate();
-          }}
-          style={composer}
-        >
-          <button
-            type="button"
-            onClick={() => suggestMut.mutate()}
-            disabled={suggestMut.isPending}
-            title="Sugerir respuesta con IA (copilot)"
-            style={aiBtn}
-          >
-            {suggestMut.isPending ? "✨…" : "✨ IA"}
-          </button>
-          <AttachButton
+        <>
+          <div style={suggestRow}>
+            <button
+              type="button"
+              onClick={() => suggestMut.mutate()}
+              disabled={suggestMut.isPending}
+              title="Que la IA redacte una respuesta para que tú la revises"
+              style={aiBtn}
+            >
+              <NavIcon name="sparkles" size={14} />
+              {suggestMut.isPending ? "Redactando…" : "Sugerir con IA"}
+            </button>
+          </div>
+          <Composer
+            text={text}
+            onTextChange={setText}
+            onSend={() => sendMut.mutate()}
+            sending={sendMut.isPending}
             attachment={attachment}
-            onAttached={setAttachment}
-            disabled={sendMut.isPending}
+            onAttach={(f) => uploadMut.mutate(f)}
+            onRemoveAttachment={() => setAttachment(null)}
+            uploading={uploadMut.isPending}
+            replyTo={replyTo}
+            onCancelReply={() => setReplyTo(null)}
           />
-          <input
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder={
-              attachment ? "Añade un pie de foto (opcional)…" : "Escribe un mensaje…"
-            }
-            style={input}
-          />
-          <button
-            type="submit"
-            disabled={sendMut.isPending || (!text.trim() && !attachment)}
-            style={sendBtn}
-          >
-            {sendMut.isPending ? "…" : "Enviar"}
-          </button>
-        </form>
+        </>
       ) : (
         <div style={windowClosed}>
           Ventana de 24h cerrada. Solo se pueden enviar plantillas aprobadas
@@ -540,9 +625,13 @@ const REACTIONS = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
 function MessageBubble({
   message: m,
   onReact,
+  onReply,
+  highlight,
 }: {
   message: MessageDto;
   onReact: (emoji: string) => void;
+  onReply: () => void;
+  highlight: string | null;
 }) {
   const out = m.direction === "OUTBOUND";
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -570,6 +659,17 @@ function MessageBubble({
           position: "relative",
         }}
       >
+        {/* Cita: qué se está respondiendo, como en WhatsApp. */}
+        {m.replyTo && (
+          <div style={quotedBlock}>
+            <div style={quotedWho}>
+              {m.replyTo.direction === "OUTBOUND" ? "Tú" : "Cliente"}
+            </div>
+            <div style={quotedText}>
+              {m.replyTo.content || `[${m.replyTo.type.toLowerCase()}]`}
+            </div>
+          </div>
+        )}
         {m.mediaUrl && (
           <MediaBubble
             mediaUrl={m.mediaUrl}
@@ -578,18 +678,21 @@ function MessageBubble({
           />
         )}
         {m.content ? (
-          <MessageText text={m.content} />
+          <MessageText text={m.content} highlight={highlight} />
         ) : (
           !m.mediaUrl && (
             <div style={{ opacity: 0.6 }}>[{m.type.toLowerCase()}]</div>
           )
         )}
-        {out && (
-          <div style={{ fontSize: 11, color: "#a9c3ff", textAlign: "right", marginTop: 2 }}>
-            {m.author === "AI" ? "IA · " : ""}
-            {m.status.toLowerCase()}
-          </div>
-        )}
+        <div style={metaRow(out)}>
+          <span style={{ fontSize: 10.5, color: "rgba(230,237,246,0.45)" }}>
+            {new Date(m.createdAt).toLocaleTimeString("es", {
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </span>
+          {out && <MessageStatus status={m.status} author={m.author} />}
+        </div>
         {m.reaction && (
           <span
             style={{
@@ -809,6 +912,97 @@ const aiBtn: React.CSSProperties = {
   cursor: "pointer",
   whiteSpace: "nowrap",
 };
+
+// Iniciales del contacto: identidad sin pedir foto a nadie.
+function initials(value: string): string {
+  const parts = value.trim().split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return (parts[0]![0]! + parts[1]![0]!).toUpperCase();
+  }
+  const clean = value.replace(/\D/g, "");
+  return (clean.slice(-2) || value.slice(0, 2)).toUpperCase();
+}
+
+const avatar: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: 40,
+  height: 40,
+  flexShrink: 0,
+  borderRadius: "50%",
+  background: "rgba(37,211,102,0.14)",
+  color: "var(--positive, #7ee2a8)",
+  fontSize: 14,
+  fontWeight: 700,
+  letterSpacing: "0.01em",
+};
+
+const searchBar: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 9,
+  padding: "8px 16px",
+  borderBottom: "1px solid var(--border)",
+  background: "var(--panel, #131a26)",
+  color: "var(--muted)",
+};
+
+const searchInput: React.CSSProperties = {
+  flex: 1,
+  padding: "6px 0",
+  border: "none",
+  background: "transparent",
+  color: "var(--text)",
+  fontSize: 13.5,
+  outline: "none",
+};
+
+const suggestRow: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "flex-end",
+  padding: "8px 16px 0",
+};
+
+const emptyThread: React.CSSProperties = {
+  margin: "auto",
+  textAlign: "center",
+  color: "var(--muted)",
+  padding: 24,
+};
+
+// Cita dentro de la burbuja: barra de acento a la izquierda y texto apagado.
+const quotedBlock: React.CSSProperties = {
+  borderLeft: "3px solid var(--accent, #25d366)",
+  paddingLeft: 8,
+  marginBottom: 6,
+  opacity: 0.85,
+};
+
+const quotedWho: React.CSSProperties = {
+  fontSize: 11,
+  fontWeight: 700,
+  color: "var(--accent, #25d366)",
+};
+
+const quotedText: React.CSSProperties = {
+  fontSize: 12.5,
+  color: "var(--muted)",
+  display: "-webkit-box",
+  WebkitLineClamp: 2,
+  WebkitBoxOrient: "vertical",
+  overflow: "hidden",
+};
+
+function metaRow(out: boolean): React.CSSProperties {
+  return {
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+    justifyContent: out ? "flex-end" : "flex-start",
+    marginTop: 3,
+  };
+}
 
 const aiBanner: React.CSSProperties = {
   display: "flex",

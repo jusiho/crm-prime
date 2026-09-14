@@ -38,7 +38,8 @@ export type IconName =
   | "reply"
   | "zap"
   | "x"
-  | "alert";
+  | "alert"
+  | "smile";
 
 export function NavIcon({ name, size = 18 }: { name: IconName; size?: number }) {
   const p = {
@@ -267,6 +268,15 @@ export function NavIcon({ name, size = 18 }: { name: IconName; size?: number }) 
       return (
         <svg {...p}>
           <path d="M13.2 2.5 4.5 13.4h6.2l-.9 8.1 8.7-10.9h-6.2z" />
+        </svg>
+      );
+    case "smile":
+      return (
+        <svg {...p}>
+          <circle cx="12" cy="12" r="9.2" />
+          <path d="M8.2 14.2a4.6 4.6 0 0 0 7.6 0" />
+          <circle cx="9.1" cy="9.8" r="0.9" fill="currentColor" stroke="none" />
+          <circle cx="14.9" cy="9.8" r="0.9" fill="currentColor" stroke="none" />
         </svg>
       );
     case "x":
