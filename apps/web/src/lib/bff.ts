@@ -1,7 +1,6 @@
 "use client";
 
 import type {
-  AgentConfigDto,
   AgentDto,
   AiMode,
   AiSuggestion,
@@ -9,7 +8,6 @@ import type {
   IngestKnowledgeInput,
   KnowledgeDocDto,
   KnowledgeHit,
-  UpdateAgentConfigInput,
   ContactDto,
   ConversationDto,
   ConversationFilter,
@@ -189,27 +187,6 @@ export async function revokeSession(id: string): Promise<void> {
 }
 
 // ── Configuración del agente IA ──────────────────────────────
-export async function fetchAgentConfig(): Promise<AgentConfigDto> {
-  const res = await fetch("/api/bff/agent-config");
-  if (!res.ok) throw new Error("No se pudo cargar la configuración del agente");
-  return res.json();
-}
-
-export async function updateAgentConfig(
-  input: UpdateAgentConfigInput,
-): Promise<AgentConfigDto> {
-  const res = await fetch("/api/bff/agent-config", {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
-  });
-  if (!res.ok) {
-    const b = (await res.json().catch(() => null)) as { message?: string } | null;
-    throw new Error(b?.message ?? "No se pudo guardar la configuración");
-  }
-  return res.json();
-}
-
 // ── Conexión de WhatsApp ─────────────────────────────────────
 export async function fetchWhatsappChannels(): Promise<WhatsappChannel[]> {
   const res = await fetch("/api/bff/whatsapp/connection");

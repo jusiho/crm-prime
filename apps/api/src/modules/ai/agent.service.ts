@@ -3,6 +3,7 @@ import type { Prisma } from "@prisma/client";
 import type {
   AiSuggestion,
   Classification,
+  EscalationRules,
   PlaygroundReply,
   PlaygroundRequest,
 } from "@crm/shared";
@@ -73,6 +74,27 @@ export class AgentService {
     const knowledge =
       ragEnabled && lastUserText ? await this.retrieveSafe(lastUserText) : [];
 
+    // Presupuesto mensual: si ya se agotó, ni se llama al modelo. Antes este
+    // campo se guardaba y no cortaba nada, así que no era un límite real.
+    const budget = await this.checkBudget(config);
+    if (budget.exceeded) {
+      this.logger.warn(
+        `Presupuesto agotado para "${config?.name}": ${budget.spent} de ${budget.limit} tokens`,
+      );
+      return {
+        runId: "",
+        suggestion: null,
+        classification: null,
+        escalate: true,
+        escalationReason: `Presupuesto mensual de tokens agotado (${budget.spent} de ${budget.limit}).`,
+        windowOpen,
+        model: config?.model ?? "—",
+        provider: this.llm.name,
+        toolsUsed: [],
+        pendingActions: [],
+      };
+    }
+
     const run = await this.prisma.aiRun.create({
       data: {
         conversationId,
@@ -90,6 +112,11 @@ export class AgentService {
     let outputTokens = 0;
     let model = config?.model ?? "claude-opus-4-8";
     const toolsUsed: string[] = [];
+
+    // Llamadas ya hechas (herramienta + argumentos). Sin esto, un modelo que
+    // no encuentra lo que busca repite la misma consulta hasta agotar las
+    // iteraciones: visto en producción, 12.500 tokens para responder "gracias".
+    const seenCalls = new Set<string>();
 
     try {
       for (let i = 0; i < maxIterations; i++) {
@@ -130,8 +157,29 @@ export class AgentService {
         // Añadir el turno del asistente con sus bloques (text + tool_use).
         messages.push({ role: "assistant", content: res.content });
 
+        // ¿Está repitiendo consultas que ya hizo? Entonces no va a avanzar:
+        // se le devuelve el aviso y se le pide que responda con lo que tiene.
+        const repeated = toolUses.filter((tu) =>
+          seenCalls.has(this.callKey(tu)),
+        );
+        if (repeated.length === toolUses.length) {
+          messages.push({ role: "assistant", content: res.content });
+          messages.push({
+            role: "user",
+            content: toolUses.map((tu) => ({
+              type: "tool_result" as const,
+              tool_use_id: tu.id,
+              content:
+                "Ya consultaste esto y el resultado no ha cambiado. Responde al cliente con la información que ya tienes, o usa handoff_to_human si no puedes resolverlo.",
+            })),
+          });
+          for (const tu of toolUses) seenCalls.add(this.callKey(tu));
+          continue;
+        }
+
         const results: LlmToolResultBlock[] = [];
         for (const tu of toolUses) {
+          seenCalls.add(this.callKey(tu));
           toolsUsed.push(tu.name);
           const { output, escalated, reason } = await this.runTool(
             run.id,
@@ -172,6 +220,20 @@ export class AgentService {
       escalationReason =
         escalationReason ?? "La conversación requiere atención humana.";
       if (status === "COMPLETED") status = "ESCALATED";
+    }
+
+    // Reglas de escalado configuradas en el bot.
+    if (!escalate) {
+      const rule = this.checkEscalationRules(
+        (config?.escalationRules as EscalationRules | null) ?? null,
+        classification,
+        lastUserText,
+      );
+      if (rule) {
+        escalate = true;
+        escalationReason = rule;
+        if (status === "COMPLETED") status = "ESCALATED";
+      }
     }
 
     const costUsd = this.cost(model, inputTokens, outputTokens);
@@ -357,6 +419,76 @@ export class AgentService {
       this.logger.warn(`Clasificación falló: ${(e as Error).message}`);
       return null;
     }
+  }
+
+  /**
+   * Aplica las reglas de escalado del bot. Devuelve el motivo si alguna se
+   * cumple, o null si el agente puede seguir solo.
+   *
+   * Estas reglas se guardaban en `AgentConfig.escalationRules` y no las leía
+   * nadie: el panel prometía un control que no existía.
+   */
+  private checkEscalationRules(
+    rules: EscalationRules | null,
+    classification: Classification | null,
+    lastUserText: string,
+  ): string | null {
+    if (!rules) return null;
+
+    // Palabras que piden humano explícitamente ("quiero hablar con un agente").
+    const keywords = (rules.keywords ?? [])
+      .map((k) => k.trim().toLowerCase())
+      .filter(Boolean);
+    if (keywords.length && lastUserText) {
+      const text = lastUserText.toLowerCase();
+      const hit = keywords.find((k) => text.includes(k));
+      if (hit) return `El cliente mencionó "${hit}".`;
+    }
+
+    if (!classification) return null;
+
+    if (rules.escalateOnNegativeSentiment && classification.sentiment === "negative") {
+      return "El cliente está molesto (sentimiento negativo).";
+    }
+
+    if (rules.minConfidence !== undefined) {
+      const score = this.confidence(classification);
+      if (score < rules.minConfidence) {
+        return `Confianza baja (${score} por debajo del umbral ${rules.minConfidence}).`;
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Tokens gastados este mes por el bot frente a su presupuesto.
+   * `monthlyTokenBudget = 0` significa sin límite.
+   */
+  private async checkBudget(config: { id: string; monthlyTokenBudget: number } | null): Promise<{
+    exceeded: boolean;
+    spent: number;
+    limit: number;
+  }> {
+    const limit = config?.monthlyTokenBudget ?? 0;
+    if (!config || limit <= 0) return { exceeded: false, spent: 0, limit: 0 };
+
+    const since = new Date();
+    since.setDate(1);
+    since.setHours(0, 0, 0, 0);
+
+    const agg = await this.prisma.aiRun.aggregate({
+      where: { agentConfigId: config.id, createdAt: { gte: since } },
+      _sum: { inputTokens: true, outputTokens: true },
+    });
+    const spent =
+      (agg._sum.inputTokens ?? 0) + (agg._sum.outputTokens ?? 0);
+    return { exceeded: spent >= limit, spent, limit };
+  }
+
+  // Identidad de una llamada a herramienta: mismo nombre y mismos argumentos.
+  private callKey(tu: LlmToolUseBlock): string {
+    return `${tu.name}:${JSON.stringify(tu.input ?? {})}`;
   }
 
   private confidence(c: Classification): number {

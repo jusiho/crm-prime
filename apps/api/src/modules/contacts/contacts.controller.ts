@@ -13,12 +13,13 @@ import {
 import {
   createContactSchema,
   updateContactSchema,
+  utmKeys,
   type ContactDto,
   type ContactListItem,
   type CreateContactInput,
   type UpdateContactInput,
 } from "@crm/shared";
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { ZodValidationPipe } from "../../common/pipes/zod-validation.pipe";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { PrismaService } from "../../infra/prisma/prisma.service";
@@ -48,7 +49,17 @@ export class ContactsController {
       where: search ? this.searchWhere(search) : undefined,
       orderBy: { lastMessageAt: { sort: "desc", nulls: "last" } },
       take: 200,
-      include: { tags: { include: { tag: true } }, source: true },
+      include: {
+        tags: { include: { tag: true } },
+        source: true,
+        // Solo la conversación que trae anuncio: es la que da la atribución.
+        conversations: {
+          where: { referral: { not: Prisma.DbNull } },
+          orderBy: { createdAt: "asc" },
+          take: 1,
+          select: { referral: true },
+        },
+      },
     });
     return rows.map((c) => ({
       id: c.id,
@@ -63,8 +74,45 @@ export class ContactsController {
         : null,
       origin: (c.origin ?? "manual") as ContactListItem["origin"],
       originDetail: c.originDetail,
-      fields: this.fieldsFrom(c.metadata),
+      attribution: {
+        utms: this.utmsFrom(c.metadata),
+        ad: this.adFrom(c.conversations[0]?.referral),
+      },
+      // Sin los utm_*: van en `attribution`, y si salieran también aquí el
+      // panel los reescribiría como si fueran campos editables del negocio.
+      fields: this.businessFields(c.metadata),
     }));
+  }
+
+  // Los utm_* viven en metadata junto a los campos personalizados, pero son
+  // otra cosa: datos de marketing que nadie edita a mano. Se separan aquí
+  // para que la UI pueda tratarlos como lo que son.
+  private utmsFrom(metadata: unknown): Record<string, string> {
+    const all = this.fieldsFrom(metadata);
+    const out: Record<string, string> = {};
+    for (const key of utmKeys) {
+      if (all[key]) out[key] = all[key];
+    }
+    return out;
+  }
+
+  private businessFields(metadata: unknown): Record<string, string> {
+    const all = this.fieldsFrom(metadata);
+    for (const key of utmKeys) delete all[key];
+    return all;
+  }
+
+  private adFrom(referral: unknown): ContactListItem["attribution"]["ad"] {
+    if (!referral || typeof referral !== "object") return null;
+    const r = referral as Record<string, unknown>;
+    const str = (v: unknown) => (typeof v === "string" && v ? v : null);
+    return {
+      sourceId: str(r.sourceId),
+      headline: str(r.headline),
+      body: str(r.body),
+      sourceUrl: str(r.sourceUrl),
+      ctwaClid: str(r.ctwaClid),
+    };
   }
 
   @Post()

@@ -43,8 +43,24 @@ export class BotService {
       }),
       this.actions.loadContext(),
     ]);
+    // Un solo groupBy para todos los bots, en vez de una consulta por bot.
+    const since = new Date();
+    since.setDate(1);
+    since.setHours(0, 0, 0, 0);
+    const usage = await this.prisma.aiRun.groupBy({
+      by: ["agentConfigId"],
+      where: { createdAt: { gte: since }, agentConfigId: { not: null } },
+      _sum: { inputTokens: true, outputTokens: true },
+    });
+    const spent = new Map(
+      usage.map((u) => [
+        u.agentConfigId,
+        (u._sum.inputTokens ?? 0) + (u._sum.outputTokens ?? 0),
+      ]),
+    );
+
     return {
-      bots: rows.map((r) => this.toDto(r)),
+      bots: rows.map((r) => this.toDto(r, spent.get(r.id) ?? 0)),
       availableTools: availableTools(toolContext),
       channels: channels.map((c) => ({
         id: c.id,
@@ -224,7 +240,10 @@ export class BotService {
       label: string | null;
       displayPhoneNumber: string | null;
     } | null;
-  }): BotDto {
+  },
+    // Tokens gastados por este bot en el mes en curso.
+    tokensThisMonth = 0,
+  ): BotDto {
     return {
       id: c.id,
       name: c.name,
@@ -235,6 +254,7 @@ export class BotService {
       maxIterations: c.maxIterations,
       escalationRules: (c.escalationRules as EscalationRules | null) ?? {},
       monthlyTokenBudget: c.monthlyTokenBudget,
+      tokensThisMonth,
       isDefault: c.isDefault,
       isActive: c.isActive,
       channelId: c.channelId,

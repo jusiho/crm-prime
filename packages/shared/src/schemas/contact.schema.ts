@@ -43,6 +43,20 @@ export const contactListItemSchema = z.object({
   // Procedencia técnica: qué API/pantalla creó el contacto.
   origin: z.enum(contactOrigins).catch("manual"),
   originDetail: z.string().nullable(),
+  // Atribución de marketing, separada de los campos de negocio: los utm_*
+  // capturados y el anuncio que abrió la conversación, si vino de uno.
+  attribution: z.object({
+    utms: z.record(z.string()),
+    ad: z
+      .object({
+        sourceId: z.string().nullable(),
+        headline: z.string().nullable(),
+        body: z.string().nullable(),
+        sourceUrl: z.string().nullable(),
+        ctwaClid: z.string().nullable(),
+      })
+      .nullable(),
+  }),
   // Valores de campos personalizados (key → valor).
   fields: z.record(z.string()).default({}),
 });

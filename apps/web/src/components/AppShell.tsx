@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { signOut } from "@/auth";
-import { AgentConfigDrawer } from "@/features/agent/AgentConfigDrawer";
 import { NavIcon, type IconName } from "./NavIcons";
 
 export type NavKey =
@@ -149,7 +148,6 @@ export function AppShell({
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <AgentConfigDrawer />
             <Link
               href="/account"
               className="user-chip"

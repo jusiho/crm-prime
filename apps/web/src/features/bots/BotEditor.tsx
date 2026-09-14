@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { NavIcon } from "@/components/NavIcons";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   effortValues,
@@ -210,8 +211,40 @@ export function BotEditor({
     );
   }
 
+  // Las 6 secciones no caben de un vistazo en una columna, y la mayoría de
+  // ediciones tocan una sola cosa. Agrupadas por intención: quién es el bot,
+  // qué sabe hacer, cuándo actúa solo, y cuándo se rinde.
+  const [tab, setTab] = useState<
+    "general" | "capacidades" | "automatizacion" | "limites"
+  >("general");
+
+  const TABS = [
+    { id: "general", label: "General", icon: "bot" },
+    { id: "capacidades", label: "Capacidades", icon: "bolt" },
+    { id: "automatizacion", label: "Automatización", icon: "clock" },
+    { id: "limites", label: "Escalado y límites", icon: "alert" },
+  ] as const;
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+    <div style={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
+      <nav style={tabBar} role="tablist">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            role="tab"
+            aria-selected={tab === t.id}
+            onClick={() => setTab(t.id)}
+            style={tabBtn(tab === t.id)}
+          >
+            <NavIcon name={t.icon} size={15} />
+            {t.label}
+          </button>
+        ))}
+      </nav>
+
+      <div style={tabPanel}>
+      {tab === "general" && (
+      <>
       {/* Identidad */}
       <div style={box}>
         <SectionTitle>Identidad</SectionTitle>
@@ -296,6 +329,11 @@ export function BotEditor({
         </div>
       </div>
 
+      </>
+      )}
+
+      {tab === "capacidades" && (
+      <>
       {/* Herramientas de consulta */}
       <div style={box}>
         <SectionTitle>Qué puede consultar</SectionTitle>
@@ -334,6 +372,11 @@ export function BotEditor({
         </div>
       </div>
 
+      </>
+      )}
+
+      {tab === "automatizacion" && (
+      <>
       {/* Automatización */}
       <div style={box}>
         <SectionTitle>Automatización</SectionTitle>
@@ -413,9 +456,19 @@ export function BotEditor({
         </div>
       </div>
 
+      </>
+      )}
+
+      {tab === "limites" && (
+      <>
       {/* Escalado y límites */}
       <div style={box}>
         <SectionTitle>Escalado y límites</SectionTitle>
+        <p style={sectionHint}>
+          Cuándo el bot deja de intentarlo y pasa la conversación a una
+          persona. Si se cumple cualquiera de estas condiciones, el bot no
+          responde y la conversación queda marcada como pendiente.
+        </p>
         <label style={toggle}>
           <input
             type="checkbox"
@@ -429,6 +482,9 @@ export function BotEditor({
         <div style={{ display: "flex", gap: 12 }}>
           <div style={{ ...field, flex: 1 }}>
             <span style={lbl}>Confianza mínima (0–1)</span>
+            <span style={fieldHint}>
+              Por debajo de este valor, escala. 0 lo desactiva.
+            </span>
             <input
               type="number"
               step="0.05"
@@ -441,6 +497,9 @@ export function BotEditor({
           </div>
           <div style={{ ...field, flex: 1 }}>
             <span style={lbl}>Máx. iteraciones</span>
+            <span style={fieldHint}>
+              Cuántas veces puede consultar herramientas antes de rendirse.
+            </span>
             <input
               type="number"
               min={1}
@@ -462,6 +521,10 @@ export function BotEditor({
         </div>
         <div style={field}>
           <span style={lbl}>Presupuesto de tokens / mes (0 = sin límite)</span>
+          <span style={fieldHint}>
+            Al superarlo, el bot deja de responder hasta el mes siguiente. No
+            se llama al modelo, así que el gasto se detiene de verdad.
+          </span>
           <input
             type="number"
             min={0}
@@ -469,11 +532,16 @@ export function BotEditor({
             value={form.monthlyTokenBudget}
             onChange={(e) => set("monthlyTokenBudget", Number(e.target.value))}
           />
+          {!isNew && bot && <BudgetMeter bot={bot} limit={form.monthlyTokenBudget} />}
         </div>
       </div>
 
-      {/* Acciones */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      </>
+      )}
+      </div>
+
+      {/* Acciones: fijas abajo, alcanzables desde cualquier pestaña */}
+      <div style={actionBar}>
         {!isNew && onDeleted && !bot?.isDefault && (
           <button onClick={onDeleted} style={{ ...ghostBtn, color: "#e08a8a", borderColor: "#5a2a2a" }}>
             Eliminar
@@ -642,6 +710,112 @@ function KeywordTriggersEditor({
     </div>
   );
 }
+
+const tabBar: React.CSSProperties = {
+  display: "flex",
+  gap: 4,
+  padding: "0 0 2px",
+  borderBottom: "1px solid var(--border)",
+  overflowX: "auto",
+};
+
+function tabBtn(active: boolean): React.CSSProperties {
+  return {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 7,
+    padding: "9px 14px",
+    border: "none",
+    borderBottom: `2px solid ${active ? "var(--accent, #25d366)" : "transparent"}`,
+    background: "transparent",
+    color: active ? "var(--text)" : "var(--muted)",
+    fontSize: 13.5,
+    fontWeight: active ? 600 : 500,
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+    transition: "color 150ms, border-color 150ms",
+  };
+}
+
+const tabPanel: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 16,
+  padding: "16px 0",
+};
+
+// Siempre visible: da igual en qué pestaña estés, guardar está a un clic.
+const actionBar: React.CSSProperties = {
+  position: "sticky",
+  bottom: 0,
+  display: "flex",
+  alignItems: "center",
+  gap: 10,
+  padding: "12px 0",
+  borderTop: "1px solid var(--border)",
+  background: "var(--bg, #0b0f17)",
+};
+
+/** Consumo real del mes frente al presupuesto. Sin esto el número es ciego. */
+function BudgetMeter({ bot, limit }: { bot: BotDto; limit: number }) {
+  const spent = bot.tokensThisMonth;
+  if (limit <= 0) {
+    return (
+      <span style={fieldHint}>
+        Este mes lleva <strong>{spent.toLocaleString("es")}</strong> tokens. Sin
+        límite configurado.
+      </span>
+    );
+  }
+  const pct = Math.min(100, Math.round((spent / limit) * 100));
+  const over = spent >= limit;
+  return (
+    <div style={{ marginTop: 6 }}>
+      <div style={meterTrack}>
+        <div
+          style={{
+            ...meterFill,
+            width: `${pct}%`,
+            background: over ? "#e08a8a" : pct > 80 ? "#e0a458" : "var(--accent, #25d366)",
+          }}
+        />
+      </div>
+      <span style={{ ...fieldHint, color: over ? "#e08a8a" : "var(--muted)" }}>
+        {spent.toLocaleString("es")} de {limit.toLocaleString("es")} tokens
+        {over ? " · agotado, el bot no responde" : ` · ${pct}%`}
+      </span>
+    </div>
+  );
+}
+
+const meterTrack: React.CSSProperties = {
+  height: 6,
+  borderRadius: 999,
+  background: "var(--field, #0d1320)",
+  overflow: "hidden",
+  marginBottom: 4,
+};
+
+const meterFill: React.CSSProperties = {
+  height: "100%",
+  borderRadius: 999,
+  transition: "width 300ms cubic-bezier(0.22,1,0.36,1)",
+};
+
+const sectionHint: React.CSSProperties = {
+  margin: "0 0 12px",
+  fontSize: 12.5,
+  color: "var(--muted)",
+  lineHeight: 1.5,
+};
+
+const fieldHint: React.CSSProperties = {
+  display: "block",
+  fontSize: 11.5,
+  color: "var(--muted)",
+  lineHeight: 1.45,
+  marginBottom: 4,
+};
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (

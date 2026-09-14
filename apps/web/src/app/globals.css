@@ -417,6 +417,15 @@ code {
   }
 }
 
+/* Contactos: la fila entera abre la ficha, así que tiene que sentirse pulsable. */
+.contact-row {
+  cursor: pointer;
+  transition: background 140ms ease-out;
+}
+.contact-row:hover {
+  background: rgba(255, 255, 255, 0.035);
+}
+
 /* Bandeja: latido del esqueleto de carga y puntos de "IA escribiendo".
    Ambos son decorativos sobre contenido que ya dice lo suyo en texto, así que
    el bloque de prefers-reduced-motion de abajo puede congelarlos sin perder

@@ -102,6 +102,9 @@ export const botSchema = z.object({
   maxIterations: z.number(),
   escalationRules: escalationRulesSchema,
   monthlyTokenBudget: z.number(),
+  // Tokens consumidos en el mes en curso: da sentido al presupuesto, que si
+  // no es un número a ciegas.
+  tokensThisMonth: z.number(),
   isDefault: z.boolean(),
   isActive: z.boolean(),
   channelId: z.string().nullable(),

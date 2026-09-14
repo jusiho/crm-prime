@@ -8,10 +8,16 @@ import {
   contactOriginLabels,
   customFieldTypes,
   type ContactListItem,
-  type ContactOrigin,
   type CustomFieldDto,
   type SourceDto,
 } from "@crm/shared";
+import { NavIcon } from "@/components/NavIcons";
+import {
+  ContactDrawer,
+  ORIGIN_COLORS,
+  hasAttribution,
+  initials,
+} from "./ContactDrawer";
 import {
   createContact,
   createCustomField,
@@ -30,6 +36,7 @@ export function ContactsManager() {
   const [creating, setCreating] = useState(false);
   const [showFields, setShowFields] = useState(false);
   const [showWebhook, setShowWebhook] = useState(false);
+  const [openId, setOpenId] = useState<string | null>(null);
 
   const { data: contacts, isPending } = useQuery({
     queryKey: ["contact-directory", search],
@@ -46,8 +53,11 @@ export function ContactsManager() {
   const refresh = () =>
     queryClient.invalidateQueries({ queryKey: ["contact-directory"] });
 
+  // El panel lee del listado, así que al guardar se refresca solo.
+  const openContact = (contacts ?? []).find((c) => c.id === openId) ?? null;
+
   return (
-    <div style={{ maxWidth: 1000, margin: "0 auto", padding: 24 }}>
+    <div style={{ maxWidth: 1200, margin: "0 auto", padding: 24 }}>
       <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
         <input
           style={searchInput}
@@ -55,14 +65,16 @@ export function ContactsManager() {
           placeholder="Buscar por nombre o teléfono…"
           onChange={(e) => setSearch(e.target.value)}
         />
-        <button onClick={() => setShowWebhook((v) => !v)} style={ghostBtn}>
-          🔗 Webhook
+        <button onClick={() => setShowWebhook((v) => !v)} style={toolBtn}>
+          <NavIcon name="globe" size={15} />
+          Webhook
         </button>
-        <button onClick={() => setShowFields((v) => !v)} style={ghostBtn}>
-          ⚙ Campos
+        <button onClick={() => setShowFields((v) => !v)} style={toolBtn}>
+          <NavIcon name="settings" size={15} />
+          Campos
         </button>
         <button onClick={() => setCreating((v) => !v)} style={primaryBtn}>
-          + Nuevo contacto
+          Nuevo contacto
         </button>
       </div>
 
@@ -90,23 +102,37 @@ export function ContactsManager() {
             <Th>Fuente</Th>
             <Th>Etiquetas</Th>
             <Th>Opt-in</Th>
-            <Th>Acciones</Th>
+            <Th>Último mensaje</Th>
           </tr>
         </thead>
         <tbody>
           {(contacts ?? []).map((c) => (
-            <ContactRow
-              key={c.id}
-              contact={c}
-              sources={sources}
-              fields={fields}
-              onChanged={refresh}
-            />
+            <ContactRow key={c.id} contact={c} onOpen={() => setOpenId(c.id)} />
           ))}
         </tbody>
       </table>
       {contacts && contacts.length === 0 && !isPending && (
-        <p style={muted}>No hay contactos.</p>
+        <div style={emptyState}>
+          <NavIcon name="user" size={28} />
+          <p style={{ margin: "10px 0 0", fontWeight: 600 }}>
+            {search.trim() ? "Sin resultados" : "Todavía no hay contactos"}
+          </p>
+          <p style={{ ...muted, margin: "4px 0 0", fontSize: 13 }}>
+            {search.trim()
+              ? `Ningún contacto coincide con «${search.trim()}».`
+              : "Llegarán solos en cuanto alguien escriba a tu WhatsApp, o créalos a mano."}
+          </p>
+        </div>
+      )}
+
+      {openContact && (
+        <ContactDrawer
+          contact={openContact}
+          sources={sources}
+          fields={fields}
+          onClose={() => setOpenId(null)}
+          onSaved={refresh}
+        />
       )}
     </div>
   );
@@ -206,184 +232,95 @@ function CustomFieldsPanel({ fields }: { fields: CustomFieldDto[] }) {
 
 function ContactRow({
   contact: c,
-  sources,
-  fields,
-  onChanged,
+  onOpen,
 }: {
   contact: ContactListItem;
-  sources: SourceDto[];
-  fields: CustomFieldDto[];
-  onChanged: () => void;
+  onOpen: () => void;
 }) {
-  const [editingName, setEditingName] = useState(false);
-  const [expanded, setExpanded] = useState(false);
-  const [name, setName] = useState(c.name ?? "");
-  const [values, setValues] = useState<Record<string, string>>(c.fields ?? {});
-
-  const saveFields = useMutation({
-    mutationFn: () => updateContact(c.id, { fields: values }),
-    onSuccess: onChanged,
-  });
-
-  const saveName = useMutation({
-    mutationFn: () => updateContact(c.id, { name: name.trim() || null }),
-    onSuccess: () => {
-      setEditingName(false);
-      onChanged();
-    },
-  });
-  const saveSource = useMutation({
-    mutationFn: (sourceId: string | null) => setContactSource(c.id, sourceId),
-    onSuccess: onChanged,
-  });
-  const saveOptIn = useMutation({
-    mutationFn: (optIn: boolean) => updateContact(c.id, { optIn }),
-    onSuccess: onChanged,
-  });
-  const newDeal = useMutation({
-    mutationFn: () =>
-      createDeal({
-        contactId: c.id,
-        title: `Oportunidad: ${c.name ?? c.phone}`,
-        currency: "USD",
-      }),
-  });
+  const last = c.lastMessageAt ? new Date(c.lastMessageAt) : null;
 
   return (
-    <>
-    <tr style={tr}>
+    <tr style={tr} onClick={onOpen} className="contact-row">
       <td style={td}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={avatar}>{(c.name ?? c.phone)[0]?.toUpperCase()}</span>
-          <div>
-            {editingName ? (
-              <div style={{ display: "flex", gap: 6 }}>
-                <input
-                  autoFocus
-                  style={miniInput}
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") saveName.mutate();
-                    if (e.key === "Escape") setEditingName(false);
-                  }}
-                />
-                <button onClick={() => saveName.mutate()} style={miniBtn} disabled={saveName.isPending}>✓</button>
-              </div>
-            ) : (
-              <strong
-                style={{ fontSize: 14, cursor: "pointer" }}
-                title="Clic para editar"
-                onClick={() => {
-                  setName(c.name ?? "");
-                  setEditingName(true);
-                }}
-              >
-                {c.name ?? "(sin nombre)"} <span style={{ opacity: 0.4, fontSize: 11 }}>✎</span>
-              </strong>
-            )}
-            <div style={{ ...muted, fontSize: 12 }}>{c.phone}</div>
+          <span style={avatar}>{initials(c.name ?? c.phone)}</span>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontWeight: 600 }}>{c.name || "Sin nombre"}</div>
+            <div style={{ ...muted, fontSize: 12.5 }}>{c.phone}</div>
           </div>
         </div>
       </td>
+
       <td style={td}>
-        <OriginBadge origin={c.origin} detail={c.originDetail} />
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+          <span style={badge(ORIGIN_COLORS[c.origin])}>
+            {contactOriginLabels[c.origin]}
+          </span>
+          {/* Un contacto con campaña detrás merece verse desde la tabla. */}
+          {hasAttribution(c) && (
+            <span style={campaignChip} title="Tiene datos de campaña">
+              <NavIcon name="megaphone" size={11} />
+              campaña
+            </span>
+          )}
+        </div>
+        {c.originDetail && (
+          <div style={{ ...muted, fontSize: 11.5, marginTop: 3 }}>
+            {c.originDetail.length > 26
+              ? `${c.originDetail.slice(0, 26)}…`
+              : c.originDetail}
+          </div>
+        )}
       </td>
+
       <td style={td}>
-        <select
-          value={c.source?.id ?? ""}
-          onChange={(e) => saveSource.mutate(e.target.value || null)}
-          disabled={saveSource.isPending}
-          style={select}
-        >
-          <option value="">— Sin fuente —</option>
-          {sources.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
-          ))}
-        </select>
+        {c.source ? (
+          <span style={badge(c.source.color ?? "#2c3a52")}>{c.source.name}</span>
+        ) : (
+          <span style={muted}>—</span>
+        )}
       </td>
+
       <td style={td}>
         <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-          {c.tags.map((t) => (
-            <span key={t.name} style={chip(t.color)}>
+          {c.tags.slice(0, 3).map((t) => (
+            <span key={t.name} style={badge(t.color ?? "#2c3a52")}>
               {t.name}
             </span>
           ))}
+          {c.tags.length > 3 && (
+            <span style={{ ...muted, fontSize: 12 }}>+{c.tags.length - 3}</span>
+          )}
           {c.tags.length === 0 && <span style={muted}>—</span>}
         </div>
       </td>
+
       <td style={td}>
-        <label style={{ display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
-          <input
-            type="checkbox"
-            checked={c.optIn}
-            onChange={(e) => saveOptIn.mutate(e.target.checked)}
-          />
-          <span style={{ color: c.optIn ? "#7ee2a8" : "#e08a8a", fontSize: 13 }}>
-            {c.optIn ? "Sí" : "No"}
+        {c.optIn ? (
+          <span style={{ ...okMark, color: "#7ee2a8" }}>
+            <NavIcon name="check" size={14} /> Sí
           </span>
-        </label>
+        ) : (
+          <span style={{ ...okMark, color: "#e08a8a" }}>
+            <NavIcon name="x" size={14} /> No
+          </span>
+        )}
       </td>
-      <td style={td}>
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          <Link href="/" style={linkBtn}>
-            Abrir chat
-          </Link>
-          <button
-            onClick={() => newDeal.mutate()}
-            disabled={newDeal.isPending || newDeal.isSuccess}
-            style={ghostBtn}
-            title="Crear una oportunidad en el pipeline"
-          >
-            {newDeal.isSuccess ? "✓ Creada" : newDeal.isPending ? "…" : "+ Oportunidad"}
-          </button>
-          {fields.length > 0 && (
-            <button onClick={() => setExpanded((v) => !v)} style={ghostBtn}>
-              {expanded ? "Ocultar" : "Detalles"}
-            </button>
-          )}
-        </div>
+
+      <td style={{ ...td, ...muted, fontSize: 12.5, whiteSpace: "nowrap" }}>
+        {last ? relativeDay(last) : "—"}
       </td>
     </tr>
-    {expanded && fields.length > 0 && (
-      <tr style={tr}>
-        <td style={{ ...td, background: "#0d1320" }} colSpan={6}>
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
-            {fields.map((f) => (
-              <div key={f.id} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                <span style={{ fontSize: 12, color: "var(--muted)" }}>{f.label}</span>
-                {f.type === "select" ? (
-                  <select
-                    style={select}
-                    value={values[f.key] ?? ""}
-                    onChange={(e) => setValues((v) => ({ ...v, [f.key]: e.target.value }))}
-                  >
-                    <option value="">—</option>
-                    {f.options.map((o) => (
-                      <option key={o} value={o}>{o}</option>
-                    ))}
-                  </select>
-                ) : (
-                  <input
-                    type={f.type === "number" ? "number" : f.type === "date" ? "date" : "text"}
-                    style={miniInput}
-                    value={values[f.key] ?? ""}
-                    onChange={(e) => setValues((v) => ({ ...v, [f.key]: e.target.value }))}
-                  />
-                )}
-              </div>
-            ))}
-            <button onClick={() => saveFields.mutate()} disabled={saveFields.isPending} style={primaryBtn}>
-              {saveFields.isPending ? "Guardando…" : "Guardar campos"}
-            </button>
-          </div>
-        </td>
-      </tr>
-    )}
-    </>
   );
+}
+
+// "hace 3 h" / "ayer" / "12 sep": orientación sin saturar la columna.
+function relativeDay(d: Date): string {
+  const mins = Math.round((Date.now() - d.getTime()) / 60000);
+  if (mins < 60) return `hace ${Math.max(1, mins)} min`;
+  if (mins < 60 * 24) return `hace ${Math.round(mins / 60)} h`;
+  if (mins < 60 * 48) return "ayer";
+  return d.toLocaleDateString("es", { day: "numeric", month: "short" });
 }
 
 function NewContactForm({
@@ -436,49 +373,56 @@ function NewContactForm({
 
 // Procedencia técnica: por qué vía entró el contacto. `detail` precisa cuál
 // (el número de WhatsApp que lo recibió, la integración del webhook…).
-function OriginBadge({
-  origin,
-  detail,
-}: {
-  origin: ContactOrigin;
-  detail: string | null;
-}) {
-  return (
-    <span
-      style={originBadge(ORIGIN_COLORS[origin])}
-      title={detail ? `${contactOriginLabels[origin]} · ${detail}` : contactOriginLabels[origin]}
-    >
-      {ORIGIN_ICONS[origin]} {contactOriginLabels[origin]}
-      {detail && (
-        <span style={{ opacity: 0.65, marginLeft: 5 }}>
-          {detail.length > 18 ? `${detail.slice(0, 18)}…` : detail}
-        </span>
-      )}
-    </span>
-  );
-}
 
-const ORIGIN_COLORS: Record<ContactOrigin, string> = {
-  ad: "#7a5fb0",
-  whatsapp: "#1f4d38",
-  webhook: "#2c4b7a",
-  manual: "#3a3a3a",
-  import: "#5a4a2a",
+const avatar: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: 34,
+  height: 34,
+  flexShrink: 0,
+  borderRadius: "50%",
+  background: "rgba(37,211,102,0.12)",
+  color: "var(--positive, #7ee2a8)",
+  fontSize: 12,
+  fontWeight: 700,
 };
 
-const ORIGIN_ICONS: Record<ContactOrigin, string> = {
-  ad: "📣",
-  whatsapp: "💬",
-  webhook: "🔗",
-  manual: "✍️",
-  import: "📥",
+const campaignChip: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 4,
+  fontSize: 10.5,
+  fontWeight: 600,
+  padding: "2px 7px",
+  borderRadius: 999,
+  background: "rgba(122,95,176,0.18)",
+  color: "#c9b6f0",
 };
 
-function originBadge(bg: string): React.CSSProperties {
+const okMark: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 4,
+  fontSize: 13,
+};
+
+const toolBtn: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 7,
+  padding: "9px 14px",
+  borderRadius: 8,
+  border: "1px solid var(--border)",
+  background: "transparent",
+  color: "var(--text)",
+  cursor: "pointer",
+  fontSize: 13.5,
+};
+
+function badge(bg: string): React.CSSProperties {
   return {
-    display: "inline-flex",
-    alignItems: "center",
-    fontSize: 11.5,
+    fontSize: 11,
     padding: "3px 9px",
     borderRadius: 999,
     background: bg,
@@ -486,6 +430,12 @@ function originBadge(bg: string): React.CSSProperties {
     whiteSpace: "nowrap",
   };
 }
+
+const emptyState: React.CSSProperties = {
+  textAlign: "center",
+  color: "var(--muted)",
+  padding: "48px 24px",
+};
 
 function Th({ children }: { children: React.ReactNode }) {
   return (
@@ -563,19 +513,6 @@ const select: React.CSSProperties = {
   fontSize: 13,
 };
 
-const avatar: React.CSSProperties = {
-  width: 32,
-  height: 32,
-  borderRadius: "50%",
-  background: "#22304a",
-  color: "#cfe0ff",
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  fontSize: 13,
-  fontWeight: 700,
-  flexShrink: 0,
-};
 
 const primaryBtn: React.CSSProperties = {
   padding: "9px 16px",
