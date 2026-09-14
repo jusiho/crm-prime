@@ -88,15 +88,7 @@ Necesitas **Node.js ≥ 20** y **Docker**.
 git clone https://github.com/jusiho/crm-prime.git
 cd crm-prime
 npm install
-
-cp .env.example .env          # ver "Variables de entorno" más abajo
-docker compose up -d          # Postgres con pgvector + Redis
-
-npm run build -w @crm/shared  # api y web lo consumen compilado
-npm run db:generate
-npm run db:migrate
-npm run db:seed               # admin + etapas + agente por defecto
-
+npm run setup     # crea el .env, levanta Docker, migra y siembra
 npm run dev
 ```
 
@@ -104,19 +96,31 @@ npm run dev
 - API: http://localhost:3001/api/v1
 - Acceso de prueba: **admin@crm.local** / **admin1234**
 
-### pgvector
+`npm run setup` es idempotente: puedes relanzarlo cuando quieras. No pisa un
+`.env` existente ni duplica datos. Genera secretos aleatorios propios, espera a
+que Postgres acepte conexiones y habilita pgvector con su índice vectorial.
 
-La imagen `pgvector/pgvector` trae la extensión, pero hay que habilitarla y crear
-el índice (Prisma no lo expresa en el esquema):
+> Si `prisma generate` falla con `EPERM` en Windows, hay un servidor de
+> desarrollo usando el cliente. Ciérralo y relanza `npm run setup`.
 
-```sql
-CREATE EXTENSION IF NOT EXISTS vector;
-CREATE INDEX ON knowledge_chunks USING hnsw (embedding vector_cosine_ops);
+### Solo probarlo, sin instalar nada
+
+```bash
+npm run demo      # o: docker compose -f docker-compose.demo.yml up --build
 ```
+
+Levanta el CRM entero en contenedores (base de datos, Redis, API y web) con
+datos ya sembrados. **No es para producción**: los secretos están a la vista.
+Para desplegar de verdad, `docker-compose.prod.yml`.
 
 ---
 
 ## Variables de entorno
+
+> **Los valores de `.env.example` son públicos.** Están en este repositorio, así
+> que un `.env` copiado tal cual usa secretos que cualquiera puede leer.
+> `npm run setup` genera los suyos; si creas el `.env` a mano, cámbialos antes
+> de exponer nada a internet.
 
 Solo tres son obligatorias para arrancar:
 

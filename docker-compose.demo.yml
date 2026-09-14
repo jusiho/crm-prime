@@ -1,0 +1,77 @@
+# Demo en un comando: `npm run demo` (o `docker compose -f docker-compose.demo.yml up --build`).
+#
+# Levanta el CRM entero —base de datos, Redis, API y web— sin instalar Node ni
+# configurar nada. Pensado para probarlo en dos minutos.
+#
+# NO es para producción: los secretos están a la vista y los puertos quedan
+# expuestos. Para desplegar de verdad usa docker-compose.prod.yml, que toma los
+# secretos del entorno y no publica puertos.
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: crm
+      POSTGRES_PASSWORD: crm
+      POSTGRES_DB: crm
+    volumes:
+      - demo-db-data:/var/lib/postgresql/data
+      - ./docker/init-pgvector.sql:/docker-entrypoint-initdb.d/10-pgvector.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U crm -d crm"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - demo-redis-data:/data
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgresql://crm:crm@db:5432/crm?schema=public
+      API_PORT: 3001
+      WEB_ORIGIN: http://localhost:3000
+      # Secretos fijos y públicos: es una demo local, no un despliegue.
+      JWT_ACCESS_SECRET: demo-solo-para-pruebas-no-usar-en-produccion
+      APP_ENCRYPTION_KEY: demo-solo-para-pruebas-no-usar-en-produccion
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    ports:
+      - "3001:3001"
+    # Migrar y sembrar antes de arrancar: así la demo sube con datos y el
+    # usuario no tiene que ejecutar nada por su cuenta.
+    command: >
+      sh -c "npx prisma migrate deploy --schema apps/api/prisma/schema.prisma &&
+             npx prisma db seed --schema apps/api/prisma/schema.prisma || true;
+             node apps/api/dist/main.js"
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      API_URL: http://api:3001
+      NEXT_PUBLIC_API_URL: http://localhost:3001
+      AUTH_SECRET: demo-solo-para-pruebas-no-usar-en-produccion
+      AUTH_URL: http://localhost:3000
+    ports:
+      - "3000:3000"
+
+volumes:
+  demo-db-data:
+  demo-redis-data:
