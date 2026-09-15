@@ -39,4 +39,4 @@ Thumbs.db
 coverage/
 
 # Medios recibidos/enviados por WhatsApp (almacenamiento local)
-storage/
+/apps/api/storage/
