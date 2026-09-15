@@ -18,7 +18,7 @@ RUN npx prisma generate --schema=apps/api/prisma/schema.prisma
 RUN npm run build --workspace=apps/api
 
 # Eliminar devDependencies para el runtime
-RUN npm prune --omit=dev
+RUN npm prune --omit=dev && mkdir -p apps/api/node_modules
 
 # ---- runtime ----
 FROM node:20-alpine
@@ -26,6 +26,8 @@ WORKDIR /repo
 ENV NODE_ENV=production
 
 COPY --from=builder /repo/node_modules ./node_modules
+# npm deja aquí las dependencias con conflicto de versión (p. ej. @nestjs/swagger).
+COPY --from=builder /repo/apps/api/node_modules ./apps/api/node_modules
 COPY --from=builder /repo/packages/shared ./packages/shared
 COPY --from=builder /repo/apps/api/dist ./apps/api/dist
 COPY --from=builder /repo/apps/api/prisma ./apps/api/prisma
