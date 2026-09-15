@@ -1,78 +1,87 @@
-import { auth } from "@/auth";
+import { cookies, headers } from "next/headers";
+import { redirect } from "next/navigation";
+import { REFRESH_UNAVAILABLE_HEADER, readSessionCookie } from "@/lib/session-token";
 
 const API_URL = process.env.API_URL ?? "http://localhost:3001";
 
-/**
- * Sesión inutilizable: o no hay token, o el refresco contra el backend falló
- * y `auth.ts` la marcó con error. Sin esto, una sesión zombi devuelve 401 en
- * TODAS las llamadas y la interfaz parece rota sin decir por qué.
- */
-function deadSession(session: unknown): boolean {
-  const s = session as { accessToken?: string; error?: string } | null;
-  return !s?.accessToken || s.error === "RefreshError";
-}
+const JSON_HEADERS = { "content-type": "application/json" };
 
-const SESSION_EXPIRED = JSON.stringify({
-  message: "Tu sesión expiró. Vuelve a iniciar sesión.",
-  code: "SESSION_EXPIRED",
-  statusCode: 401,
-});
-
+/** 401 que la web interpreta como "sesión terminada" y manda al login. */
 export function sessionExpiredResponse(): Response {
-  return new Response(SESSION_EXPIRED, {
-    status: 401,
-    headers: { "content-type": "application/json" },
-  });
+  return new Response(
+    JSON.stringify({
+      message: "Tu sesión expiró. Vuelve a iniciar sesión.",
+      code: "SESSION_EXPIRED",
+      statusCode: 401,
+    }),
+    { status: 401, headers: JSON_HEADERS },
+  );
+}
+
+function refreshUnavailableResponse(): Response {
+  return new Response(
+    JSON.stringify({
+      message: "No se pudo renovar tu sesión. Reintenta en unos segundos.",
+      code: "SESSION_REFRESH_UNAVAILABLE",
+      statusCode: 503,
+    }),
+    { status: 503, headers: JSON_HEADERS },
+  );
 }
 
 /**
- * Cliente de API server-side (BFF): se ejecuta en el servidor de Next,
- * lee el access token de la sesión (cookie httpOnly) y lo adjunta como
- * Bearer al llamar a NestJS. El navegador nunca maneja el JWT.
- *
- * Usar SOLO desde Server Components, route handlers o server actions.
+ * Access token de la cookie de sesión (solo servidor). Devuelve una Response
+ * de error lista para enviar si no se puede usar.
+ */
+export async function requireAccessToken(): Promise<string | Response> {
+  if ((await headers()).get(REFRESH_UNAVAILABLE_HEADER)) {
+    return refreshUnavailableResponse();
+  }
+  const session = await readSessionCookie(await cookies());
+  const accessToken = session?.token.accessToken;
+  return typeof accessToken === "string" && accessToken
+    ? accessToken
+    : sessionExpiredResponse();
+}
+
+/**
+ * Para Server Components: devuelve el JSON del backend. Si la sesión terminó,
+ * manda al login (vía /auth/expired, que borra la cookie) en vez de romper.
  */
 export async function apiFetch<T>(
   path: string,
   init: RequestInit = {},
 ): Promise<T> {
-  const session = await auth();
-  const accessToken = (session as { accessToken?: string } | null)?.accessToken;
-
-  const res = await fetch(`${API_URL}/api/v1${path}`, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-      ...init.headers,
-    },
-    cache: "no-store",
-  });
-
+  const res = await apiForward(path, init);
+  if (res.status === 401) {
+    const body = (await res.clone().json().catch(() => null)) as { code?: string } | null;
+    if (body?.code === "SESSION_EXPIRED") redirect("/auth/expired");
+  }
   if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`API ${res.status}: ${body}`);
+    throw new Error(`API ${res.status}: ${await res.text()}`);
   }
   return res.json() as Promise<T>;
 }
 
 /**
- * Igual que apiFetch pero devuelve la Response cruda, para que los route
- * handlers (BFF) propaguen el status y el cuerpo del backend tal cual
- * (p. ej. un 400 "fuera de ventana 24h").
+ * Cliente de API server-side (BFF): se ejecuta en el servidor de Next,
+ * lee el access token de la cookie httpOnly y lo adjunta como Bearer al
+ * llamar a NestJS. El navegador nunca maneja el JWT.
+ *
+ * Devuelve la Response cruda para que los route handlers propaguen el status
+ * y el cuerpo del backend tal cual (p. ej. un 400 "fuera de ventana 24h").
  */
 export async function apiForward(
   path: string,
   init: RequestInit = {},
 ): Promise<Response> {
-  const session = await auth();
-  if (deadSession(session)) return sessionExpiredResponse();
-  const accessToken = (session as { accessToken?: string } | null)?.accessToken;
+  const token = await requireAccessToken();
+  if (token instanceof Response) return token;
   return fetch(`${API_URL}/api/v1${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",
-      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      Authorization: `Bearer ${token}`,
       ...init.headers,
     },
     cache: "no-store",
@@ -82,8 +91,5 @@ export async function apiForward(
 /** Reenvía una Response del backend conservando status y JSON. */
 export async function relay(res: Response): Promise<Response> {
   const text = await res.text();
-  return new Response(text, {
-    status: res.status,
-    headers: { "content-type": "application/json" },
-  });
+  return new Response(text, { status: res.status, headers: JSON_HEADERS });
 }

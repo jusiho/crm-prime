@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { signOut } from "@/auth";
+import { readSessionCookie, revokeRefreshToken } from "@/lib/session-token";
 import { NavIcon, type IconName } from "./NavIcons";
 
 export type NavKey =
@@ -163,6 +165,10 @@ export function AppShell({
             <form
               action={async () => {
                 "use server";
+                // Revoca también la sesión en el backend: si no, seguiría
+                // activa (y listada en Sesiones) hasta que caducara.
+                const current = await readSessionCookie(await cookies());
+                await revokeRefreshToken(current?.token.refreshToken);
                 await signOut({ redirectTo: "/login" });
               }}
             >

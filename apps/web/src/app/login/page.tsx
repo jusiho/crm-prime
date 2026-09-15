@@ -2,29 +2,34 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AuthError } from "next-auth";
 import { auth, signIn } from "@/auth";
+import { safeCallbackUrl } from "@/lib/session-token";
 
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; expired?: string; callbackUrl?: string }>;
 }) {
+  const { error, expired, callbackUrl: rawCallback } = await searchParams;
+  const callbackUrl = safeCallbackUrl(rawCallback);
   const session = await auth();
-  if (session) redirect("/");
-  const { error } = await searchParams;
+  if (session) redirect(callbackUrl);
 
   async function login(formData: FormData) {
     "use server";
+    const target = safeCallbackUrl(formData.get("callbackUrl"));
     try {
       await signIn("credentials", {
         email: formData.get("email"),
         password: formData.get("password"),
-        redirectTo: "/",
+        redirectTo: target,
       });
     } catch (e) {
       // signIn lanza NEXT_REDIRECT al tener éxito (hay que re-lanzarlo).
       // Si las credenciales fallan, lanza AuthError → volvemos con error.
       if (e instanceof AuthError) {
-        redirect("/login?error=credentials");
+        const params = new URLSearchParams({ error: "credentials" });
+        if (target !== "/") params.set("callbackUrl", target);
+        redirect(`/login?${params.toString()}`);
       }
       throw e;
     }
@@ -43,9 +48,15 @@ export default async function LoginPage({
         <h1 style={{ marginTop: 0 }}>CRM Prime</h1>
         <p style={{ color: "var(--muted)", marginTop: -8 }}>Inicia sesión</p>
 
-        {error && (
+        {error ? (
           <p style={{ color: "#ff6b6b" }}>Credenciales inválidas.</p>
-        )}
+        ) : expired ? (
+          <p style={{ color: "var(--muted)" }}>
+            Tu sesión expiró. Vuelve a iniciar sesión.
+          </p>
+        ) : null}
+
+        <input type="hidden" name="callbackUrl" value={callbackUrl} />
 
         <label style={label}>Email</label>
         <input

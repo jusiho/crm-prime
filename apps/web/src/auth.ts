@@ -8,8 +8,11 @@ const API_URL = process.env.API_URL ?? "http://localhost:3001";
  * NextAuth (Auth.js) en estrategia JWT.
  * No verifica credenciales por su cuenta: delega en el backend NestJS
  * (POST /auth/login), que es la autoridad del JWT. El access token y el
- * refresh token quedan dentro del token de NextAuth (cookie httpOnly);
- * el JS del navegador nunca los ve.
+ * refresh token quedan dentro del token de NextAuth (cookie httpOnly) y
+ * NO se exponen en la sesión (que el navegador puede leer en
+ * /api/auth/session). El servidor los lee con `lib/session-token.ts`.
+ *
+ * La renovación del access token vive en `middleware.ts`, no aquí.
  */
 export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt" },
@@ -56,44 +59,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.refreshToken = (user as any).refreshToken;
         token.accessTokenExpires = (user as any).accessTokenExpires;
         token.role = (user as any).role;
-        return token;
       }
-      // Token aún válido.
-      if (Date.now() < (token.accessTokenExpires as number) - 30_000) {
-        return token;
-      }
-      // Refrescar contra el backend (rotación de refresh token).
-      try {
-        const res = await fetch(`${API_URL}/api/v1/auth/refresh`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ refreshToken: token.refreshToken }),
-        });
-        if (!res.ok) {
-          // 401/403: el refresh token ya no sirve (expirado o revocado) →
-          // sesión muerta, forzamos re-login limpiando el token.
-          if (res.status === 401 || res.status === 403) {
-            return { ...token, error: "RefreshError" };
-          }
-          // 5xx u otro error transitorio del backend: NO matamos la sesión,
-          // conservamos el token actual y reintentaremos en la próxima llamada.
-          return token;
-        }
-        const refreshed = (await res.json()) as AuthTokens;
-        token.accessToken = refreshed.accessToken;
-        token.refreshToken = refreshed.refreshToken;
-        token.accessTokenExpires = Date.now() + refreshed.expiresIn * 1000;
-        delete (token as Record<string, unknown>).error;
-        return token;
-      } catch {
-        // Error de red (API momentáneamente inalcanzable): mantenemos la sesión
-        // y reintentamos luego, en vez de romperla y echar al usuario.
-        return token;
-      }
+      // Sin refresco aquí: `auth()` descarta la cookie que devolvería, así que
+      // el refresh token rotado se perdería. Lo hace el middleware.
+      return token;
     },
     async session({ session, token }) {
-      (session as any).accessToken = token.accessToken;
-      (session as any).error = token.error;
       if (session.user) (session.user as any).role = token.role;
       return session;
     },
