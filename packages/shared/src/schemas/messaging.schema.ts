@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { phoneField } from "./contact.schema.js";
+import { templateFillSchema } from "./template.schema.js";
 import {
   AiMode,
   ConversationStatus,
@@ -28,6 +29,32 @@ export const sendMessageSchema = z
   );
 export type SendMessageInput = z.infer<typeof sendMessageSchema>;
 
+// ── Mensaje con botones (interactivo, sin plantilla) ────────
+// Solo dentro de la ventana de 24h, pero no necesita aprobación de Meta.
+// Meta admite como máximo 3 botones de 20 caracteres.
+export const interactiveButtonSchema = z.object({
+  id: z.string().max(256).optional(),
+  title: z.string().min(1).max(20),
+});
+export type InteractiveButtonInput = z.infer<typeof interactiveButtonSchema>;
+
+export const sendInteractiveSchema = z.object({
+  conversationId: z.string(),
+  body: z.string().min(1).max(1024),
+  header: z.string().max(60).optional(),
+  footer: z.string().max(60).optional(),
+  buttons: z.array(interactiveButtonSchema).min(1).max(3),
+});
+export type SendInteractiveInput = z.infer<typeof sendInteractiveSchema>;
+
+// ── Enviar una plantilla a una conversación ─────────────────
+export const sendTemplateMessageSchema = z.object({
+  conversationId: z.string(),
+  templateId: z.string(),
+  fill: templateFillSchema.default({ body: [], urlButtons: [] }),
+});
+export type SendTemplateMessageInput = z.infer<typeof sendTemplateMessageSchema>;
+
 // ── Simular un mensaje entrante (solo dev) ──────────────────
 export const simulateInboundSchema = z.object({
   // Normalizado igual que la entrada real de Meta, para que simular no cree
@@ -49,6 +76,8 @@ export const messageDtoSchema = z.object({
   reaction: z.string().nullable(),
   status: z.nativeEnum(MessageStatus),
   createdAt: z.string(),
+  /** Botones enviados con el mensaje (interactivo), para pintarlos en el hilo. */
+  buttons: z.array(z.object({ id: z.string(), title: z.string() })).nullable(),
   // Mensaje citado, aplanado a lo justo para pintar la cita sin otra consulta.
   replyTo: z
     .object({

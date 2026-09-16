@@ -6,7 +6,8 @@ import {
   MessageDirection,
   MessageStatus,
   MessageType,
-  type VariableValue,
+  type TemplateButton,
+  type TemplateHeader,
 } from "@crm/shared";
 import { QUEUE_CAMPAIGN } from "../../infra/queue/queue.constants";
 import { PrismaService } from "../../infra/prisma/prisma.service";
@@ -15,6 +16,7 @@ import {
   type WhatsAppProvider,
 } from "../whatsapp/whatsapp-provider.interface";
 import { CampaignService } from "./campaign.service";
+import { TemplateFillService, normalizeFill } from "./template-fill.service";
 
 type CampaignJob =
   | { kind: "launch"; campaignId: string }
@@ -33,6 +35,7 @@ export class CampaignProcessor extends WorkerHost {
   constructor(
     private readonly prisma: PrismaService,
     private readonly campaigns: CampaignService,
+    private readonly fills: TemplateFillService,
     @Inject(WHATSAPP_PROVIDER) private readonly wa: WhatsAppProvider,
   ) {
     super();
@@ -58,11 +61,20 @@ export class CampaignProcessor extends WorkerHost {
     if (campaign.status === "CANCELLED") return;
     if (!contact.optIn) return; // respeta opt-out
 
-    const variables = this.resolveVariables(
-      (campaign.variableValues as VariableValue[] | null) ?? [],
+    const fill = normalizeFill(campaign.variableValues);
+    const spec = await this.fills.build(
+      {
+        name: campaign.template.name,
+        language: campaign.template.language,
+        header: (campaign.template.header as TemplateHeader | null) ?? null,
+        buttons: (campaign.template.buttons as TemplateButton[] | null) ?? [],
+        body: campaign.template.body,
+      },
+      fill,
       contact,
+      campaign.channel?.phoneNumberId,
     );
-    const preview = this.render(campaign.template.body, variables);
+    const preview = this.fills.preview(campaign.template.body, spec);
     const conversationId = await this.ensureConversation(
       contactId,
       campaign.channelId,
@@ -84,9 +96,7 @@ export class CampaignProcessor extends WorkerHost {
     try {
       const res = await this.wa.sendTemplate(
         contact.phone,
-        campaign.template.name,
-        campaign.template.language,
-        variables,
+        spec,
         campaign.channel?.phoneNumberId,
       );
       await this.prisma.message.update({
@@ -118,26 +128,6 @@ export class CampaignProcessor extends WorkerHost {
   }
 
   // Variables posicionales según el mapeo de la campaña.
-  private resolveVariables(
-    values: VariableValue[],
-    contact: { name: string | null; phone: string },
-  ): string[] {
-    return [...values]
-      .sort((a, b) => a.index - b.index)
-      .map((v) => {
-        if (v.source === "contact_name") return contact.name ?? "";
-        if (v.source === "contact_phone") return contact.phone;
-        return v.value ?? "";
-      });
-  }
-
-  private render(body: string, vars: string[]): string {
-    return body.replace(/\{\{\s*(\d+)\s*\}\}/g, (_, n: string) => {
-      const idx = Number(n) - 1;
-      return vars[idx] ?? "";
-    });
-  }
-
   // Reusa la conversación abierta del contacto o crea una nueva.
   private async ensureConversation(
     contactId: string,

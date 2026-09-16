@@ -55,7 +55,12 @@ export class LocalStorageProvider implements StorageProvider {
         readFile(this.metaPath(id), "utf8"),
       ]);
       const meta = JSON.parse(rawMeta) as Metadata;
-      return { buffer, mimeType: meta.mimeType, size: meta.size };
+      return {
+        buffer,
+        mimeType: meta.mimeType,
+        size: meta.size,
+        fileName: meta.originalName,
+      };
     } catch {
       return null;
     }

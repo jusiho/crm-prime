@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   variableSources,
   type CreateCampaignInput,
+  type TemplateFill,
   type VariableSource,
   type VariableValue,
 } from "@crm/shared";
@@ -13,7 +14,9 @@ import {
   fetchAudiencePreview,
   fetchCampaignMeta,
   launchCampaign,
+  uploadMedia,
 } from "@/lib/bff";
+import { toast } from "@/lib/toast";
 import { box, ghostBtn, input, label, primaryBtn } from "./styles";
 
 const SOURCE_LABEL: Record<VariableSource, string> = {
@@ -34,6 +37,10 @@ export function CampaignWizard({ onDone }: { onDone: () => void }) {
   const [tagIds, setTagIds] = useState<string[]>([]);
   const [channelId, setChannelId] = useState<string | null>(null);
   const [varValues, setVarValues] = useState<Record<number, VariableValue>>({});
+  const [headerText, setHeaderText] = useState("");
+  const [headerMediaUrl, setHeaderMediaUrl] = useState<string | null>(null);
+  const [headerFileName, setHeaderFileName] = useState<string | null>(null);
+  const [urlButtonValues, setUrlButtonValues] = useState<Record<number, string>>({});
   const [schedule, setSchedule] = useState(false);
   const [scheduledAt, setScheduledAt] = useState("");
 
@@ -62,6 +69,28 @@ export function CampaignWizard({ onDone }: { onDone: () => void }) {
     [template, varValues],
   );
 
+  const headerNeedsFile =
+    template?.header?.format === "IMAGE" ||
+    template?.header?.format === "VIDEO" ||
+    template?.header?.format === "DOCUMENT";
+  // Botones cuyo enlace acaba en un hueco: se completa al enviar.
+  const dynamicUrlButtons = (template?.buttons ?? [])
+    .map((b, index) => ({ b, index }))
+    .filter(({ b }) => b.type === "URL" && b.url.includes("{{"));
+
+  const fill: TemplateFill = useMemo(
+    () => ({
+      body: variableValues,
+      urlButtons: dynamicUrlButtons.map(({ index }) => ({
+        index,
+        value: urlButtonValues[index] ?? "",
+      })),
+      ...(headerText ? { headerText: { index: 1, source: "static", value: headerText } } : {}),
+      ...(headerMediaUrl ? { headerMediaUrl } : {}),
+    }),
+    [variableValues, dynamicUrlButtons, headerText, headerMediaUrl],
+  );
+
   const create = useMutation({
     mutationFn: async (launch: boolean) => {
       const payload: CreateCampaignInput = {
@@ -69,7 +98,7 @@ export function CampaignWizard({ onDone }: { onDone: () => void }) {
         templateId,
         channelId,
         tagIds,
-        variableValues,
+        fill,
         scheduledAt: schedule && scheduledAt ? new Date(scheduledAt).toISOString() : null,
       };
       const campaign = await createCampaign(payload);
@@ -112,8 +141,9 @@ export function CampaignWizard({ onDone }: { onDone: () => void }) {
               <select style={input} value={templateId} onChange={(e) => setTemplateId(e.target.value)}>
                 <option value="">Elige una plantilla…</option>
                 {(meta?.templates ?? []).map((t) => (
-                  <option key={t.id} value={t.id}>
+                  <option key={t.id} value={t.id} disabled={t.status !== "APPROVED"}>
                     {t.name} ({t.language})
+                    {t.status !== "APPROVED" ? ` · ${t.status}` : ""}
                   </option>
                 ))}
               </select>
@@ -170,10 +200,71 @@ export function CampaignWizard({ onDone }: { onDone: () => void }) {
           </div>
         </section>
 
-        {/* 3. Variables */}
-        {template && template.variables.length > 0 && (
+        {/* 3. Contenido de la plantilla */}
+        {template &&
+          (template.variables.length > 0 ||
+            headerNeedsFile ||
+            template.header?.format === "TEXT" ||
+            dynamicUrlButtons.length > 0) && (
           <section style={box}>
-            <SecTitle n={3}>Variables de la plantilla</SecTitle>
+            <SecTitle n={3}>Contenido de la plantilla</SecTitle>
+
+            {template.header?.format === "TEXT" &&
+              template.header.text.includes("{{") && (
+                <div style={{ marginTop: 10 }}>
+                  <div style={label}>Encabezado: {template.header.text}</div>
+                  <input
+                    style={input}
+                    value={headerText}
+                    placeholder="Valor del hueco del encabezado"
+                    onChange={(e) => setHeaderText(e.target.value)}
+                  />
+                </div>
+              )}
+
+            {headerNeedsFile && (
+              <div style={{ marginTop: 10 }}>
+                <div style={label}>
+                  Archivo del encabezado ({template.header?.format.toLowerCase()})
+                </div>
+                <input
+                  type="file"
+                  style={{ ...input, padding: 8 }}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    void uploadMedia(file)
+                      .then((m) => {
+                        setHeaderMediaUrl(m.mediaUrl);
+                        setHeaderFileName(m.fileName);
+                      })
+                      .catch((err: Error) => toast.error(err.message));
+                  }}
+                />
+                {headerFileName && (
+                  <div style={{ color: "var(--muted)", fontSize: 12.5, marginTop: 4 }}>
+                    Se enviará: {headerFileName}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {dynamicUrlButtons.map(({ b, index }) => (
+              <div key={index} style={{ marginTop: 10 }}>
+                <div style={label}>
+                  Botón &quot;{b.type === "URL" ? b.text : ""}&quot;: qué se añade al enlace
+                </div>
+                <input
+                  style={input}
+                  value={urlButtonValues[index] ?? ""}
+                  placeholder="Ej. promo-septiembre"
+                  onChange={(e) =>
+                    setUrlButtonValues((prev) => ({ ...prev, [index]: e.target.value }))
+                  }
+                />
+              </div>
+            ))}
+
             <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 10 }}>
               {template.variables.map((v) => {
                 const val = varValues[v.index];

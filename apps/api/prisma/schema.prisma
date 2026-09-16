@@ -87,6 +87,14 @@ enum TemplateStatus {
   REJECTED
   PAUSED
   DISABLED
+  IN_APPEAL
+  PENDING_DELETION
+}
+
+enum TemplateCategory {
+  MARKETING
+  UTILITY
+  AUTHENTICATION
 }
 
 enum CampaignStatus {
@@ -405,6 +413,9 @@ model Message {
   author         MessageAuthor
   content        String? // texto o caption
   mediaUrl       String?
+  // Botones enviados (mensaje interactivo) o botón que pulsó el contacto.
+  interactive    Json?
+  buttonPayload  String?
   templateId     String?
   campaignId     String? // si el mensaje salió de una campaña/broadcast
   reaction       String? // emoji de reacción sobre este mensaje (o null si se quitó)
@@ -450,20 +461,48 @@ model Note {
 // ─────────────────────────────────────────────────────────────
 
 model Template {
-  id           String         @id @default(cuid())
-  waTemplateId String?        @unique
+  id           String           @id @default(cuid())
+  waTemplateId String?          @unique
+  wabaId       String? // cuenta de WhatsApp Business donde vive
   name         String
-  language     String         @default("es")
-  status       TemplateStatus @default(PENDING)
+  language     String           @default("es")
+  category     TemplateCategory @default(MARKETING)
+  status       TemplateStatus   @default(PENDING)
+  // Componentes según Meta: header { format, text?, example? } y buttons[].
+  header       Json?
   body         String
+  footer       String?
+  buttons      Json?
   variables    Json? // definición de variables/posiciones
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+  // Motivo del rechazo que informa Meta, para mostrarlo en el panel.
+  rejectedReason String?
+  // Importada de Meta con componentes que el editor no cubre: no se edita.
+  readOnly     Boolean          @default(false)
+  syncedAt     DateTime?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
 
   campaigns Campaign[]
   messages  Message[]
 
+  // Meta identifica una plantilla por nombre + idioma.
+  @@unique([name, language])
   @@map("templates")
+}
+
+// Respuestas rápidas del agente: texto guardado que se inserta en el chat
+// dentro de la ventana de 24h (no necesitan aprobación de Meta).
+model QuickReply {
+  id        String       @id @default(cuid())
+  shortcut  String       @unique // "/precio"
+  title     String
+  body      String
+  mediaUrl  String? // referencia "storage://…" opcional
+  mediaType MessageType?
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@map("quick_replies")
 }
 
 model Campaign {

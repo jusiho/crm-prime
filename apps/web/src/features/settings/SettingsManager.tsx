@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { WhatsAppConnect } from "@/features/whatsapp/WhatsAppConnect";
 import { TagsManager } from "./TagsManager";
+import { QuickRepliesSettings } from "./QuickRepliesSettings";
 import { AiSettings } from "./AiSettings";
 import { ApiKeysSettings } from "./ApiKeysSettings";
 import { IntegrationsSettings } from "./IntegrationsSettings";
@@ -15,6 +16,7 @@ import {
 
 type TabKey =
   | "tags"
+  | "quickReplies"
   | "channels"
   | "sources"
   | "fields"
@@ -26,6 +28,7 @@ type TabKey =
 
 const TABS: { key: TabKey; label: string; icon: string }[] = [
   { key: "tags", label: "Etiquetas", icon: "🏷️" },
+  { key: "quickReplies", label: "Respuestas rápidas", icon: "⚡" },
   { key: "channels", label: "Canales", icon: "📱" },
   { key: "sources", label: "Fuentes", icon: "🎯" },
   { key: "fields", label: "Campos personalizados", icon: "🧩" },
@@ -56,6 +59,7 @@ export function SettingsManager() {
 
       <div style={{ minWidth: 0 }}>
         {tab === "tags" && <TagsManager />}
+        {tab === "quickReplies" && <QuickRepliesSettings />}
         {tab === "channels" && <WhatsAppConnect />}
         {tab === "sources" && <SourcesSettings />}
         {tab === "fields" && <CustomFieldsSettings />}

@@ -15,6 +15,7 @@ export interface ReadFile {
   buffer: Buffer;
   mimeType: string;
   size: number;
+  fileName: string;
 }
 
 export interface StorageProvider {

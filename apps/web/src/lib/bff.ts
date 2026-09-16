@@ -84,6 +84,12 @@ import type {
   CustomFieldDto,
   CreateCustomFieldInput,
   UpdateCustomFieldInput,
+  QuickReplyDto,
+  CreateQuickReplyInput,
+  UpdateQuickReplyInput,
+  SyncTemplatesResult,
+  SendInteractiveInput,
+  SendTemplateMessageInput,
 } from "@crm/shared";
 
 // Fetchers del lado del cliente: llaman al BFF (mismo origen, cookie httpOnly).
@@ -607,6 +613,85 @@ export async function updateTemplate(
     body: JSON.stringify(input),
   });
   if (!res.ok) throw new Error("No se pudo guardar la plantilla");
+  return res.json();
+}
+
+/** Trae del panel de Meta las plantillas ya creadas y sus estados. */
+export async function syncTemplates(): Promise<SyncTemplatesResult> {
+  const res = await bffFetch("/api/bff/templates/sync", { method: "POST" });
+  if (!res.ok) {
+    throw new Error(await errorMessage(res, "No se pudo sincronizar con Meta"));
+  }
+  return res.json();
+}
+
+// ── Respuestas rápidas del agente ────────────────────────────
+export async function fetchQuickReplies(): Promise<QuickReplyDto[]> {
+  const res = await bffFetch("/api/bff/quick-replies");
+  if (!res.ok) throw new Error("No se pudieron cargar las respuestas rápidas");
+  return res.json();
+}
+
+export async function createQuickReply(
+  input: CreateQuickReplyInput,
+): Promise<QuickReplyDto> {
+  const res = await bffFetch("/api/bff/quick-replies", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo crear"));
+  return res.json();
+}
+
+export async function updateQuickReply(
+  id: string,
+  input: UpdateQuickReplyInput,
+): Promise<QuickReplyDto> {
+  const res = await bffFetch(`/api/bff/quick-replies/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo guardar"));
+  return res.json();
+}
+
+export async function deleteQuickReply(id: string): Promise<void> {
+  const res = await bffFetch(`/api/bff/quick-replies/${id}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo eliminar"));
+}
+
+// ── Envíos especiales desde el chat ──────────────────────────
+/** Mensaje con botones (sin plantilla; solo dentro de las 24h). */
+export async function sendInteractive(
+  input: SendInteractiveInput,
+): Promise<MessageDto> {
+  const res = await bffFetch("/api/bff/messages/interactive", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    throw new Error(await errorMessage(res, "No se pudo enviar el mensaje"));
+  }
+  return res.json();
+}
+
+/** Plantilla aprobada: también funciona fuera de la ventana de 24h. */
+export async function sendTemplateMessage(
+  input: SendTemplateMessageInput,
+): Promise<MessageDto> {
+  const res = await bffFetch("/api/bff/messages/template", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    throw new Error(await errorMessage(res, "No se pudo enviar la plantilla"));
+  }
   return res.json();
 }
 

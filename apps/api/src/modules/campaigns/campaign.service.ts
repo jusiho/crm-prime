@@ -13,15 +13,17 @@ import type {
   CampaignStatusValue,
   CreateCampaignInput,
   UpdateCampaignInput,
-  VariableValue,
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { QUEUE_CAMPAIGN } from "../../infra/queue/queue.constants";
+import { normalizeFill } from "./template-fill.service";
+import { TemplateService } from "./template.service";
 
 @Injectable()
 export class CampaignService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly templates: TemplateService,
     @InjectQueue(QUEUE_CAMPAIGN) private readonly queue: Queue,
   ) {}
 
@@ -46,7 +48,7 @@ export class CampaignService {
   // Datos para el asistente: plantillas + etiquetas (con conteo) + canales.
   async meta(): Promise<CampaignMeta> {
     const [templates, tags, channels] = await Promise.all([
-      this.prisma.template.findMany({ orderBy: { createdAt: "desc" } }),
+      this.templates.list(),
       this.prisma.tag.findMany({ orderBy: { name: "asc" } }),
       this.prisma.whatsappConnection.findMany({
         where: { isActive: true },
@@ -64,17 +66,7 @@ export class CampaignService {
       })),
     );
     return {
-      templates: templates.map((t) => ({
-        id: t.id,
-        name: t.name,
-        language: t.language,
-        status: t.status as CampaignMeta["templates"][number]["status"],
-        body: t.body,
-        variables:
-          (t.variables as CampaignMeta["templates"][number]["variables"] | null) ??
-          [],
-        createdAt: t.createdAt.toISOString(),
-      })),
+      templates,
       tags: audienceTags,
       channels: channels.map((c) => ({
         id: c.id,
@@ -102,7 +94,7 @@ export class CampaignService {
         templateId: input.templateId,
         channelId: input.channelId,
         scheduledAt: input.scheduledAt ? new Date(input.scheduledAt) : null,
-        variableValues: input.variableValues as unknown as Prisma.InputJsonValue,
+        variableValues: input.fill as unknown as Prisma.InputJsonValue,
         status: "DRAFT",
         tags: {
           create: input.tagIds.map((tagId) => ({ tagId })),
@@ -133,11 +125,8 @@ export class CampaignService {
         ...(input.scheduledAt !== undefined
           ? { scheduledAt: input.scheduledAt ? new Date(input.scheduledAt) : null }
           : {}),
-        ...(input.variableValues !== undefined
-          ? {
-              variableValues:
-                input.variableValues as unknown as Prisma.InputJsonValue,
-            }
+        ...(input.fill !== undefined
+          ? { variableValues: input.fill as unknown as Prisma.InputJsonValue }
           : {}),
         ...(input.tagIds !== undefined
           ? {
@@ -302,7 +291,7 @@ export class CampaignService {
           }
         : null,
       tagIds: c.tags.map((t) => t.tagId),
-      variableValues: (c.variableValues as VariableValue[] | null) ?? [],
+      fill: normalizeFill(c.variableValues),
       scheduledAt: c.scheduledAt?.toISOString() ?? null,
       startedAt: c.startedAt?.toISOString() ?? null,
       completedAt: c.completedAt?.toISOString() ?? null,

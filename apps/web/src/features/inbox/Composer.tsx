@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import type { MessageDto, TemplateDto } from "@crm/shared";
-import { fetchTemplates, type UploadedMedia } from "@/lib/bff";
+import type { MessageDto, QuickReplyDto } from "@crm/shared";
+import { renderQuickReply } from "@crm/shared";
+import { fetchQuickReplies, type UploadedMedia } from "@/lib/bff";
 import { NavIcon } from "@/components/NavIcons";
 import { EmojiPicker } from "./EmojiPicker";
 
@@ -26,6 +27,11 @@ export function Composer({
   uploading,
   replyTo,
   onCancelReply,
+  contact,
+  onAttachSaved,
+  onOpenTemplates,
+  onOpenButtons,
+  windowOpen,
 }: {
   text: string;
   onTextChange: (v: string) => void;
@@ -37,16 +43,24 @@ export function Composer({
   uploading: boolean;
   replyTo: MessageDto | null;
   onCancelReply: () => void;
+  /** Para sustituir {{nombre}} y {{telefono}} en las respuestas rápidas. */
+  contact?: { name?: string | null; phone?: string | null };
+  /** Adjunta un archivo ya guardado (el de una respuesta rápida). */
+  onAttachSaved: (mediaUrl: string, kind: "IMAGE" | "DOCUMENT") => void;
+  onOpenTemplates: () => void;
+  onOpenButtons: () => void;
+  /** Dentro de las 24h se puede escribir libre; fuera, solo plantillas. */
+  windowOpen: boolean;
 }) {
   const fileRef = useRef<HTMLInputElement | null>(null);
   const areaRef = useRef<HTMLTextAreaElement | null>(null);
   const [quickOpen, setQuickOpen] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
 
-  // Las plantillas solo se piden cuando el usuario abre el menú.
-  const { data: templates = [] } = useQuery({
-    queryKey: ["templates"],
-    queryFn: fetchTemplates,
+  // Las respuestas rápidas solo se piden cuando el usuario abre el menú.
+  const { data: quickReplies = [] } = useQuery({
+    queryKey: ["quick-replies"],
+    queryFn: fetchQuickReplies,
     enabled: quickOpen,
   });
 
@@ -70,15 +84,16 @@ export function Composer({
   );
   const matches = useMemo(() => {
     if (slashQuery === null) return [];
-    return templates
+    return quickReplies
       .filter(
-        (t) =>
+        (q) =>
           !slashQuery ||
-          t.name.toLowerCase().includes(slashQuery) ||
-          t.body.toLowerCase().includes(slashQuery),
+          q.shortcut.slice(1).toLowerCase().includes(slashQuery) ||
+          q.title.toLowerCase().includes(slashQuery) ||
+          q.body.toLowerCase().includes(slashQuery),
       )
       .slice(0, 6);
-  }, [templates, slashQuery]);
+  }, [quickReplies, slashQuery]);
 
   useEffect(() => {
     if (slashQuery !== null) setQuickOpen(true);
@@ -105,8 +120,10 @@ export function Composer({
     });
   }
 
-  function insertTemplate(t: TemplateDto) {
-    onTextChange(t.body);
+  /** Inserta la respuesta rápida, ya con el nombre del contacto sustituido. */
+  function insertQuickReply(q: QuickReplyDto) {
+    onTextChange(renderQuickReply(q.body, contact ?? {}));
+    if (q.mediaUrl && q.mediaType) onAttachSaved(q.mediaUrl, q.mediaType);
     setQuickOpen(false);
     areaRef.current?.focus();
   }
@@ -120,7 +137,7 @@ export function Composer({
     if (e.key === "Enter" && !e.shiftKey && !e.altKey) {
       e.preventDefault();
       if (showQuick && matches[0]) {
-        insertTemplate(matches[0]);
+        insertQuickReply(matches[0]);
         return;
       }
       if (canSend) onSend();
@@ -184,19 +201,22 @@ export function Composer({
           </div>
           {matches.length === 0 ? (
             <div style={quickEmpty}>
-              {templates.length === 0
-                ? "Aún no tienes plantillas. Créalas en Campañas › Plantillas."
-                : "Ninguna plantilla coincide."}
+              {quickReplies.length === 0
+                ? "Aún no tienes respuestas rápidas. Créalas en Ajustes › Respuestas rápidas."
+                : "Ninguna respuesta rápida coincide."}
             </div>
           ) : (
-            matches.map((t, i) => (
+            matches.map((q, i) => (
               <button
-                key={t.id}
-                onClick={() => insertTemplate(t)}
+                key={q.id}
+                onClick={() => insertQuickReply(q)}
                 style={quickItem(i === 0)}
               >
-                <strong style={{ fontSize: 12.5 }}>{t.name}</strong>
-                <span style={quickBody}>{t.body}</span>
+                <strong style={{ fontSize: 12.5 }}>
+                  {q.shortcut} · {q.title}
+                  {q.mediaUrl ? " 📎" : ""}
+                </strong>
+                <span style={quickBody}>{q.body}</span>
               </button>
             ))
           )}
@@ -239,6 +259,32 @@ export function Composer({
           style={iconBtn}
         >
           <NavIcon name={uploading ? "clock" : "paperclip"} size={18} />
+        </button>
+
+        <button
+          type="button"
+          onClick={onOpenTemplates}
+          title="Enviar una plantilla aprobada"
+          style={{
+            ...iconBtn,
+            color: windowOpen ? "var(--muted)" : "var(--accent, #25d366)",
+          }}
+        >
+          <NavIcon name="file" size={18} />
+        </button>
+
+        <button
+          type="button"
+          onClick={onOpenButtons}
+          disabled={!windowOpen}
+          title={
+            windowOpen
+              ? "Enviar un mensaje con botones"
+              : "Fuera de las 24h solo se pueden enviar plantillas"
+          }
+          style={iconBtn}
+        >
+          <NavIcon name="zap" size={18} />
         </button>
 
         <textarea

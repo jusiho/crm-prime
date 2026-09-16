@@ -78,6 +78,36 @@ export class WhatsappConnectionService {
   }
 
   /**
+   * Credenciales de la cuenta de WhatsApp Business (WABA), que es donde viven
+   * las plantillas. Usa el canal indicado o el primero activo que tenga WABA.
+   */
+  async resolveWabaCreds(
+    phoneNumberId?: string,
+  ): Promise<{ wabaId: string; token: string; version: string } | null> {
+    const conn = await this.prisma.whatsappConnection.findFirst({
+      where: {
+        isActive: true,
+        wabaId: { not: null },
+        ...(phoneNumberId ? { phoneNumberId } : {}),
+      },
+      orderBy: { connectedAt: "desc" },
+    });
+    if (conn?.wabaId && conn.accessToken) {
+      return {
+        wabaId: conn.wabaId,
+        token: conn.accessToken,
+        version: this.version,
+      };
+    }
+    const envWaba = process.env.WHATSAPP_WABA_ID;
+    const envToken = process.env.WHATSAPP_TOKEN;
+    if (envWaba && envToken) {
+      return { wabaId: envWaba, token: envToken, version: this.version };
+    }
+    return null;
+  }
+
+  /**
    * Resuelve el id de la conexión (canal) a partir del phone_number_id que
    * Meta envía en el webhook. Devuelve null si es el del .env o no se conoce.
    */

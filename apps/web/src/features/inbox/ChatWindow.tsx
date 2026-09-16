@@ -24,10 +24,13 @@ import {
   resolveAiActions,
   suggestReply,
   uploadMedia,
+  mediaSrc,
   type UploadedMedia,
 } from "@/lib/bff";
 import { toast } from "@/lib/toast";
 import { MessageText } from "./MessageText";
+import { SendTemplateDialog } from "./SendTemplateDialog";
+import { SendButtonsDialog } from "./SendButtonsDialog";
 import { MediaBubble } from "./MediaBubble";
 import { AiModeSwitch } from "./AiModeSwitch";
 import { Composer } from "./Composer";
@@ -49,6 +52,24 @@ export function ChatWindow({ conversation }: { conversation: ConversationDto }) 
   const [attachment, setAttachment] = useState<UploadedMedia | null>(null);
   // Mensaje citado en la respuesta que se está redactando.
   const [replyTo, setReplyTo] = useState<MessageDto | null>(null);
+  const [templateOpen, setTemplateOpen] = useState(false);
+  const [buttonsOpen, setButtonsOpen] = useState(false);
+
+  /**
+   * Adjunta un archivo que ya está guardado (el de una respuesta rápida), sin
+   * volver a subirlo. El tamaño real no lo sabemos aquí y no hace falta: solo
+   * se usa para el envío.
+   */
+  function attachSaved(mediaUrl: string, kind: "IMAGE" | "DOCUMENT") {
+    setAttachment({
+      mediaUrl,
+      previewUrl: mediaSrc(mediaUrl) ?? "",
+      kind,
+      mimeType: kind === "IMAGE" ? "image/jpeg" : "application/octet-stream",
+      size: 0,
+      fileName: "Adjunto de la respuesta rápida",
+    });
+  }
   const [search, setSearch] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [ai, setAi] = useState<AiSuggestion | null>(null);
@@ -437,13 +458,40 @@ export function ChatWindow({ conversation }: { conversation: ConversationDto }) 
             uploading={uploadMut.isPending}
             replyTo={replyTo}
             onCancelReply={() => setReplyTo(null)}
+            contact={conversation.contact}
+            onAttachSaved={attachSaved}
+            onOpenTemplates={() => setTemplateOpen(true)}
+            onOpenButtons={() => setButtonsOpen(true)}
+            windowOpen
           />
         </>
       ) : (
         <div style={windowClosed}>
-          Ventana de 24h cerrada. Solo se pueden enviar plantillas aprobadas
-          (Fase 3).
+          <div>
+            Pasaron más de 24h desde el último mensaje del cliente. WhatsApp
+            solo permite escribirle con una plantilla aprobada.
+          </div>
+          <button
+            onClick={() => setTemplateOpen(true)}
+            style={sendTemplateBtn}
+            type="button"
+          >
+            Enviar una plantilla
+          </button>
         </div>
+      )}
+
+      {templateOpen && (
+        <SendTemplateDialog
+          conversationId={conversation.id}
+          onClose={() => setTemplateOpen(false)}
+        />
+      )}
+      {buttonsOpen && (
+        <SendButtonsDialog
+          conversationId={conversation.id}
+          onClose={() => setButtonsOpen(false)}
+        />
       )}
       {sendMut.isError && (
         <div style={{ color: "#ff6b6b", padding: "0 16px 12px", fontSize: 13 }}>
@@ -684,6 +732,15 @@ function MessageBubble({
             <div style={{ opacity: 0.6 }}>[{m.type.toLowerCase()}]</div>
           )
         )}
+        {m.buttons && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 3, marginTop: 6 }}>
+            {m.buttons.map((b) => (
+              <div key={b.id} style={messageButton}>
+                {b.title}
+              </div>
+            ))}
+          </div>
+        )}
         <div style={metaRow(out)}>
           <span style={{ fontSize: 10.5, color: "rgba(230,237,246,0.45)" }}>
             {new Date(m.createdAt).toLocaleTimeString("es", {
@@ -887,6 +944,26 @@ const input: React.CSSProperties = {
 
 const sendBtn: React.CSSProperties = {
   padding: "10px 18px",
+  borderRadius: 8,
+  border: "none",
+  background: "var(--accent)",
+  color: "#f3f8ff",
+  fontWeight: 600,
+  cursor: "pointer",
+};
+
+const messageButton: React.CSSProperties = {
+  background: "rgba(255,255,255,0.08)",
+  color: "#53bdeb",
+  textAlign: "center",
+  borderRadius: 7,
+  padding: "6px 8px",
+  fontSize: 12.5,
+};
+
+const sendTemplateBtn: React.CSSProperties = {
+  marginTop: 10,
+  padding: "8px 14px",
   borderRadius: 8,
   border: "none",
   background: "var(--accent)",

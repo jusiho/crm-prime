@@ -1,7 +1,44 @@
 // Contrato del proveedor de WhatsApp (patrón Adapter).
 // La lógica de negocio depende SOLO de esta interfaz, nunca de Meta directamente.
 
+import type { TemplateButton, TemplateHeader } from "@crm/shared";
+
 export const WHATSAPP_PROVIDER = Symbol("WHATSAPP_PROVIDER");
+
+/** Medio ya resuelto para enviar: subido a Meta (id) o URL pública. */
+export interface MediaRef {
+  id?: string;
+  link?: string;
+  filename?: string;
+}
+
+/** Plantilla lista para enviar: estructura + valores de cada hueco. */
+export interface TemplateSendSpec {
+  name: string;
+  language: string;
+  header: TemplateHeader | null;
+  buttons: TemplateButton[];
+  /** Valores de {{1}}, {{2}}… del cuerpo, en orden. */
+  bodyParams: string[];
+  /** Valor de la variable del encabezado de texto. */
+  headerTextParam?: string;
+  /** Archivo del encabezado IMAGE/VIDEO/DOCUMENT. */
+  headerMedia?: MediaRef;
+  headerLocation?: {
+    latitude: string;
+    longitude: string;
+    name?: string;
+    address?: string;
+  };
+  /** Sufijo dinámico de los botones de URL, por posición del botón. */
+  urlButtonParams?: { index: number; value: string }[];
+}
+
+/** Botón de un mensaje interactivo (sin plantilla, dentro de las 24h). */
+export interface InteractiveButton {
+  id: string;
+  title: string;
+}
 
 export interface SendResult {
   waMessageId: string;
@@ -37,14 +74,25 @@ export interface WhatsAppProvider {
   ): Promise<SendResult>;
 
   /**
-   * Envía un mensaje de plantilla (obligatorio fuera de la ventana de 24h).
-   * `variables` son los valores posicionales del cuerpo ({{1}}, {{2}}…).
+   * Envía un mensaje de plantilla (obligatorio fuera de la ventana de 24h),
+   * con todos sus componentes: encabezado (texto, archivo o ubicación),
+   * cuerpo y botones dinámicos.
    */
   sendTemplate(
     to: string,
-    templateName: string,
-    language: string,
-    variables: string[],
+    spec: TemplateSendSpec,
+    fromPhoneNumberId?: string,
+  ): Promise<SendResult>;
+
+  /**
+   * Mensaje con botones de respuesta rápida, sin plantilla. Solo vale dentro
+   * de la ventana de 24h, pero no necesita aprobación de Meta.
+   */
+  sendInteractiveButtons(
+    to: string,
+    body: string,
+    buttons: InteractiveButton[],
+    options?: { header?: string; footer?: string },
     fromPhoneNumberId?: string,
   ): Promise<SendResult>;
 
