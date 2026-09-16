@@ -5,6 +5,7 @@ import { NavIcon, type IconName } from "@/components/NavIcons";
 import { WhatsAppConnect } from "@/features/whatsapp/WhatsAppConnect";
 import { TagsManager } from "./TagsManager";
 import { QuickRepliesSettings } from "./QuickRepliesSettings";
+import { MetaLeadsSettings } from "./MetaLeadsSettings";
 import { AiSettings } from "./AiSettings";
 import { ApiKeysSettings } from "./ApiKeysSettings";
 import { IntegrationsSettings } from "./IntegrationsSettings";
@@ -19,6 +20,7 @@ type TabKey =
   | "tags"
   | "quickReplies"
   | "channels"
+  | "metaLeads"
   | "sources"
   | "fields"
   | "stages"
@@ -31,6 +33,7 @@ const TABS: { key: TabKey; label: string; icon: IconName }[] = [
   { key: "tags", label: "Etiquetas", icon: "tag" },
   { key: "quickReplies", label: "Respuestas rápidas", icon: "zap" },
   { key: "channels", label: "Canales", icon: "whatsapp" },
+  { key: "metaLeads", label: "Leads de Meta", icon: "megaphone" },
   { key: "sources", label: "Fuentes", icon: "target" },
   { key: "fields", label: "Campos personalizados", icon: "puzzle" },
   { key: "stages", label: "Etapas del pipeline", icon: "pipeline" },
@@ -62,6 +65,7 @@ export function SettingsManager() {
         {tab === "tags" && <TagsManager />}
         {tab === "quickReplies" && <QuickRepliesSettings />}
         {tab === "channels" && <WhatsAppConnect />}
+        {tab === "metaLeads" && <MetaLeadsSettings />}
         {tab === "sources" && <SourcesSettings />}
         {tab === "fields" && <CustomFieldsSettings />}
         {tab === "stages" && <StagesSettings />}

@@ -265,6 +265,7 @@ model Contact {
   tags          ContactTag[]
   conversations Conversation[]
   deals         Deal[]
+  metaLeads     MetaLead[]
 
   @@index([optIn])
   @@index([lastMessageAt])
@@ -318,8 +319,9 @@ model Source {
   color     String?
   createdAt DateTime @default(now())
 
-  contacts Contact[]
-  users    UserSource[] // vendedores que atienden esta fuente
+  contacts  Contact[]
+  users     UserSource[] // vendedores que atienden esta fuente
+  metaPages MetaPage[]
 
   @@map("sources")
 }
@@ -484,10 +486,71 @@ model Template {
 
   campaigns Campaign[]
   messages  Message[]
+  metaPages MetaPage[]
 
   // Meta identifica una plantilla por nombre + idioma.
   @@unique([name, language])
   @@map("templates")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Formularios de Meta (Lead Ads)
+// ─────────────────────────────────────────────────────────────
+
+// Página de Facebook conectada. Su token es de página (no de usuario): es el
+// que Meta exige para suscribirse a `leadgen` y para leer cada lead.
+model MetaPage {
+  id           String    @id @default(cuid())
+  pageId       String    @unique
+  name         String
+  accessToken  String
+  isActive     Boolean   @default(true)
+  subscribedAt DateTime?
+  // Qué hacer con los leads de esta página.
+  sourceId     String? // fuente comercial que se asigna al contacto
+  tagIds       Json? // etiquetas a aplicar
+  createDeal   Boolean   @default(false)
+  welcomeTemplateId String? // plantilla de WhatsApp de bienvenida
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  source   Source?   @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+  template Template? @relation(fields: [welcomeTemplateId], references: [id], onDelete: SetNull)
+  leads    MetaLead[]
+
+  @@map("meta_pages")
+}
+
+enum MetaLeadStatus {
+  PROCESSED // se creó o actualizó el contacto
+  NO_PHONE // el formulario no trajo teléfono: queda para revisar
+  ERROR
+}
+
+// Cada lead recibido. Sirve de bandeja para los que llegan sin teléfono y
+// evita duplicados: Meta reintenta el webhook si no responde a la primera.
+model MetaLead {
+  id        String         @id @default(cuid())
+  leadgenId String         @unique
+  pageId    String
+  formId    String?
+  formName  String?
+  adId      String?
+  fieldData Json // respuestas tal cual las manda Meta
+  name      String?
+  phone     String?
+  email     String?
+  status    MetaLeadStatus @default(PROCESSED)
+  error     String?
+  contactId String?
+  createdAt DateTime       @default(now())
+
+  page    MetaPage @relation(fields: [pageId], references: [pageId], onDelete: Cascade)
+  contact Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([pageId])
+  @@map("meta_leads")
 }
 
 // Respuestas rápidas del agente: texto guardado que se inserta en el chat

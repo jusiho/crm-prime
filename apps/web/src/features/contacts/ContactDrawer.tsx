@@ -141,7 +141,7 @@ export function ContactDrawer({
               <span>
                 <strong style={{ fontSize: 13 }}>Acepta mensajes (opt-in)</strong>
                 <div style={hint}>
-                  Sin opt-in, ni el bot ni las campañas le escriben.
+                  Sin opt-in, ni el bot ni las difusiones le escriben.
                 </div>
               </span>
             </label>

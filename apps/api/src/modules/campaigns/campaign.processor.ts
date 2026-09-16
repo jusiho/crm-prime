@@ -120,14 +120,13 @@ export class CampaignProcessor extends WorkerHost {
         data: { failedCount: { increment: 1 } },
       });
       this.logger.warn(
-        `Envío de campaña falló a ${contact.phone}: ${(e as Error).message}`,
+        `Envío de difusión falló a ${contact.phone}: ${(e as Error).message}`,
       );
     }
 
     await this.campaigns.checkCompletion(campaignId);
   }
 
-  // Variables posicionales según el mapeo de la campaña.
   // Reusa la conversación abierta del contacto o crea una nueva.
   private async ensureConversation(
     contactId: string,

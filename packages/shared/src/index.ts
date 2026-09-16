@@ -19,6 +19,7 @@ export * from "./schemas/product.schema.js";
 export * from "./schemas/contact.schema.js";
 export * from "./schemas/tag.schema.js";
 export * from "./schemas/lead-webhook.schema.js";
+export * from "./schemas/meta-leads.schema.js";
 export * from "./schemas/ai-settings.schema.js";
 export * from "./schemas/flow-assistant.schema.js";
 export * from "./schemas/api-key.schema.js";

@@ -80,6 +80,12 @@ import type {
   UpdateProductInput,
   ImportProductsInput,
   ImportProductsResult,
+  MetaPageDto,
+  MetaPagesAvailableResult,
+  ConnectMetaPagesInput,
+  UpdateMetaPageInput,
+  MetaLeadDto,
+  MetaLeadStatusValue,
   ContactListItem,
   UpdateContactInput,
   CreateContactInput,
@@ -666,6 +672,97 @@ export async function deleteQuickReply(id: string): Promise<void> {
   if (!res.ok) throw new Error(await errorMessage(res, "No se pudo eliminar"));
 }
 
+// ── Formularios de Meta (Lead Ads) ───────────────────────────
+export async function fetchMetaPages(): Promise<MetaPageDto[]> {
+  const res = await bffFetch("/api/bff/meta/pages");
+  if (!res.ok) throw new Error("No se pudieron cargar las páginas");
+  return res.json();
+}
+
+/** Paso 1: qué páginas administra el usuario que acaba de entrar con Facebook. */
+export async function fetchAvailableMetaPages(
+  code: string,
+): Promise<MetaPagesAvailableResult> {
+  const res = await bffFetch("/api/bff/meta/pages/available", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code }),
+  });
+  if (!res.ok) {
+    throw new Error(await errorMessage(res, "No se pudo leer tus páginas"));
+  }
+  return res.json();
+}
+
+/** Paso 2: conectar y suscribir las elegidas. */
+export async function connectMetaPages(
+  input: ConnectMetaPagesInput,
+): Promise<MetaPageDto[]> {
+  const res = await bffFetch("/api/bff/meta/pages/connect", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    throw new Error(await errorMessage(res, "No se pudieron conectar las páginas"));
+  }
+  return res.json();
+}
+
+export async function updateMetaPage(
+  id: string,
+  input: UpdateMetaPageInput,
+): Promise<MetaPageDto[]> {
+  const res = await bffFetch(`/api/bff/meta/pages/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo guardar"));
+  return res.json();
+}
+
+export async function resubscribeMetaPage(id: string): Promise<MetaPageDto[]> {
+  const res = await bffFetch(`/api/bff/meta/pages/${id}/resubscribe`, {
+    method: "POST",
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo suscribir"));
+  return res.json();
+}
+
+export async function disconnectMetaPage(id: string): Promise<MetaPageDto[]> {
+  const res = await bffFetch(`/api/bff/meta/pages/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo desconectar"));
+  return res.json();
+}
+
+export async function fetchMetaLeads(
+  status?: MetaLeadStatusValue,
+): Promise<MetaLeadDto[]> {
+  const qs = status ? `?status=${encodeURIComponent(status)}` : "";
+  const res = await bffFetch(`/api/bff/meta/leads${qs}`);
+  if (!res.ok) throw new Error("No se pudieron cargar los leads");
+  return res.json();
+}
+
+export async function convertMetaLead(
+  id: string,
+  phone: string,
+): Promise<{ contactId: string }> {
+  const res = await bffFetch(`/api/bff/meta/leads/${id}/convert`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ phone }),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo convertir"));
+  return res.json();
+}
+
+export async function discardMetaLead(id: string): Promise<void> {
+  const res = await bffFetch(`/api/bff/meta/leads/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo descartar"));
+}
+
 // ── Envíos especiales desde el chat ──────────────────────────
 /** Mensaje con botones (sin plantilla; solo dentro de las 24h). */
 export async function sendInteractive(
@@ -705,16 +802,16 @@ export async function deleteTemplate(id: string): Promise<void> {
   }
 }
 
-// ── Campañas ─────────────────────────────────────────────────
+// ── Difusiones ───────────────────────────────────────────────
 export async function fetchCampaigns(): Promise<CampaignDto[]> {
   const res = await bffFetch("/api/bff/campaigns");
-  if (!res.ok) throw new Error("No se pudieron cargar las campañas");
+  if (!res.ok) throw new Error("No se pudieron cargar las difusiones");
   return res.json();
 }
 
 export async function fetchCampaignMeta(): Promise<CampaignMeta> {
   const res = await bffFetch("/api/bff/campaigns/meta");
-  if (!res.ok) throw new Error("No se pudieron cargar los datos de campaña");
+  if (!res.ok) throw new Error("No se pudieron cargar los datos de la difusión");
   return res.json();
 }
 
@@ -738,7 +835,7 @@ export async function createCampaign(
   });
   if (!res.ok) {
     const b = (await res.json().catch(() => null)) as { message?: string } | null;
-    throw new Error(b?.message ?? "No se pudo crear la campaña");
+    throw new Error(b?.message ?? "No se pudo crear la difusión");
   }
   return res.json();
 }

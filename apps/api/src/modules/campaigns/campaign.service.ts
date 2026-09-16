@@ -41,7 +41,7 @@ export class CampaignService {
       where: { id },
       include: { template: true, channel: true, tags: true },
     });
-    if (!c) throw new NotFoundException("Campaña no encontrada");
+    if (!c) throw new NotFoundException("Difusión no encontrada");
     return this.toDto(c);
   }
 
@@ -107,10 +107,10 @@ export class CampaignService {
 
   async update(id: string, input: UpdateCampaignInput): Promise<CampaignDto> {
     const existing = await this.prisma.campaign.findUnique({ where: { id } });
-    if (!existing) throw new NotFoundException("Campaña no encontrada");
+    if (!existing) throw new NotFoundException("Difusión no encontrada");
     if (existing.status !== "DRAFT" && existing.status !== "SCHEDULED") {
       throw new BadRequestException(
-        "Solo se pueden editar campañas en borrador o programadas.",
+        "Solo se pueden editar difusiones en borrador o programadas.",
       );
     }
 
@@ -144,9 +144,9 @@ export class CampaignService {
 
   async remove(id: string): Promise<{ ok: true }> {
     const c = await this.prisma.campaign.findUnique({ where: { id } });
-    if (!c) throw new NotFoundException("Campaña no encontrada");
+    if (!c) throw new NotFoundException("Difusión no encontrada");
     if (c.status === "RUNNING") {
-      throw new BadRequestException("No puedes eliminar una campaña en curso.");
+      throw new BadRequestException("No puedes eliminar una difusión en curso.");
     }
     await this.prisma.campaign.delete({ where: { id } });
     return { ok: true };
@@ -158,9 +158,9 @@ export class CampaignService {
       where: { id },
       include: { tags: true },
     });
-    if (!c) throw new NotFoundException("Campaña no encontrada");
+    if (!c) throw new NotFoundException("Difusión no encontrada");
     if (c.status === "RUNNING") {
-      throw new BadRequestException("La campaña ya está en curso.");
+      throw new BadRequestException("La difusión ya está en curso.");
     }
 
     // Programada a futuro: encolar un job retrasado que dispara el fan-out.
@@ -226,7 +226,7 @@ export class CampaignService {
 
   async cancel(id: string): Promise<CampaignDto> {
     const c = await this.prisma.campaign.findUnique({ where: { id } });
-    if (!c) throw new NotFoundException("Campaña no encontrada");
+    if (!c) throw new NotFoundException("Difusión no encontrada");
     await this.prisma.campaign.update({
       where: { id },
       data: { status: "CANCELLED" },

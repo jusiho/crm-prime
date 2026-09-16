@@ -24,7 +24,7 @@ export function TagsManager() {
         <h3 style={{ margin: "0 0 4px" }}>Etiquetas</h3>
         <p style={muted}>
           Organiza y segmenta tus contactos. Las etiquetas se usan en la bandeja,
-          en los contactos y al construir audiencias de campañas.
+          en los contactos y al construir audiencias de difusiones.
         </p>
       </header>
 

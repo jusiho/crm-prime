@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "CRM Prime — Convierte WhatsApp en tu mejor vendedor",
     description:
-      "Agentes de IA que atienden, califican y agendan tus leads de WhatsApp las 24 horas. Bandeja en tiempo real, pipeline, campañas y flujos sin código.",
+      "Agentes de IA que atienden, califican y agendan tus leads de WhatsApp las 24 horas. Bandeja en tiempo real, pipeline, difusiones y flujos sin código.",
     type: "website",
     locale: "es_ES",
   },

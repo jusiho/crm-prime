@@ -43,7 +43,7 @@ const NAV: Group[] = [
     items: [
       { key: "bots", href: "/bots", label: "Bots IA", icon: "bot" },
       { key: "flows", href: "/flows", label: "Flujos", icon: "flow" },
-      { key: "campaigns", href: "/campaigns", label: "Campañas", icon: "megaphone" },
+      { key: "campaigns", href: "/difusiones", label: "Difusiones", icon: "megaphone" },
     ],
   },
   {

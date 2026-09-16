@@ -34,7 +34,7 @@ export function CampaignsManager() {
     mutationFn: launchCampaign,
     onSuccess: (c) => {
       toast.success(
-        c.status === "SCHEDULED" ? "Campaña programada" : "Campaña lanzada",
+        c.status === "SCHEDULED" ? "Difusión programada" : "Difusión lanzada",
       );
       queryClient.invalidateQueries({ queryKey: ["campaigns"] });
     },
@@ -53,7 +53,7 @@ export function CampaignsManager() {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div style={{ display: "flex", gap: 6 }}>
           <TabBtn active={tab === "campaigns"} onClick={() => setTab("campaigns")}>
-            Campañas
+            Difusiones
           </TabBtn>
           <TabBtn active={tab === "templates"} onClick={() => setTab("templates")}>
             Plantillas
@@ -61,7 +61,7 @@ export function CampaignsManager() {
         </div>
         {tab === "campaigns" && !wizard && (
           <button onClick={() => setWizard(true)} style={primaryBtn}>
-            + Nueva campaña
+            + Nueva difusión
           </button>
         )}
       </div>
@@ -71,7 +71,7 @@ export function CampaignsManager() {
           <TemplatesPanel />
         ) : wizard ? (
           <>
-            <h2 style={{ marginTop: 0 }}>Nueva campaña</h2>
+            <h2 style={{ marginTop: 0 }}>Nueva difusión</h2>
             <CampaignWizard onDone={() => setWizard(false)} />
           </>
         ) : (
@@ -85,7 +85,7 @@ export function CampaignsManager() {
                 onCancel={() => cancel.mutate(c.id)}
                 onDelete={() => {
                   void confirmDialog({
-                    message: `¿Eliminar la campaña "${c.name}"?`,
+                    message: `¿Eliminar la difusión "${c.name}"?`,
                     danger: true,
                   }).then((ok) => ok && remove.mutate(c.id));
                 }}
@@ -97,7 +97,7 @@ export function CampaignsManager() {
                   <NavIcon name="megaphone" size={34} />
                 </div>
                 <p style={{ color: "var(--muted)" }}>
-                  Aún no hay campañas. Crea plantillas y lanza tu primer broadcast.
+                  Aún no hay difusiones. Crea una plantilla y lanza la primera.
                 </p>
               </div>
             )}

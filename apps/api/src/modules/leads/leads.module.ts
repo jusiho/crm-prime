@@ -6,5 +6,6 @@ import { LeadWebhookController } from "./lead-webhook.controller";
 @Module({
   controllers: [CustomFieldsController, LeadWebhookController],
   providers: [LeadService],
+  exports: [LeadService],
 })
 export class LeadsModule {}

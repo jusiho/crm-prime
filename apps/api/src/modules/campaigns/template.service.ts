@@ -149,7 +149,7 @@ export class TemplateService {
     if (!t) throw new NotFoundException("Plantilla no encontrada");
     if (t._count.campaigns > 0) {
       throw new BadRequestException(
-        "La plantilla se usa en una campaña. Elimina antes esa campaña.",
+        "La plantilla se usa en una difusión. Elimina antes esa difusión.",
       );
     }
     if (t.waTemplateId) {

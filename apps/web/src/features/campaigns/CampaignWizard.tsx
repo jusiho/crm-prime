@@ -128,7 +128,7 @@ export function CampaignWizard({ onDone }: { onDone: () => void }) {
           <SecTitle n={1}>Nombre y plantilla</SecTitle>
           <div style={{ display: "flex", gap: 12, marginTop: 10 }}>
             <div style={{ flex: 1 }}>
-              <div style={label}>Nombre de la campaña</div>
+              <div style={label}>Nombre de la difusión</div>
               <input
                 style={input}
                 value={name}
@@ -324,7 +324,7 @@ export function CampaignWizard({ onDone }: { onDone: () => void }) {
       {/* Resumen */}
       <aside style={{ ...box, width: 280, flexShrink: 0, position: "sticky", top: 20 }}>
         <strong>Resumen</strong>
-        <Summary label="Campaña" value={name || "—"} />
+        <Summary label="Difusión" value={name || "—"} />
         <Summary label="Plantilla" value={template?.name ?? "—"} />
         <Summary
           label="Destinatarios"

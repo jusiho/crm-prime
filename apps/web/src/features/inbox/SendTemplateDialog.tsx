@@ -97,7 +97,7 @@ export function SendTemplateDialog({
           <p style={{ color: "var(--muted)" }}>Cargando plantillas…</p>
         ) : approved.length === 0 ? (
           <p style={{ color: "var(--muted)", fontSize: 13 }}>
-            No tienes plantillas aprobadas. Créalas en Campañas › Plantillas y
+            No tienes plantillas aprobadas. Créalas en Difusiones › Plantillas y
             espera la aprobación de Meta.
           </p>
         ) : (

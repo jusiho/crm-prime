@@ -14,7 +14,7 @@ const TITLES: Record<NavKey, { title: string; subtitle: string }> = {
   products: { title: "Productos", subtitle: "Catálogo de productos y servicios" },
   bots: { title: "Bots IA", subtitle: "Agentes que responden por ti" },
   flows: { title: "Flujos", subtitle: "Automatiza conversaciones paso a paso" },
-  campaigns: { title: "Campañas", subtitle: "Envíos masivos y broadcasts" },
+  campaigns: { title: "Difusiones", subtitle: "Envíos masivos a tus contactos" },
   sellers: { title: "Vendedores", subtitle: "Fuentes y asignación de leads" },
   knowledge: { title: "Conocimiento", subtitle: "Base de conocimiento para la IA" },
   whatsapp: { title: "WhatsApp", subtitle: "Conecta y gestiona tus números" },
