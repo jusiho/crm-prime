@@ -13,8 +13,11 @@ import {
 } from "@nestjs/common";
 import {
   createProductSchema,
+  importProductsSchema,
   updateProductSchema,
   type CreateProductInput,
+  type ImportProductsInput,
+  type ImportProductsResult,
   type ProductDto,
   type UpdateProductInput,
 } from "@crm/shared";
@@ -64,6 +67,77 @@ export class ProductsController {
       },
     });
     return this.toDto(p);
+  }
+
+  /**
+   * Importación masiva desde CSV. El archivo se lee en el navegador (misma
+   * librería que aquí), así que llegan filas ya normalizadas. Una fila con
+   * problemas no aborta el resto: se reporta y se sigue.
+   */
+  @Post("import")
+  async import(
+    @Body(new ZodValidationPipe(importProductsSchema))
+    body: ImportProductsInput,
+  ): Promise<ImportProductsResult> {
+    const result: ImportProductsResult = {
+      created: 0,
+      updated: 0,
+      skipped: 0,
+      errors: [],
+    };
+    // Un mismo SKU repetido dentro del archivo: se queda el primero.
+    const seenSkus = new Set<string>();
+
+    for (const [index, row] of body.rows.entries()) {
+      // Fila 1 = cabecera, así que la primera de datos es la 2 para el usuario.
+      const rowNumber = index + 2;
+      try {
+        if (row.sku && seenSkus.has(row.sku)) {
+          result.skipped++;
+          result.errors.push({
+            row: rowNumber,
+            message: `El SKU "${row.sku}" está repetido en el archivo`,
+          });
+          continue;
+        }
+        if (row.sku) seenSkus.add(row.sku);
+
+        const existing = row.sku
+          ? await this.prisma.product.findUnique({ where: { sku: row.sku } })
+          : null;
+
+        if (existing && !body.updateExisting) {
+          result.skipped++;
+          continue;
+        }
+
+        const data = {
+          name: row.name,
+          sku: row.sku,
+          description: row.description,
+          price: row.price,
+          currency: row.currency,
+          imageUrl: row.imageUrl,
+          isActive: row.isActive,
+        };
+
+        if (existing) {
+          await this.prisma.product.update({ where: { id: existing.id }, data });
+          result.updated++;
+        } else {
+          await this.prisma.product.create({ data });
+          result.created++;
+        }
+      } catch (e) {
+        result.skipped++;
+        result.errors.push({
+          row: rowNumber,
+          message: (e as Error).message.slice(0, 200),
+        });
+      }
+    }
+
+    return result;
   }
 
   @Patch(":id")

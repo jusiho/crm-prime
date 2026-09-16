@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { TagDto } from "@crm/shared";
 import { createTag, deleteTag, fetchTags, updateTag } from "@/lib/bff";
 import { confirmDialog } from "@/lib/confirm";
+import { NavIcon } from "@/components/NavIcons";
 import { toast } from "@/lib/toast";
 
 const DEFAULT_COLOR = "#2c4b7a";
@@ -38,7 +39,9 @@ export function TagsManager() {
         ))}
         {!isPending && tags.length === 0 && (
           <div style={empty}>
-            <div style={{ fontSize: 32 }}>🏷️</div>
+            <div style={{ color: "var(--muted)", opacity: 0.6 }}>
+              <NavIcon name="tag" size={30} />
+            </div>
             <p style={muted}>Aún no hay etiquetas. Crea la primera arriba.</p>
           </div>
         )}
@@ -143,7 +146,7 @@ function TagRow({ tag, onChanged }: { tag: TagDto; onChanged: () => void }) {
         style={dangerBtn}
         title="Eliminar"
       >
-        ✕
+        <NavIcon name="x" size={14} />
       </button>
     </div>
   );

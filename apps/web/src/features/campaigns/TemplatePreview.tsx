@@ -2,12 +2,13 @@
 
 import type { CSSProperties } from "react";
 import type { TemplateButton, TemplateHeader } from "@crm/shared";
+import { NavIcon, type IconName } from "@/components/NavIcons";
 
-const HEADER_ICON: Record<string, string> = {
-  IMAGE: "🖼️",
-  VIDEO: "🎬",
-  DOCUMENT: "📄",
-  LOCATION: "📍",
+const HEADER_ICON: Record<string, IconName> = {
+  IMAGE: "image",
+  VIDEO: "video",
+  DOCUMENT: "file",
+  LOCATION: "map-pin",
 };
 
 const HEADER_TEXT: Record<string, string> = {
@@ -15,6 +16,12 @@ const HEADER_TEXT: Record<string, string> = {
   VIDEO: "Video",
   DOCUMENT: "Documento",
   LOCATION: "Ubicación",
+};
+
+const BUTTON_ICON: Partial<Record<TemplateButton["type"], IconName>> = {
+  URL: "link",
+  PHONE_NUMBER: "phone",
+  COPY_CODE: "copy",
 };
 
 /** Cómo se verá el mensaje en el celular del cliente. */
@@ -37,7 +44,7 @@ export function TemplatePreview({
         )}
         {header && header.format !== "TEXT" && (
           <div style={mediaBox}>
-            <span style={{ fontSize: 22 }}>{HEADER_ICON[header.format]}</span>
+            <NavIcon name={HEADER_ICON[header.format]} size={24} />
             <span style={{ fontSize: 12 }}>{HEADER_TEXT[header.format]}</span>
           </div>
         )}
@@ -57,14 +64,17 @@ export function TemplatePreview({
 
       {buttons.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 4 }}>
-          {buttons.map((b, i) => (
-            <div key={i} style={buttonPill}>
-              {b.type === "URL" && "🔗 "}
-              {b.type === "PHONE_NUMBER" && "📞 "}
-              {b.type === "COPY_CODE" && "📋 "}
-              {b.type === "COPY_CODE" ? `Copiar código (${b.example || "…"})` : b.text || "Botón"}
-            </div>
-          ))}
+          {buttons.map((b, i) => {
+            const icon = BUTTON_ICON[b.type];
+            return (
+              <div key={i} style={buttonPill}>
+                {icon && <NavIcon name={icon} size={14} />}
+                {b.type === "COPY_CODE"
+                  ? `Copiar código (${b.example || "…"})`
+                  : b.text || "Botón"}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
@@ -101,8 +111,11 @@ const mediaBox: CSSProperties = {
 const buttonPill: CSSProperties = {
   background: "#1f2c34",
   color: "#53bdeb",
-  textAlign: "center",
   borderRadius: 8,
   padding: "8px 10px",
   fontSize: 13,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 6,
 };

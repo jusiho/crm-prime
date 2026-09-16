@@ -1,5 +1,6 @@
 "use client";
 
+import { NavIcon } from "@/components/NavIcons";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { confirmDialog } from "@/lib/confirm";
@@ -92,7 +93,9 @@ export function CampaignsManager() {
             ))}
             {campaigns && campaigns.length === 0 && (
               <div style={empty}>
-                <div style={{ fontSize: 38 }}>📣</div>
+                <div style={{ color: "var(--muted)", opacity: 0.6 }}>
+                  <NavIcon name="megaphone" size={34} />
+                </div>
                 <p style={{ color: "var(--muted)" }}>
                   Aún no hay campañas. Crea plantillas y lanza tu primer broadcast.
                 </p>
@@ -126,9 +129,23 @@ function CampaignCard({
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <strong style={{ fontSize: 16 }}>{c.name}</strong>
         <span style={badge(STATUS_COLOR[c.status] ?? "#43506a")}>{c.status}</span>
-        <span style={{ color: "var(--muted)", fontSize: 13 }}>
+        <span
+          style={{
+            color: "var(--muted)",
+            fontSize: 13,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 5,
+          }}
+        >
           {c.template.name}
-          {c.channel ? ` · 📱 ${c.channel.label ?? c.channel.displayPhoneNumber}` : ""}
+          {c.channel && (
+            <>
+              ·
+              <NavIcon name="whatsapp" size={12} />
+              {c.channel.label ?? c.channel.displayPhoneNumber}
+            </>
+          )}
         </span>
         <div style={{ flex: 1 }} />
         {canLaunch && (

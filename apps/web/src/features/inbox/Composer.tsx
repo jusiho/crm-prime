@@ -212,9 +212,16 @@ export function Composer({
                 onClick={() => insertQuickReply(q)}
                 style={quickItem(i === 0)}
               >
-                <strong style={{ fontSize: 12.5 }}>
+                <strong
+                  style={{
+                    fontSize: 12.5,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 5,
+                  }}
+                >
                   {q.shortcut} · {q.title}
-                  {q.mediaUrl ? " 📎" : ""}
+                  {q.mediaUrl && <NavIcon name="paperclip" size={12} />}
                 </strong>
                 <span style={quickBody}>{q.body}</span>
               </button>

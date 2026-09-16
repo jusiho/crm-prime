@@ -1,5 +1,6 @@
 "use client";
 
+import { NavIcon } from "@/components/NavIcons";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { confirmDialog } from "@/lib/confirm";
@@ -206,7 +207,7 @@ function SourcesEditor({
               style={chipX}
               title="Eliminar"
             >
-              ✕
+              <NavIcon name="x" size={12} />
             </button>
           </span>
         ))}

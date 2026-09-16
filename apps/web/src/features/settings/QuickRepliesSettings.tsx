@@ -12,6 +12,7 @@ import {
 } from "@/lib/bff";
 import { confirmDialog } from "@/lib/confirm";
 import { toast } from "@/lib/toast";
+import { NavIcon } from "@/components/NavIcons";
 
 /**
  * Respuestas rápidas: textos guardados que el vendedor inserta escribiendo su
@@ -70,8 +71,17 @@ export function QuickRepliesSettings() {
                 <code style={{ color: "var(--accent)" }}>{r.shortcut}</code>
                 <strong>{r.title}</strong>
                 {r.mediaUrl && (
-                  <span style={{ fontSize: 12, color: "var(--muted)" }}>
-                    📎 {r.mediaType === "IMAGE" ? "imagen" : "documento"}
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 4,
+                      fontSize: 12,
+                      color: "var(--muted)",
+                    }}
+                  >
+                    <NavIcon name={r.mediaType === "IMAGE" ? "image" : "file"} size={13} />
+                    {r.mediaType === "IMAGE" ? "imagen" : "documento"}
                   </span>
                 )}
               </div>

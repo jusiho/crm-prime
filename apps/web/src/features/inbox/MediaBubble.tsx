@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { NavIcon } from "@/components/NavIcons";
 import { mediaSrc } from "@/lib/bff";
 
 /**
@@ -30,7 +31,7 @@ export function MediaBubble({
   if (type !== "IMAGE") {
     return (
       <a href={src} target="_blank" rel="noopener noreferrer" style={docRow}>
-        <span style={{ fontSize: 20 }}>📄</span>
+        <NavIcon name="file" size={19} />
         <span style={{ textDecoration: "underline" }}>
           {caption || "Abrir documento"}
         </span>

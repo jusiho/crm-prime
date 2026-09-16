@@ -2,82 +2,10 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import { signOut } from "@/auth";
 import { readSessionCookie, revokeRefreshToken } from "@/lib/session-token";
-import { NavIcon, type IconName } from "./NavIcons";
+import { NavIcon } from "./NavIcons";
+import { SideNav, type NavKey } from "./SideNav";
 
-export type NavKey =
-  | "inbox"
-  | "contacts"
-  | "pipeline"
-  | "products"
-  | "bots"
-  | "flows"
-  | "campaigns"
-  | "sellers"
-  | "knowledge"
-  | "whatsapp"
-  | "sessions"
-  | "account"
-  | "settings";
-
-type Item = {
-  key: NavKey;
-  href: string;
-  label: string;
-  icon: IconName;
-  adminOnly?: boolean;
-};
-type Group = { label: string; items: Item[] };
-
-const NAV: Group[] = [
-  {
-    label: "Ventas",
-    items: [
-      { key: "inbox", href: "/", label: "Bandeja", icon: "inbox" },
-      { key: "contacts", href: "/contacts", label: "Contactos", icon: "user" },
-      { key: "pipeline", href: "/pipeline", label: "Pipeline", icon: "pipeline" },
-      { key: "products", href: "/products", label: "Productos", icon: "tag" },
-    ],
-  },
-  {
-    label: "Automatización",
-    items: [
-      { key: "bots", href: "/bots", label: "Bots IA", icon: "bot" },
-      { key: "flows", href: "/flows", label: "Flujos", icon: "flow" },
-      { key: "campaigns", href: "/campaigns", label: "Campañas", icon: "megaphone" },
-    ],
-  },
-  {
-    label: "Equipo",
-    items: [
-      {
-        key: "sellers",
-        href: "/sellers",
-        label: "Vendedores",
-        icon: "user",
-        adminOnly: true,
-      },
-    ],
-  },
-  {
-    label: "Recursos",
-    items: [
-      { key: "knowledge", href: "/knowledge", label: "Conocimiento", icon: "book" },
-      { key: "whatsapp", href: "/whatsapp", label: "WhatsApp", icon: "whatsapp" },
-    ],
-  },
-  {
-    label: "Sistema",
-    items: [
-      {
-        key: "settings",
-        href: "/settings",
-        label: "Ajustes",
-        icon: "settings",
-        adminOnly: true,
-      },
-    ],
-  },
-];
+export type { NavKey };
 
 const TITLES: Record<NavKey, { title: string; subtitle: string }> = {
   inbox: { title: "Bandeja", subtitle: "Conversaciones en tiempo real" },
@@ -95,7 +23,7 @@ const TITLES: Record<NavKey, { title: string; subtitle: string }> = {
   settings: { title: "Ajustes", subtitle: "Etiquetas, canales, fuentes y más" },
 };
 
-export function AppShell({
+export async function AppShell({
   email,
   role,
   active,
@@ -107,39 +35,13 @@ export function AppShell({
   children: React.ReactNode;
 }) {
   const head = TITLES[active];
+  // La preferencia del menú se lee en el servidor: así se pinta ya plegado,
+  // sin el salto de verlo ancho un instante.
+  const collapsed = (await cookies()).get("sidebar-collapsed")?.value === "1";
 
   return (
     <div style={shell}>
-      <aside style={sidebar}>
-        <div style={brand}>
-          <span style={brandMark}>P</span>
-          <span style={{ fontWeight: 700, fontSize: 16 }}>CRM Prime</span>
-        </div>
-
-        <nav style={{ padding: "4px 10px", overflowY: "auto", flex: 1 }}>
-          {NAV.map((group) => {
-            const items = group.items.filter(
-              (it) => !it.adminOnly || role === "ADMIN",
-            );
-            if (items.length === 0) return null;
-            return (
-              <div key={group.label}>
-                <div className="nav-group">{group.label}</div>
-                {items.map((it) => (
-                  <Link
-                    key={it.key}
-                    href={it.href}
-                    className={`nav-item${active === it.key ? " active" : ""}`}
-                  >
-                    <NavIcon name={it.icon} />
-                    {it.label}
-                  </Link>
-                ))}
-              </div>
-            );
-          })}
-        </nav>
-      </aside>
+      <SideNav role={role} active={active} initialCollapsed={collapsed} />
 
       <div style={main}>
         <header style={topbar}>
@@ -189,37 +91,6 @@ const shell: React.CSSProperties = {
   display: "flex",
   height: "100vh",
   overflow: "hidden",
-};
-
-const sidebar: React.CSSProperties = {
-  width: "var(--sidebar-w)",
-  flexShrink: 0,
-  background: "var(--sidebar)",
-  borderRight: "1px solid var(--border)",
-  display: "flex",
-  flexDirection: "column",
-};
-
-const brand: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: 10,
-  height: "var(--header-h)",
-  padding: "0 16px",
-  borderBottom: "1px solid var(--border)",
-};
-
-const brandMark: React.CSSProperties = {
-  width: 28,
-  height: 28,
-  borderRadius: 8,
-  background: "var(--accent)",
-  color: "#f3f8ff",
-  fontWeight: 800,
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  fontSize: 15,
 };
 
 const main: React.CSSProperties = {

@@ -78,6 +78,8 @@ import type {
   ProductDto,
   CreateProductInput,
   UpdateProductInput,
+  ImportProductsInput,
+  ImportProductsResult,
   ContactListItem,
   UpdateContactInput,
   CreateContactInput,
@@ -1131,6 +1133,21 @@ export async function updateProduct(
     body: JSON.stringify(input),
   });
   if (!res.ok) throw new Error("No se pudo guardar el producto");
+  return res.json();
+}
+
+/** Importación masiva: las filas ya vienen leídas y normalizadas del CSV. */
+export async function importProducts(
+  input: ImportProductsInput,
+): Promise<ImportProductsResult> {
+  const res = await bffFetch("/api/bff/products/import", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    throw new Error(await errorMessage(res, "No se pudo importar el archivo"));
+  }
   return res.json();
 }
 

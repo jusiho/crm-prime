@@ -1,5 +1,6 @@
 "use client";
 
+import { NavIcon } from "@/components/NavIcons";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -114,8 +115,9 @@ export function AiSettings() {
         </div>
 
         {test && (
-          <div style={testBox(test.ok)}>
-            {test.ok ? "✓" : "✕"} {test.message}
+          <div style={{ ...testBox(test.ok), display: "flex", alignItems: "center", gap: 6 }}>
+            <NavIcon name={test.ok ? "check" : "x"} size={14} />
+            {test.message}
             {test.ok && (
               <span style={{ color: "var(--muted)" }}>
                 {" "}

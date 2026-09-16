@@ -39,7 +39,22 @@ export type IconName =
   | "zap"
   | "x"
   | "alert"
-  | "smile";
+  | "smile"
+  // Plantillas y ajustes
+  | "video"
+  | "map-pin"
+  | "link"
+  | "phone"
+  | "copy"
+  | "key"
+  | "plug"
+  | "antenna"
+  | "puzzle"
+  | "target"
+  | "trophy"
+  | "package"
+  | "arrow-left"
+  | "arrow-up";
 
 export function NavIcon({ name, size = 18 }: { name: IconName; size?: number }) {
   const p = {
@@ -291,6 +306,114 @@ export function NavIcon({ name, size = 18 }: { name: IconName; size?: number }) 
           <path d="M12 8.5v5" />
           <circle cx="12" cy="17" r="0.9" fill="currentColor" stroke="none" />
           <path d="M10.3 3.6 1.9 18a2 2 0 0 0 1.7 3h16.8a2 2 0 0 0 1.7-3L13.7 3.6a2 2 0 0 0-3.4 0z" />
+        </svg>
+      );
+    case "video":
+      return (
+        <svg {...p}>
+          <rect x="2.5" y="6" width="13" height="12" rx="2.5" />
+          <path d="m15.5 10.5 5-2.7v8.4l-5-2.7z" />
+        </svg>
+      );
+    case "map-pin":
+      return (
+        <svg {...p}>
+          <path d="M19 10.2c0 5-7 11-7 11s-7-6-7-11a7 7 0 1 1 14 0z" />
+          <circle cx="12" cy="10" r="2.6" />
+        </svg>
+      );
+    case "link":
+      return (
+        <svg {...p}>
+          <path d="M10.2 13.8a4.2 4.2 0 0 0 6 0l3-3a4.24 4.24 0 0 0-6-6l-1.7 1.7" />
+          <path d="M13.8 10.2a4.2 4.2 0 0 0-6 0l-3 3a4.24 4.24 0 0 0 6 6l1.7-1.7" />
+        </svg>
+      );
+    case "phone":
+      return (
+        <svg {...p}>
+          <path d="M21.5 16.9v2.8a2 2 0 0 1-2.2 2 19.6 19.6 0 0 1-8.5-3 19.3 19.3 0 0 1-6-6 19.6 19.6 0 0 1-3-8.6A2 2 0 0 1 3.8 2h2.8a2 2 0 0 1 2 1.7c.1 1 .3 1.9.7 2.8a2 2 0 0 1-.5 2.1L7.6 9.9a16 16 0 0 0 6 6l1.3-1.2a2 2 0 0 1 2.1-.5c.9.4 1.8.6 2.8.7a2 2 0 0 1 1.7 2z" />
+        </svg>
+      );
+    case "copy":
+      return (
+        <svg {...p}>
+          <rect x="9" y="9" width="12" height="12" rx="2.5" />
+          <path d="M5.5 15H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v.5" />
+        </svg>
+      );
+    case "key":
+      return (
+        <svg {...p}>
+          <circle cx="7.5" cy="15.5" r="4" />
+          <path d="m10.4 12.6 8.6-8.6" />
+          <path d="m16.5 6.5 2.3 2.3" />
+          <path d="m13.8 9.2 2.3 2.3" />
+        </svg>
+      );
+    case "plug":
+      return (
+        <svg {...p}>
+          <path d="M9 2.5v6" />
+          <path d="M15 2.5v6" />
+          <path d="M6.5 8.5h11v3a5.5 5.5 0 0 1-11 0z" />
+          <path d="M12 17v4.5" />
+        </svg>
+      );
+    case "antenna":
+      return (
+        <svg {...p}>
+          <circle cx="12" cy="12" r="2.2" />
+          <path d="M8.1 8.1a5.5 5.5 0 0 0 0 7.8" />
+          <path d="M15.9 15.9a5.5 5.5 0 0 0 0-7.8" />
+          <path d="M5.3 5.3a9.5 9.5 0 0 0 0 13.4" />
+          <path d="M18.7 18.7a9.5 9.5 0 0 0 0-13.4" />
+        </svg>
+      );
+    case "puzzle":
+      return (
+        <svg {...p}>
+          <path d="M10.3 3.5a2 2 0 0 1 3.4 1.4v1.4h1.4a2 2 0 0 1 2 2v1.4h1.4a2 2 0 0 1 0 4h-1.4v3.4a2 2 0 0 1-2 2h-3.4v-1.4a2 2 0 0 0-4 0v1.4H4.3a2 2 0 0 1-2-2v-3.4h1.4a2 2 0 0 0 0-4H2.3V6.3a2 2 0 0 1 2-2h5.4z" />
+        </svg>
+      );
+    case "target":
+      return (
+        <svg {...p}>
+          <circle cx="12" cy="12" r="9" />
+          <circle cx="12" cy="12" r="5" />
+          <circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none" />
+        </svg>
+      );
+    case "arrow-left":
+      return (
+        <svg {...p}>
+          <path d="M19.5 12h-15" />
+          <path d="M10.8 5.8 4.5 12l6.3 6.2" />
+        </svg>
+      );
+    case "arrow-up":
+      return (
+        <svg {...p}>
+          <path d="M12 19.5v-15" />
+          <path d="M5.8 10.8 12 4.5l6.2 6.3" />
+        </svg>
+      );
+    case "trophy":
+      return (
+        <svg {...p}>
+          <path d="M7 4h10v5a5 5 0 0 1-10 0z" />
+          <path d="M7 5.5H4.5v1A3.5 3.5 0 0 0 8 10" />
+          <path d="M17 5.5h2.5v1A3.5 3.5 0 0 1 16 10" />
+          <path d="M12 14v3.5" />
+          <path d="M8.5 21h7l-.8-3.5H9.3z" />
+        </svg>
+      );
+    case "package":
+      return (
+        <svg {...p}>
+          <path d="m12 2.8 8.5 4.6v9.2L12 21.2 3.5 16.6V7.4z" />
+          <path d="m3.7 7.3 8.3 4.5 8.3-4.5" />
+          <path d="M12 11.8v9.4" />
         </svg>
       );
     case "settings":

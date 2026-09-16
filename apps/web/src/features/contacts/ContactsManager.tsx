@@ -203,8 +203,9 @@ function CustomFieldsPanel({ fields }: { fields: CustomFieldDto[] }) {
                 }).then((ok) => ok && remove.mutate(f.id));
               }}
               style={chipX}
+              title="Eliminar"
             >
-              ✕
+              <NavIcon name="x" size={12} />
             </button>
           </span>
         ))}
