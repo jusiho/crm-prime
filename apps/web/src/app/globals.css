@@ -8,6 +8,22 @@
   --accent: #3578ff;
   --accent-soft: rgba(53, 120, 255, 0.14);
 
+  /* Superficies de formulario: el fondo hundido de inputs y selects, y el
+     de las tarjetas que flotan sobre el panel. */
+  --field: #0d1320;
+  --surface: #131a26;
+  /* Tinta sobre el acento: el texto que va encima del azul de marca. */
+  --accent-ink: #f3f8ff;
+
+  /* Estados. Se usaban en media app sin declararlos, asi que el punto de
+     "sin responder" salia invisible: var(--x) sin respaldo no pinta nada. */
+  --positive: #7ee2a8;
+  --positive-soft: rgba(126, 226, 168, 0.14);
+  --warning: #e0a458;
+  --warning-soft: rgba(224, 164, 88, 0.14);
+  --danger: #e08a8a;
+  --danger-soft: rgba(224, 138, 138, 0.14);
+
   --sidebar: #0d121d;
   --sidebar-hover: #16202f;
 
@@ -215,13 +231,34 @@ code {
   background: var(--accent);
 }
 
-/* Reacciones en mensajes (aparece al pasar el cursor sobre la burbuja) */
-.msg-row .react-trigger {
+/* Acciones de un mensaje (responder / reaccionar). Aparecen al pasar el
+   cursor o al enfocar con el teclado: quien navega con Tab tambien las ve. */
+.msg-row .msg-actions {
   opacity: 0;
   transition: opacity 0.12s ease;
 }
-.msg-row:hover .react-trigger {
+.msg-row:hover .msg-actions,
+.msg-row:focus-within .msg-actions {
   opacity: 1;
+}
+
+.msg-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--field);
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.12s ease, background 0.12s ease;
+}
+.msg-action:hover {
+  color: var(--text);
+  background: var(--sidebar-hover);
 }
 
 /* Animaciones de carga */

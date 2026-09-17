@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { NavIcon } from "@/components/NavIcons";
 import { mediaSrc } from "@/lib/bff";
+import { useT } from "@/i18n/I18nProvider";
 
 /**
  * Pinta el medio de un mensaje. Las imágenes se muestran en línea y se
@@ -20,12 +21,17 @@ export function MediaBubble({
   type: string;
   caption: string | null;
 }) {
+  const t = useT();
   const src = mediaSrc(mediaUrl);
   const [zoom, setZoom] = useState(false);
   const [failed, setFailed] = useState(false);
 
   if (!src) {
-    return <div style={fallback}>[{type.toLowerCase()} no disponible]</div>;
+    return (
+      <div style={fallback}>
+        {t("inbox.mediaUnavailable", { type: type.toLowerCase() })}
+      </div>
+    );
   }
 
   if (type !== "IMAGE") {
@@ -33,14 +39,18 @@ export function MediaBubble({
       <a href={src} target="_blank" rel="noopener noreferrer" style={docRow}>
         <NavIcon name="file" size={19} />
         <span style={{ textDecoration: "underline" }}>
-          {caption || "Abrir documento"}
+          {caption || t("inbox.openDocument")}
         </span>
       </a>
     );
   }
 
   if (failed) {
-    return <div style={fallback}>[imagen no disponible]</div>;
+    return (
+      <div style={fallback}>
+        {t("inbox.mediaUnavailable", { type: t("inbox.imageAlt") })}
+      </div>
+    );
   }
 
   return (
@@ -48,7 +58,7 @@ export function MediaBubble({
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={src}
-        alt={caption ?? "imagen"}
+        alt={caption ?? t("inbox.imageAlt")}
         onClick={() => setZoom(true)}
         onError={() => setFailed(true)}
         style={thumb}
@@ -56,7 +66,7 @@ export function MediaBubble({
       {zoom && (
         <div style={overlay} onClick={() => setZoom(false)}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={src} alt={caption ?? "imagen"} style={full} />
+          <img src={src} alt={caption ?? t("inbox.imageAlt")} style={full} />
         </div>
       )}
     </>

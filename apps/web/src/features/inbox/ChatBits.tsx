@@ -1,6 +1,8 @@
 "use client";
 
 import { NavIcon } from "@/components/NavIcons";
+import { useLocale, useT } from "@/i18n/I18nProvider";
+import type { MessageKey } from "@/i18n/translate";
 
 /**
  * Piezas pequeñas del hilo: estado de entrega, separador de día, esqueleto de
@@ -11,15 +13,15 @@ import { NavIcon } from "@/components/NavIcons";
  */
 
 // ── Estado de entrega ────────────────────────────────────────
-// Un tick = enviado, dos = entregado, dos en acento = leído. Es la convención
+// Un tick = enviado, dos = entregado, dos en azul = leído. Es la convención
 // que el vendedor ya conoce de WhatsApp; antes esto decía "sent"/"delivered"
 // en minúsculas, que no se lee de un vistazo.
-const STATUS_LABEL: Record<string, string> = {
-  QUEUED: "En cola",
-  SENT: "Enviado",
-  DELIVERED: "Entregado",
-  READ: "Leído",
-  FAILED: "No se pudo enviar",
+const STATUS_KEY: Record<string, MessageKey> = {
+  QUEUED: "inbox.deliveryQueued",
+  SENT: "inbox.deliverySent",
+  DELIVERED: "inbox.deliveryDelivered",
+  READ: "inbox.deliveryRead",
+  FAILED: "inbox.deliveryFailed",
 };
 
 export function MessageStatus({
@@ -29,7 +31,9 @@ export function MessageStatus({
   status: string;
   author: string;
 }) {
-  const label = STATUS_LABEL[status] ?? status.toLowerCase();
+  const t = useT();
+  const key = STATUS_KEY[status];
+  const label = key ? t(key) : status.toLowerCase();
 
   return (
     <span style={row} title={label}>
@@ -40,7 +44,7 @@ export function MessageStatus({
         </span>
       )}
       {status === "FAILED" ? (
-        <span style={{ ...mark, color: "var(--danger, #e08a8a)" }}>
+        <span style={{ ...mark, color: "var(--danger)" }}>
           <NavIcon name="alert" size={12} />
           {label}
         </span>
@@ -69,25 +73,31 @@ export function MessageStatus({
 
 // ── Separador de día ─────────────────────────────────────────
 export function DaySeparator({ date }: { date: Date }) {
+  const t = useT();
+  const locale = useLocale();
   return (
     <div style={dayWrap}>
-      <span style={dayPill}>{dayLabel(date)}</span>
+      <span style={dayPill}>{dayLabel(date, locale, t)}</span>
     </div>
   );
 }
 
-function dayLabel(date: Date): string {
+function dayLabel(
+  date: Date,
+  locale: string,
+  t: (key: MessageKey) => string,
+): string {
   const today = new Date();
   const yesterday = new Date(today);
   yesterday.setDate(today.getDate() - 1);
 
   const same = (a: Date, b: Date) => a.toDateString() === b.toDateString();
-  if (same(date, today)) return "Hoy";
-  if (same(date, yesterday)) return "Ayer";
+  if (same(date, today)) return t("inbox.today");
+  if (same(date, yesterday)) return t("inbox.yesterday");
 
   // Dentro del año en curso no hace falta repetir el año.
   const sameYear = date.getFullYear() === today.getFullYear();
-  return date.toLocaleDateString("es", {
+  return date.toLocaleDateString(locale, {
     weekday: "long",
     day: "numeric",
     month: "long",
@@ -141,11 +151,12 @@ export function MessagesSkeleton() {
 // del CRM, para que el agente humano sepa que el bot va a contestar y no
 // escriba encima.
 export function AiTypingBubble() {
+  const t = useT();
   return (
     <div style={typingRow}>
       <div style={typingBubble}>
         <NavIcon name="sparkles" size={13} />
-        <span style={{ fontSize: 12.5 }}>La IA está escribiendo</span>
+        <span style={{ fontSize: 12.5 }}>{t("inbox.aiTyping")}</span>
         <span style={dots}>
           <i style={{ ...dot, animationDelay: "0ms" }} />
           <i style={{ ...dot, animationDelay: "160ms" }} />
@@ -175,7 +186,7 @@ const aiMark: React.CSSProperties = {
   gap: 3,
   fontSize: 10.5,
   fontWeight: 600,
-  color: "var(--accent, #25d366)",
+  color: "var(--positive)",
   letterSpacing: "0.02em",
 };
 
