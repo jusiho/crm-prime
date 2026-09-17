@@ -3,6 +3,7 @@ import { NestFactory } from "@nestjs/core";
 import { Logger, RequestMethod } from "@nestjs/common";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { AppModule } from "./app.module";
+import { I18nExceptionFilter } from "./common/filters/i18n-exception.filter";
 import { PublicApiModule } from "./modules/public-api/public-api.module";
 
 async function bootstrap() {
@@ -15,6 +16,9 @@ async function bootstrap() {
   app.setGlobalPrefix("api/v1", {
     exclude: [{ path: "api/public/v1/(.*)", method: RequestMethod.ALL }],
   });
+
+  // Traduce los mensajes de error según el idioma del cliente.
+  app.useGlobalFilters(new I18nExceptionFilter());
 
   // CORS para la app móvil (la web pasa por su propio BFF en Next).
   app.enableCors({

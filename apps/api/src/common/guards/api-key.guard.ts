@@ -1,3 +1,4 @@
+import { i18n } from "../../i18n/i18n";
 import {
   CanActivate,
   ExecutionContext,
@@ -56,7 +57,10 @@ export class ApiKeyGuard implements CanActivate {
       const missing = required.filter((s) => !key.scopes.includes(s));
       if (missing.length) {
         throw new ForbiddenException(
-          `La clave "${key.name}" no tiene permiso para esto (falta: ${missing.join(", ")})`,
+          i18n("apiKey.missingScopes", {
+            name: key.name,
+            missing: missing.join(", "),
+          }),
         );
       }
       req.apiKey = key satisfies AuthenticatedApiKey;

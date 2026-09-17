@@ -32,6 +32,7 @@ import {
   type MetaTemplateComponent,
   type TemplateDefinition,
 } from "./meta-template.client";
+import { i18n } from "../../i18n/i18n";
 
 @Injectable()
 export class TemplateService {
@@ -60,7 +61,7 @@ export class TemplateService {
     });
     if (duplicate) {
       throw new BadRequestException(
-        `Ya existe una plantilla "${input.name}" en idioma ${input.language}.`,
+        i18n("template.duplicate", { name: input.name, language: input.language }),
       );
     }
 
@@ -273,7 +274,7 @@ export class TemplateService {
     const declared = variables.length;
     if (used !== declared) {
       throw new BadRequestException(
-        `El cuerpo usa ${used} variable(s) y hay ${declared} definida(s). Deben coincidir.`,
+        i18n("template.variableMismatch", { used, declared }),
       );
     }
     const indexes = variables.map((v) => v.index).sort((a, b) => a - b);

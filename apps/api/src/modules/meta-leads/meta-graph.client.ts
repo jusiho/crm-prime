@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, Logger } from "@nestjs/common";
 import type { MetaLeadField } from "@crm/shared";
 import { IntegrationSettingsService } from "../integrations/integration-settings.service";
+import { i18n } from "../../i18n/i18n";
 
 // Llamadas a la Graph API para Lead Ads:
 //   code            -> token de usuario (larga duración)
@@ -101,7 +102,7 @@ export class MetaGraphClient {
     } | null;
     if (!res.ok || data?.success === false) {
       throw new BadRequestException(
-        `No se pudo suscribir la página: ${data?.error?.message ?? `HTTP ${res.status}`}`,
+        i18n("meta.subscribeFailed", { reason: data?.error?.message ?? `HTTP ${res.status}` }),
       );
     }
   }
@@ -163,7 +164,7 @@ export class MetaGraphClient {
     if (!res.ok || !data) {
       const msg =
         data?.error?.error_user_msg ?? data?.error?.message ?? `HTTP ${res.status}`;
-      this.logger.error(`No se pudo ${what}: ${msg}`);
+      this.logger.error(i18n("meta.requestFailed", { what, reason: msg }));
       throw new BadRequestException(`No se pudo ${what}: ${msg}`);
     }
     return data;

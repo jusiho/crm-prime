@@ -10,6 +10,7 @@ import type {
   UpdateQuickReplyInput,
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
+import { i18n } from "../../i18n/i18n";
 
 @Injectable()
 export class QuickReplyService {
@@ -67,7 +68,7 @@ export class QuickReplyService {
   private async assertShortcutFree(shortcut: string): Promise<void> {
     const taken = await this.prisma.quickReply.findUnique({ where: { shortcut } });
     if (taken) {
-      throw new BadRequestException(`El atajo ${shortcut} ya está en uso.`);
+      throw new BadRequestException(i18n("quickReply.shortcutTaken", { shortcut }));
     }
   }
 

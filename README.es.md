@@ -6,6 +6,7 @@ visuales, y conecta esa conversación con el negocio: pipeline de ventas,
 contactos, catálogo de productos y campañas.
 
 [![Licencia: AGPL v3](https://img.shields.io/badge/licencia-AGPL--3.0-blue.svg)](./LICENSE)
+[🇬🇧 Read me in English](./README.md)
 
 > **Estado:** en desarrollo activo. Funciona de punta a punta contra la
 > WhatsApp Cloud API, pero todavía no hay release estable ni garantía de

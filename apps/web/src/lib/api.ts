@@ -1,6 +1,7 @@
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { REFRESH_UNAVAILABLE_HEADER, readSessionCookie } from "@/lib/session-token";
+import { getLocale } from "@/i18n/server";
 
 const API_URL = process.env.API_URL ?? "http://localhost:3001";
 
@@ -82,6 +83,8 @@ export async function apiForward(
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
+      // Para que los mensajes de error vuelvan en el idioma del usuario.
+      "Accept-Language": await getLocale(),
       ...init.headers,
     },
     cache: "no-store",

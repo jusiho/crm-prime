@@ -47,6 +47,7 @@ import {
 } from "../../infra/storage/storage.provider";
 import type { MetaReferral } from "../whatsapp/webhook.types";
 import { TemplateFillService } from "../campaigns/template-fill.service";
+import { i18n } from "../../i18n/i18n";
 
 // Aplana el payload de Meta a nuestra forma, en camelCase y con nulls
 // explícitos, para guardarlo en Conversation.referral.
@@ -678,7 +679,7 @@ export class MessagingService {
       this.notify(conversation.id);
       void failed;
       throw new BadRequestException(
-        `No se pudo enviar la plantilla: ${(e as Error).message}`,
+        i18n("template.sendFailed", { reason: (e as Error).message }),
       );
     }
   }

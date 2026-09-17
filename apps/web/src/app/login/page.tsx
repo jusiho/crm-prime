@@ -3,12 +3,15 @@ import { redirect } from "next/navigation";
 import { AuthError } from "next-auth";
 import { auth, signIn } from "@/auth";
 import { safeCallbackUrl } from "@/lib/session-token";
+import { getTranslator } from "@/i18n/server";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
 export default async function LoginPage({
   searchParams,
 }: {
   searchParams: Promise<{ error?: string; expired?: string; callbackUrl?: string }>;
 }) {
+  const t = await getTranslator();
   const { error, expired, callbackUrl: rawCallback } = await searchParams;
   const callbackUrl = safeCallbackUrl(rawCallback);
   const session = await auth();
@@ -44,40 +47,43 @@ export default async function LoginPage({
         padding: 24,
       }}
     >
+      <div style={{ position: "absolute", top: 20, right: 20 }}>
+        <LanguageSwitcher />
+      </div>
       <form action={login} style={card}>
-        <h1 style={{ marginTop: 0 }}>CRM Prime</h1>
-        <p style={{ color: "var(--muted)", marginTop: -8 }}>Inicia sesión</p>
+        <h1 style={{ marginTop: 0 }}>{t("auth.signInTitle")}</h1>
+        <p style={{ color: "var(--muted)", marginTop: -8 }}>{t("auth.signInSubtitle")}</p>
 
         {error ? (
-          <p style={{ color: "#ff6b6b" }}>Credenciales inválidas.</p>
+          <p style={{ color: "#ff6b6b" }}>{t("auth.invalidCredentials")}</p>
         ) : expired ? (
           <p style={{ color: "var(--muted)" }}>
-            Tu sesión expiró. Vuelve a iniciar sesión.
+            {t("auth.sessionExpired")}
           </p>
         ) : null}
 
         <input type="hidden" name="callbackUrl" value={callbackUrl} />
 
-        <label style={label}>Email</label>
+        <label style={label}>{t("auth.email")}</label>
         <input
           name="email"
           type="email"
           required
-          placeholder="tucorreo@empresa.com"
+          placeholder={t("auth.emailPlaceholder")}
           style={input}
         />
 
-        <label style={label}>Contraseña</label>
+        <label style={label}>{t("auth.password")}</label>
         <input name="password" type="password" required style={input} />
 
         <button type="submit" style={btn}>
-          Entrar
+          {t("auth.signIn")}
         </button>
 
         <p style={{ color: "var(--muted)", fontSize: 13, marginTop: 18, textAlign: "center" }}>
-          ¿No tienes cuenta?{" "}
+          {t("auth.noAccount")}{" "}
           <Link href="/register" style={{ color: "var(--accent)" }}>
-            Regístrate
+            {t("auth.signUp")}
           </Link>
         </p>
       </form>

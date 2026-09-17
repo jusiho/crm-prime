@@ -8,6 +8,7 @@ import type {
 } from "@crm/shared";
 import { IntegrationSettingsService } from "../integrations/integration-settings.service";
 import { WhatsappConnectionService } from "../whatsapp/whatsapp-connection.service";
+import { i18n } from "../../i18n/i18n";
 
 // Gestión de plantillas en Meta (Business Management API):
 //   POST   /{waba-id}/message_templates   crear
@@ -170,7 +171,7 @@ export class MetaTemplateClient {
       const msg =
         data.error?.error_user_msg ?? data.error?.message ?? `HTTP ${res.status}`;
       this.logger.error(`Crear plantilla falló: ${msg}`);
-      throw new BadRequestException(`Meta rechazó la plantilla: ${msg}`);
+      throw new BadRequestException(i18n("template.metaRejected", { reason: msg }));
     }
     return { id: data.id, status: normalizeStatus(data.status) };
   }
@@ -194,7 +195,7 @@ export class MetaTemplateClient {
       };
       if (!res.ok) {
         throw new BadRequestException(
-          `No se pudieron leer las plantillas de Meta: ${data.error?.message ?? res.status}`,
+          i18n("template.listFailed", { reason: data.error?.message ?? res.status }),
         );
       }
       templates.push(...(data.data ?? []));
@@ -246,7 +247,7 @@ export class MetaTemplateClient {
     };
     if (!startRes.ok || !started.id) {
       throw new BadRequestException(
-        `No se pudo iniciar la subida a Meta: ${started.error?.message ?? startRes.status}`,
+        i18n("meta.uploadStartFailed", { reason: started.error?.message ?? startRes.status }),
       );
     }
 
@@ -268,7 +269,7 @@ export class MetaTemplateClient {
     };
     if (!uploadRes.ok || !uploaded.h) {
       throw new BadRequestException(
-        `No se pudo subir el archivo de ejemplo a Meta: ${uploaded.error?.message ?? uploadRes.status}`,
+        i18n("meta.uploadFailed", { reason: uploaded.error?.message ?? uploadRes.status }),
       );
     }
     return uploaded.h;

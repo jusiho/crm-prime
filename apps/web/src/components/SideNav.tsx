@@ -3,6 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { NavIcon, type IconName } from "./NavIcons";
+import { useT } from "@/i18n/I18nProvider";
+import type { MessageKey } from "@/i18n/translate";
 
 export type NavKey =
   | "inbox"
@@ -22,56 +24,56 @@ export type NavKey =
 type Item = {
   key: NavKey;
   href: string;
-  label: string;
+  labelKey: MessageKey;
   icon: IconName;
   adminOnly?: boolean;
 };
-type Group = { label: string; items: Item[] };
+type Group = { labelKey: MessageKey; items: Item[] };
 
 const NAV: Group[] = [
   {
-    label: "Ventas",
+    labelKey: "nav.groupSales",
     items: [
-      { key: "inbox", href: "/", label: "Bandeja", icon: "inbox" },
-      { key: "contacts", href: "/contacts", label: "Contactos", icon: "user" },
-      { key: "pipeline", href: "/pipeline", label: "Pipeline", icon: "pipeline" },
-      { key: "products", href: "/products", label: "Productos", icon: "tag" },
+      { key: "inbox", href: "/", labelKey: "nav.inbox", icon: "inbox" },
+      { key: "contacts", href: "/contacts", labelKey: "nav.contacts", icon: "user" },
+      { key: "pipeline", href: "/pipeline", labelKey: "nav.pipeline", icon: "pipeline" },
+      { key: "products", href: "/products", labelKey: "nav.products", icon: "tag" },
     ],
   },
   {
-    label: "Automatización",
+    labelKey: "nav.groupAutomation",
     items: [
-      { key: "bots", href: "/bots", label: "Bots IA", icon: "bot" },
-      { key: "flows", href: "/flows", label: "Flujos", icon: "flow" },
-      { key: "campaigns", href: "/difusiones", label: "Difusiones", icon: "megaphone" },
+      { key: "bots", href: "/agentes", labelKey: "nav.agents", icon: "bot" },
+      { key: "flows", href: "/flows", labelKey: "nav.flows", icon: "flow" },
+      { key: "campaigns", href: "/difusiones", labelKey: "nav.broadcasts", icon: "megaphone" },
     ],
   },
   {
-    label: "Equipo",
+    labelKey: "nav.groupTeam",
     items: [
       {
         key: "sellers",
         href: "/sellers",
-        label: "Vendedores",
+        labelKey: "nav.sellers",
         icon: "user",
         adminOnly: true,
       },
     ],
   },
   {
-    label: "Recursos",
+    labelKey: "nav.groupResources",
     items: [
-      { key: "knowledge", href: "/knowledge", label: "Conocimiento", icon: "book" },
-      { key: "whatsapp", href: "/whatsapp", label: "WhatsApp", icon: "whatsapp" },
+      { key: "knowledge", href: "/knowledge", labelKey: "nav.knowledge", icon: "book" },
+      { key: "whatsapp", href: "/whatsapp", labelKey: "nav.whatsapp", icon: "whatsapp" },
     ],
   },
   {
-    label: "Sistema",
+    labelKey: "nav.groupSystem",
     items: [
       {
         key: "settings",
         href: "/settings",
-        label: "Ajustes",
+        labelKey: "nav.settings",
         icon: "settings",
         adminOnly: true,
       },
@@ -95,6 +97,7 @@ export function SideNav({
   active: NavKey;
   initialCollapsed: boolean;
 }) {
+  const t = useT();
   const [collapsed, setCollapsed] = useState(initialCollapsed);
 
   function toggle() {
@@ -117,8 +120,8 @@ export function SideNav({
           onClick={toggle}
           className="icon-btn"
           style={toggleBtn}
-          title={collapsed ? "Desplegar menú" : "Plegar menú"}
-          aria-label={collapsed ? "Desplegar menú" : "Plegar menú"}
+          title={collapsed ? t("nav.expand") : t("nav.collapse")}
+          aria-label={collapsed ? t("nav.expand") : t("nav.collapse")}
           aria-expanded={!collapsed}
         >
           <span
@@ -139,11 +142,11 @@ export function SideNav({
           );
           if (items.length === 0) return null;
           return (
-            <div key={group.label}>
+            <div key={group.labelKey}>
               {collapsed ? (
                 <div style={groupSeparator} />
               ) : (
-                <div className="nav-group">{group.label}</div>
+                <div className="nav-group">{t(group.labelKey)}</div>
               )}
               {items.map((it) => (
                 <Link
@@ -151,10 +154,10 @@ export function SideNav({
                   href={it.href}
                   className={`nav-item${active === it.key ? " active" : ""}`}
                   style={collapsed ? collapsedItem : undefined}
-                  title={collapsed ? it.label : undefined}
+                  title={collapsed ? t(it.labelKey) : undefined}
                 >
                   <NavIcon name={it.icon} />
-                  {!collapsed && it.label}
+                  {!collapsed && t(it.labelKey)}
                 </Link>
               ))}
             </div>

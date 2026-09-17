@@ -85,7 +85,7 @@ export function AiSettings() {
   return (
     <Panel
       title="Inteligencia Artificial"
-      subtitle="La API key que usarán los bots, el copilot del inbox y el asistente de flujos. Se guarda cifrada; si la dejas vacía se usa la del archivo .env."
+      subtitle="La API key que usarán los agentes IA, el copilot del inbox y el asistente de flujos. Se guarda cifrada; si la dejas vacía se usa la del archivo .env."
     >
       {/* Estado actual */}
       <div style={card}>

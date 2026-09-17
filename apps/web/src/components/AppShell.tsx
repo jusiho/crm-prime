@@ -4,23 +4,28 @@ import { signOut } from "@/auth";
 import { readSessionCookie, revokeRefreshToken } from "@/lib/session-token";
 import { NavIcon } from "./NavIcons";
 import { SideNav, type NavKey } from "./SideNav";
+import { LanguageSwitcher } from "./LanguageSwitcher";
+import { getTranslator } from "@/i18n/server";
+import type { MessageKey } from "@/i18n/translate";
 
 export type { NavKey };
 
-const TITLES: Record<NavKey, { title: string; subtitle: string }> = {
-  inbox: { title: "Bandeja", subtitle: "Conversaciones en tiempo real" },
-  contacts: { title: "Contactos", subtitle: "Directorio de clientes y leads" },
-  pipeline: { title: "Pipeline", subtitle: "Embudo de ventas y deals" },
-  products: { title: "Productos", subtitle: "Catálogo de productos y servicios" },
-  bots: { title: "Bots IA", subtitle: "Agentes que responden por ti" },
-  flows: { title: "Flujos", subtitle: "Automatiza conversaciones paso a paso" },
-  campaigns: { title: "Difusiones", subtitle: "Envíos masivos a tus contactos" },
-  sellers: { title: "Vendedores", subtitle: "Fuentes y asignación de leads" },
-  knowledge: { title: "Conocimiento", subtitle: "Base de conocimiento para la IA" },
-  whatsapp: { title: "WhatsApp", subtitle: "Conecta y gestiona tus números" },
-  sessions: { title: "Sesiones", subtitle: "Dispositivos con tu cuenta abierta" },
-  account: { title: "Mi cuenta", subtitle: "Perfil, contraseña y seguridad" },
-  settings: { title: "Ajustes", subtitle: "Etiquetas, canales, fuentes y más" },
+// Cada pantalla toma su título del diccionario; la clave es la misma que su
+// entrada en el menú.
+const TITLE_KEYS: Record<NavKey, string> = {
+  inbox: "inbox",
+  contacts: "contacts",
+  pipeline: "pipeline",
+  products: "products",
+  bots: "agents",
+  flows: "flows",
+  campaigns: "broadcasts",
+  sellers: "sellers",
+  knowledge: "knowledge",
+  whatsapp: "whatsapp",
+  sessions: "sessions",
+  account: "account",
+  settings: "settings",
 };
 
 export async function AppShell({
@@ -34,7 +39,8 @@ export async function AppShell({
   active: NavKey;
   children: React.ReactNode;
 }) {
-  const head = TITLES[active];
+  const t = await getTranslator();
+  const page = TITLE_KEYS[active];
   // La preferencia del menú se lee en el servidor: así se pinta ya plegado,
   // sin el salto de verlo ancho un instante.
   const collapsed = (await cookies()).get("sidebar-collapsed")?.value === "1";
@@ -46,17 +52,20 @@ export async function AppShell({
       <div style={main}>
         <header style={topbar}>
           <div>
-            <div style={{ fontSize: 16, fontWeight: 700 }}>{head.title}</div>
+            <div style={{ fontSize: 16, fontWeight: 700 }}>
+              {t(`pages.${page}.title` as MessageKey)}
+            </div>
             <div style={{ fontSize: 12.5, color: "var(--muted)" }}>
-              {head.subtitle}
+              {t(`pages.${page}.subtitle` as MessageKey)}
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <LanguageSwitcher />
             <Link
               href="/account"
               className="user-chip"
               style={{ ...userChip, color: "var(--text)" }}
-              title="Mi cuenta"
+              title={t("nav.myAccount")}
             >
               <span style={avatar}>{(email[0] ?? "?").toUpperCase()}</span>
               <div style={{ lineHeight: 1.2 }}>
@@ -74,7 +83,7 @@ export async function AppShell({
                 await signOut({ redirectTo: "/login" });
               }}
             >
-              <button type="submit" className="icon-btn" title="Salir">
+              <button type="submit" className="icon-btn" title={t("nav.logout")}>
                 <NavIcon name="logout" />
               </button>
             </form>

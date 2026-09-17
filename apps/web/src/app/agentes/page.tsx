@@ -3,7 +3,7 @@ import { auth } from "@/auth";
 import { AppShell } from "@/components/AppShell";
 import { BotsManager } from "@/features/bots/BotsManager";
 
-export default async function BotsPage() {
+export default async function AgentesPage() {
   const session = await auth();
   if (!session) redirect("/login");
   const role = (session.user as { role?: string })?.role;

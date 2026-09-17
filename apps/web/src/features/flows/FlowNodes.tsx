@@ -7,7 +7,7 @@ import { NavIcon, type IconName } from "@/components/NavIcons";
 import { FlowActionsContext, NODE_PALETTE } from "./flowShared";
 
 const ACTION_LABEL: Record<string, string> = {
-  ai: "Pasar a bot IA",
+  ai: "Pasar a agente IA",
   handoff: "Pasar a humano",
   tag: "Poner etiqueta",
   move_deal: "Mover en pipeline",

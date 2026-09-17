@@ -25,6 +25,7 @@ import type { Prisma } from "@prisma/client";
 import { ZodValidationPipe } from "../../common/pipes/zod-validation.pipe";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { PrismaService } from "../../infra/prisma/prisma.service";
+import { i18n } from "../../i18n/i18n";
 
 @Controller("products")
 @UseGuards(JwtAuthGuard)
@@ -180,7 +181,7 @@ export class ProductsController {
     if (!sku) return;
     const dup = await this.prisma.product.findUnique({ where: { sku } });
     if (dup && dup.id !== ignoreId) {
-      throw new ConflictException(`Ya existe un producto con el SKU "${sku}"`);
+      throw new ConflictException(i18n("product.skuTaken", { sku }));
     }
   }
 
