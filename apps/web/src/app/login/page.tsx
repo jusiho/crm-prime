@@ -2,7 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AuthError } from "next-auth";
 import { auth, signIn } from "@/auth";
-import { currentOrg, currentOrgSlug } from "@/lib/org";
+import { currentOrgContext, currentOrgSlug } from "@/lib/org";
+import { OrgNotFound } from "./OrgNotFound";
 
 export default async function LoginPage({
   searchParams,
@@ -13,9 +14,13 @@ export default async function LoginPage({
   if (session) redirect("/");
   const { error } = await searchParams;
 
-  // Empresa del subdominio. Null en una instalación de una sola empresa, o si
-  // alguien entra por el dominio principal.
-  const org = await currentOrg();
+  // Empresa del subdominio. Con DNS comodín cualquier subdominio responde, así
+  // que hay que distinguir "no hay subdominio" de "subdominio que no existe".
+  const ctx = await currentOrgContext();
+  const baseDomain = process.env.SAAS_BASE_DOMAIN ?? "localhost:3000";
+  const org = ctx.kind === "found" ? ctx.org : null;
+  // Hay dominio base configurado = instalación SaaS con subdominios.
+  const esSaaS = !!process.env.SAAS_BASE_DOMAIN;
 
   async function login(formData: FormData) {
     "use server";
@@ -39,6 +44,21 @@ export default async function LoginPage({
     }
   }
 
+  if (ctx.kind === "unknown") {
+    return (
+      <main
+        style={{
+          display: "grid",
+          placeItems: "center",
+          minHeight: "100vh",
+          padding: 24,
+        }}
+      >
+        <OrgNotFound slug={ctx.slug} baseDomain={baseDomain} />
+      </main>
+    );
+  }
+
   return (
     <main
       style={{
@@ -55,7 +75,11 @@ export default async function LoginPage({
         </p>
 
         {error && (
-          <p style={{ color: "#ff6b6b" }}>Credenciales inválidas.</p>
+          <p role="alert" style={{ color: "#e08a8a" }}>
+            {error === "handoff"
+              ? "El pase para entrar ha caducado. Entra con tu correo y la contraseña que elegiste."
+              : "Credenciales inválidas."}
+          </p>
         )}
 
         <label style={label}>Email</label>
@@ -74,12 +98,35 @@ export default async function LoginPage({
           Entrar
         </button>
 
-        <p style={{ color: "var(--muted)", fontSize: 13, marginTop: 18, textAlign: "center" }}>
-          ¿No tienes cuenta?{" "}
-          <Link href="/register" style={{ color: "var(--accent)" }}>
-            Regístrate
-          </Link>
-        </p>
+        {/*
+          Qué se ofrece debajo del formulario depende de dónde estés:
+
+          · Dentro del subdominio de una empresa, NO se ofrece registrarse. Si
+            se ofreciera, cualquiera que supiera el subdominio podría meterse
+            en la lista de usuarios de esa empresa. Se entra por invitación.
+          · En el dominio principal, lo que se crea es una EMPRESA, no un
+            usuario suelto.
+          · Con una sola empresa (open source), todo sigue como siempre.
+        */}
+        {org ? (
+          <p style={pieTexto}>
+            ¿Necesitas acceso? Pídeselo a quien administra {org.name}.
+          </p>
+        ) : esSaaS ? (
+          <p style={pieTexto}>
+            ¿Tu empresa aún no está aquí?{" "}
+            <Link href="/signup" style={{ color: "var(--accent)" }}>
+              Créala en un minuto
+            </Link>
+          </p>
+        ) : (
+          <p style={pieTexto}>
+            ¿No tienes cuenta?{" "}
+            <Link href="/register" style={{ color: "var(--accent)" }}>
+              Regístrate
+            </Link>
+          </p>
+        )}
       </form>
     </main>
   );
@@ -119,4 +166,11 @@ const btn: React.CSSProperties = {
   color: "#f3f8ff",
   fontWeight: 600,
   cursor: "pointer",
+};
+
+const pieTexto: React.CSSProperties = {
+  color: "var(--muted)",
+  fontSize: 13,
+  marginTop: 18,
+  textAlign: "center",
 };

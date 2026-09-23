@@ -4,6 +4,7 @@ import { Logger, RequestMethod } from "@nestjs/common";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { AppModule } from "./app.module";
 import { PublicApiModule } from "./modules/public-api/public-api.module";
+import { corsOrigin } from "./common/utils/cors-origin";
 
 async function bootstrap() {
   // rawBody: true expone req.rawBody para validar la firma del webhook de Meta.
@@ -18,7 +19,7 @@ async function bootstrap() {
 
   // CORS para la app móvil (la web pasa por su propio BFF en Next).
   app.enableCors({
-    origin: process.env.WEB_ORIGIN?.split(",") ?? true,
+    origin: corsOrigin(),
     credentials: true,
   });
 

@@ -9,13 +9,15 @@ import {
 import type { Server, Socket } from "socket.io";
 import type { AccessTokenClaims } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
+import { corsOrigin } from "../../common/utils/cors-origin";
 
 export interface InboxChangedPayload {
   conversationId: string;
 }
 
 @WebSocketGateway({
-  cors: { origin: process.env.WEB_ORIGIN?.split(",") ?? true, credentials: true },
+  // Mismo criterio que la API REST: cualquier subdominio de empresa vale.
+  cors: { origin: corsOrigin(), credentials: true },
 })
 export class RealtimeGateway implements OnGatewayConnection {
   @WebSocketServer() server!: Server;

@@ -54,6 +54,10 @@ export class AuthService {
   );
   private readonly loginAttempts = new Map<string, AttemptRecord>();
 
+  // Pases tras el alta ya canjeados (jti → cuándo deja de importar). Un pase
+  // vive dos minutos; recordar el jti tres cubre cualquier reloj desajustado.
+  private readonly usedHandoffs = new Map<string, number>();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly tenant: TenantService,
@@ -150,6 +154,66 @@ export class AuthService {
     });
 
     return this.issueTokens(user, session.id);
+  }
+
+  // ── Pase tras el alta ──────────────────────────────────────
+  /**
+   * Canjea el pase que devolvió el alta de empresa por una sesión de verdad.
+   *
+   * Existe porque la cookie de sesión pertenece al subdominio de la empresa,
+   * y el alta ocurre en el dominio principal: no hay forma de dejar al
+   * usuario dentro sin cruzar el dominio con algo firmado. Ese algo es un JWT
+   * de dos minutos y **un solo uso**: viaja en la URL, así que acaba en el
+   * historial del navegador y quizá en un log, y por eso no puede servir dos
+   * veces ni durar más que el tiempo de un redirect.
+   */
+  async redeemHandoff(rawToken: string, meta: DeviceMeta): Promise<AuthTokens> {
+    let claims: { sub?: string; org?: string; purpose?: string; jti?: string };
+    try {
+      claims = await this.jwt.verifyAsync(rawToken, {
+        secret: process.env.JWT_ACCESS_SECRET,
+      });
+    } catch {
+      throw new UnauthorizedException("El pase ha caducado o no es válido");
+    }
+    if (claims.purpose !== "handoff" || !claims.sub || !claims.jti || !claims.org) {
+      throw new UnauthorizedException("El pase no es válido");
+    }
+
+    this.pruneHandoffs();
+    if (this.usedHandoffs.has(claims.jti)) {
+      throw new UnauthorizedException("Este pase ya se usó");
+    }
+    this.usedHandoffs.set(claims.jti, Date.now() + 3 * 60_000);
+
+    // Sin contexto de organización todavía —es justo lo que este pase
+    // establece—, así que la carga del usuario va sin filtrar, y la empresa
+    // se comprueba a mano contra la que firmó el alta.
+    const user = await runUnscoped("pase tras el alta: cargar usuario", () =>
+      this.prisma.user.findUnique({ where: { id: claims.sub } }),
+    );
+    if (!user || !user.isActive || user.orgId !== claims.org) {
+      throw new UnauthorizedException("El pase no es válido");
+    }
+
+    const session = await this.prisma.session.create({
+      data: {
+        userId: user.id,
+        platform: meta.platform,
+        deviceName: meta.deviceName ?? null,
+        userAgent: meta.userAgent ?? null,
+        ipAddress: meta.ipAddress ?? null,
+        expiresAt: this.refreshExpiry(),
+      },
+    });
+    return this.issueTokens(user, session.id);
+  }
+
+  private pruneHandoffs(): void {
+    const now = Date.now();
+    for (const [jti, hasta] of this.usedHandoffs) {
+      if (hasta < now) this.usedHandoffs.delete(jti);
+    }
   }
 
   // ── Refresh con rotación + detección de reuso ──────────────

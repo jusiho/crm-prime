@@ -90,12 +90,33 @@ export const registerOrgSchema = z.object({
 });
 export type RegisterOrgInput = z.infer<typeof registerOrgSchema>;
 
-/** Respuesta del alta: dónde tiene que ir el usuario ahora. */
+/**
+ * El alta se rellena en dos pantallas. Cada una valida solo sus campos, con las
+ * mismas reglas que el servidor: son recortes del esquema completo, no copias.
+ */
+export const signupCompanyStepSchema = registerOrgSchema.pick({
+  companyName: true,
+  slug: true,
+});
+export const signupAccountStepSchema = registerOrgSchema.pick({
+  adminName: true,
+  adminEmail: true,
+  password: true,
+});
+
+/** Respuesta del alta: dónde tiene que ir el usuario ahora, y cómo entrar. */
 export interface RegisterOrgResult {
   orgId: string;
   slug: string;
   /** URL completa del panel de la empresa recién creada. */
   url: string;
+  /**
+   * Pase de un solo uso y dos minutos de vida para entrar en el subdominio
+   * nuevo sin volver a teclear la contraseña. La sesión es una cookie de
+   * `acme.trimmo.lat`, y desde `trimmo.lat` no se puede crear: hay que cruzar
+   * el dominio, y esto es lo que cruza con él.
+   */
+  handoffToken: string;
 }
 
 /**

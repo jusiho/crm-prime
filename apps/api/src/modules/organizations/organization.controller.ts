@@ -6,7 +6,9 @@ import {
   Param,
   Post,
   Query,
+  Req,
 } from "@nestjs/common";
+import type { Request } from "express";
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import { registerOrgSchema, type RegisterOrgInput } from "@crm/shared";
 import { ZodValidationPipe } from "../../common/pipes/zod-validation.pipe";
@@ -42,9 +44,10 @@ export class OrganizationController {
   @ApiOperation({ summary: "Da de alta una empresa y su administrador" })
   register(
     @Body(new ZodValidationPipe(registerOrgSchema)) body: RegisterOrgInput,
+    @Req() req: Request,
   ) {
     this.assertSaaS();
-    return this.orgs.register(body);
+    return this.orgs.register(body, req.ip);
   }
 
   @Get("slug-available")

@@ -27,6 +27,14 @@ export const registerSchema = z.object({
 });
 export type RegisterInput = z.infer<typeof registerSchema>;
 
+// ── Pase tras el alta (entrar en el subdominio nuevo) ────────
+export const handoffSchema = z.object({
+  token: z.string().min(1),
+  platform: z.nativeEnum(Platform).default(Platform.WEB),
+  deviceName: z.string().max(120).optional(),
+});
+export type HandoffInput = z.infer<typeof handoffSchema>;
+
 // ── Refresh ──────────────────────────────────────────────────
 export const refreshSchema = z.object({
   refreshToken: z.string().min(1),

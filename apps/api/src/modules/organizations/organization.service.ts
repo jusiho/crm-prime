@@ -1,10 +1,14 @@
 import {
   BadRequestException,
   ConflictException,
+  HttpException,
+  HttpStatus,
   Injectable,
   Logger,
   NotFoundException,
 } from "@nestjs/common";
+import { JwtService } from "@nestjs/jwt";
+import { randomUUID } from "node:crypto";
 import * as bcrypt from "bcryptjs";
 import {
   RESERVED_SUBDOMAINS,
@@ -35,11 +39,24 @@ const PROMPT_POR_DEFECTO = [
   "Nunca inventes información que no puedas verificar con las herramientas.",
 ].join(" ");
 
+/** Altas por IP en la ventana. Cinco empresas por hora es mucho para un humano. */
+const ALTAS_MAX = 5;
+const ALTAS_VENTANA_MS = 60 * 60_000;
+
 @Injectable()
 export class OrganizationService {
   private readonly log = new Logger(OrganizationService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  // Mismo patrón que el límite de intentos de login: en memoria, por proceso.
+  // Con varias instancias detrás del proxy cada una lleva su cuenta, así que
+  // el límite real es N veces esto. Suficiente contra un script; para algo
+  // serio va a Redis, que ya está en la pila.
+  private readonly altas = new Map<string, { count: number; firstAt: number }>();
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly jwt: JwtService,
+  ) {}
 
   /** Dominio bajo el que cuelgan los subdominios: `acme.<base>`. */
   private get baseDomain(): string {
@@ -69,7 +86,9 @@ export class OrganizationService {
    * puede entrar, no puede reintentar porque el slug ya está cogido, y hay que
    * arreglarlo a mano en la base.
    */
-  async register(input: RegisterOrgInput): Promise<RegisterOrgResult> {
+  async register(input: RegisterOrgInput, ip?: string): Promise<RegisterOrgResult> {
+    this.assertAltasPermitidas(ip ?? "?");
+
     const slug = input.slug.toLowerCase();
     if (this.reservado(slug)) {
       throw new BadRequestException("Ese subdominio está reservado, elige otro");
@@ -88,12 +107,12 @@ export class OrganizationService {
     const passwordHash = await bcrypt.hash(input.password, 10);
 
     try {
-      const org = await this.prisma.$transaction(async (tx) => {
+      const { org, adminId } = await this.prisma.$transaction(async (tx) => {
         const creada = await tx.organization.create({
           data: { slug, name: input.companyName },
         });
 
-        await tx.user.create({
+        const admin = await tx.user.create({
           data: {
             orgId: creada.id,
             email: input.adminEmail.toLowerCase().trim(),
@@ -126,11 +145,25 @@ export class OrganizationService {
           },
         });
 
-        return creada;
+        return { org: creada, adminId: admin.id };
       });
 
       this.log.log(`Empresa dada de alta: ${org.slug} (${org.name})`);
-      return { orgId: org.id, slug: org.slug, url: this.urlFor(org.slug) };
+      this.registrarAlta(ip ?? "?");
+
+      // El pase para entrar en el subdominio nuevo sin volver a escribir la
+      // contraseña. Dos minutos y un solo uso (lo hace cumplir AuthService).
+      const handoffToken = await this.jwt.signAsync(
+        { sub: adminId, org: org.id, purpose: "handoff", jti: randomUUID() },
+        { secret: process.env.JWT_ACCESS_SECRET, expiresIn: "2m" },
+      );
+
+      return {
+        orgId: org.id,
+        slug: org.slug,
+        url: this.urlFor(org.slug),
+        handoffToken,
+      };
     } catch (e) {
       // Carrera con otra alta del mismo slug: el índice único lo impidió.
       if ((e as { code?: string }).code === "P2002") {
@@ -175,6 +208,30 @@ export class OrganizationService {
       this.prisma.organization.findUnique({ where: { slug: limpio } }),
     );
     return existe ? { available: false, reason: "Ya está ocupado" } : { available: true };
+  }
+
+  private assertAltasPermitidas(ip: string): void {
+    const rec = this.altas.get(ip);
+    if (!rec) return;
+    if (Date.now() - rec.firstAt > ALTAS_VENTANA_MS) {
+      this.altas.delete(ip);
+      return;
+    }
+    if (rec.count >= ALTAS_MAX) {
+      throw new HttpException(
+        "Demasiadas altas desde esta conexión. Inténtalo dentro de una hora.",
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+  }
+
+  private registrarAlta(ip: string): void {
+    const rec = this.altas.get(ip);
+    if (rec && Date.now() - rec.firstAt <= ALTAS_VENTANA_MS) {
+      rec.count += 1;
+    } else {
+      this.altas.set(ip, { count: 1, firstAt: Date.now() });
+    }
   }
 
   private urlFor(slug: string): string {

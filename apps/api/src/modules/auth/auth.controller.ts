@@ -9,10 +9,13 @@ import {
   Post,
   Req,
   UseGuards,
+  ForbiddenException,
 } from "@nestjs/common";
 import type { Request } from "express";
 import {
   loginSchema,
+  handoffSchema,
+  type HandoffInput,
   registerSchema,
   refreshSchema,
   logoutSchema,
@@ -27,6 +30,7 @@ import {
   type AccessTokenClaims,
 } from "@crm/shared";
 import { ZodValidationPipe } from "../../common/pipes/zod-validation.pipe";
+import { tenancyMode } from "../../infra/tenant/tenant.context";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { AuthService } from "./auth.service";
@@ -35,11 +39,26 @@ import { AuthService } from "./auth.service";
 export class AuthController {
   constructor(private readonly auth: AuthService) {}
 
+  /**
+   * Alta de usuario dentro de una empresa que ya existe.
+   *
+   * En modo SaaS esto se cierra: si estuviera abierto, cualquiera que supiera
+   * el subdominio de una empresa podría crearse una cuenta dentro. Los usuarios
+   * entran por invitación de quien administra, no por formulario público.
+   *
+   * Antes devolvía un 500 ("no hay organización en contexto") porque fallaba
+   * más abajo. Fallar cerrado estaba bien; no explicar por qué, no.
+   */
   @Post("register")
   @HttpCode(201)
   register(
     @Body(new ZodValidationPipe(registerSchema)) body: RegisterInput,
   ) {
+    if (tenancyMode === "multi") {
+      throw new ForbiddenException(
+        "El registro público está desactivado. Pide a quien administra tu empresa que te invite, o crea una empresa nueva.",
+      );
+    }
     return this.auth.register(body);
   }
 
@@ -65,6 +84,22 @@ export class AuthController {
     const orgSlug = body.orgSlug ?? subdominioDe(host);
 
     return this.auth.login({ ...body, orgSlug }, {
+      platform: body.platform,
+      deviceName: body.deviceName,
+      userAgent: req.headers["user-agent"],
+      ipAddress: req.ip,
+    });
+  }
+
+  // Canjea el pase que devolvió el alta de empresa. Público por necesidad:
+  // quien lo trae todavía no tiene sesión.
+  @Post("handoff")
+  @HttpCode(200)
+  handoff(
+    @Body(new ZodValidationPipe(handoffSchema)) body: HandoffInput,
+    @Req() req: Request,
+  ) {
+    return this.auth.redeemHandoff(body.token, {
       platform: body.platform,
       deviceName: body.deviceName,
       userAgent: req.headers["user-agent"],

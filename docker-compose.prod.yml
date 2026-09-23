@@ -66,7 +66,12 @@ services:
       SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-admin1234}
       # Token del webhook de leads entrantes.
       LEAD_WEBHOOK_TOKEN: ${LEAD_WEBHOOK_TOKEN}
-    # Sin "ports": Nginx Proxy Manager lo alcanza por la red "proxy" como crm-api:3001.
+    # Sin "ports": el proxy lo alcanza por la red "proxy" como crm-api:3001.
+    #
+    # OJO: la API NO es interna. Tiene que ser accesible desde fuera, porque
+    # el navegador se conecta a ella directamente para el WebSocket de la
+    # bandeja, y Meta le manda el webhook de WhatsApp. En el proxy va bajo su
+    # propio subdominio (api.tudominio) — ver deploy/nginx/trimmo.conf.
     expose:
       - "3001"
 

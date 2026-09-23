@@ -14,7 +14,12 @@ export default async function SignupPage() {
 
   return (
     <main style={{ display: "grid", placeItems: "center", minHeight: "100vh", padding: 24 }}>
-      <SignupForm baseDomain={process.env.SAAS_BASE_DOMAIN ?? "localhost:3000"} />
+      <div style={{ width: "100%", maxWidth: 400 }}>
+        <p style={{ margin: "0 0 14px", fontWeight: 700, fontSize: 16, letterSpacing: "-0.01em" }}>
+          Trimmo
+        </p>
+        <SignupForm baseDomain={process.env.SAAS_BASE_DOMAIN ?? "localhost:3000"} />
+      </div>
     </main>
   );
 }

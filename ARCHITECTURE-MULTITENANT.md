@@ -635,6 +635,39 @@ Dos altas simultáneas con el mismo slug las resuelve el índice único de la
 base (`P2002` → 409), no la comprobación previa, que solo existe para dar un
 error entendible.
 
+### El alta va en dos pasos, y al terminar ya estás dentro
+
+El formulario pregunta primero por la empresa (nombre y subdominio) y solo
+después por la cuenta. No es estética: el subdominio necesita ida y vuelta al
+servidor para saber si está libre, y resolverlo antes de pedir nada más evita
+el caso peor — rellenar cinco campos y descubrir al final que el nombre estaba
+cogido. Cada paso valida con un recorte del **mismo** esquema Zod que usa el
+servidor (`signupCompanyStepSchema`, `signupAccountStepSchema`), así que los
+mensajes son idénticos y no hay dos verdades. Si el servidor rechaza un campo
+del paso 1 (el subdominio se lo llevó alguien mientras rellenabas la cuenta),
+el formulario vuelve a ese paso con el campo marcado.
+
+**Entrar sin volver a escribir la contraseña.** La sesión es una cookie de
+`acme.trimmo.lat`, y el alta ocurre en `trimmo.lat`: desde ahí no se puede
+dejar al usuario dentro. Lo que cruza el dominio es un **pase** — un JWT con
+`purpose: "handoff"`, dos minutos de vida y `jti` de un solo uso — que el alta
+devuelve y que `acme.trimmo.lat/handoff?token=…` canjea por una sesión real.
+Viaja en la URL, así que acaba en el historial y quizá en un log; por eso no
+sirve dos veces ni dura más que un redirect. Repetirlo lleva al acceso normal
+con un aviso, nunca a un error en blanco.
+
+Los `jti` canjeados se guardan en memoria del proceso, igual que el límite de
+intentos de login. Con varias instancias detrás del proxy, cada una lleva su
+lista: un pase podría canjearse una vez por instancia dentro de los dos
+minutos. Es el mismo compromiso que ya existía y se resuelve igual — Redis,
+que está en la pila — el día que haya más de una instancia.
+
+**Límite de altas: 5 por IP y hora.** Suficiente contra un script tonto, y
+con la misma limitación por instancia de arriba. Lo que **no** está todavía
+es la verificación de correo antes de crear la empresa: hoy cualquiera ocupa
+un subdominio con un correo inventado. Es lo siguiente, junto con las
+invitaciones.
+
 ### Dominios propios del cliente
 
 `crm.acme.com` **no** lo cubre el comodín. Ese caso necesita emisión automática

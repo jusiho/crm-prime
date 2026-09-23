@@ -13,6 +13,8 @@ export default async function RegisterPage({
 }) {
   const session = await auth();
   if (session) redirect("/");
+  // En SaaS no hay usuarios sueltos: se crea una empresa, o te invita la tuya.
+  if (process.env.SAAS_BASE_DOMAIN) redirect("/signup");
   const { error } = await searchParams;
 
   async function register(formData: FormData) {

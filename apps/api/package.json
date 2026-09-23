@@ -15,7 +15,8 @@
     "test:rls": "tsx --test test/rls.test.ts",
     "pretest:rls": "node ../../scripts/setup-rls-test-db.mjs",
     "test:slug": "tsx --test test/org-slug.test.ts",
-    "pretest:tenancy": "node ../../scripts/ensure-test-db.mjs crm_tenancy_test"
+    "pretest:tenancy": "node ../../scripts/ensure-test-db.mjs crm_tenancy_test",
+    "test:cors": "tsx --test test/cors.test.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

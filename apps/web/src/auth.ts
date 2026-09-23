@@ -26,21 +26,37 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // acceso a partir de la cabecera que dejó el middleware, que a su vez
         // salió del Host real del navegador.
         orgSlug: { label: "Organización", type: "hidden" },
+        // Pase de un solo uso que devuelve el alta de empresa. Si viene, no
+        // hay contraseña: la identidad ya la comprobó el alta hace un momento.
+        handoff: { label: "Pase", type: "hidden" },
       },
       async authorize(credentials) {
-        const res = await fetch(`${API_URL}/api/v1/auth/login`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email: credentials?.email,
-            password: credentials?.password,
-            // Va explícito porque esta llamada sale del servidor de Next: el
-            // Host que vería la API sería el suyo, no el del navegador.
-            ...(credentials?.orgSlug ? { orgSlug: credentials.orgSlug } : {}),
-            platform: "WEB",
-            deviceName: "Web",
-          }),
-        });
+        const handoff =
+          typeof credentials?.handoff === "string" ? credentials.handoff : "";
+
+        const res = await fetch(
+          `${API_URL}/api/v1/auth/${handoff ? "handoff" : "login"}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(
+              handoff
+                ? { token: handoff, platform: "WEB", deviceName: "Web" }
+                : {
+                    email: credentials?.email,
+                    password: credentials?.password,
+                    // Va explícito porque esta llamada sale del servidor de
+                    // Next: el Host que vería la API sería el suyo, no el
+                    // del navegador.
+                    ...(credentials?.orgSlug
+                      ? { orgSlug: credentials.orgSlug }
+                      : {}),
+                    platform: "WEB",
+                    deviceName: "Web",
+                  },
+            ),
+          },
+        );
         if (!res.ok) return null;
         const tokens = (await res.json()) as AuthTokens;
         return {
