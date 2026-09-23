@@ -1,5 +1,6 @@
 "use client";
 
+import { NavIcon } from "@/components/NavIcons";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
@@ -142,11 +143,17 @@ export function IntegrationsSettings() {
           onChange={(e) => setVoyageModel(e.target.value)}
         />
 
-        {test && <div style={testBox(test.ok)}>{test.ok ? "✓" : "✕"} {test.message}</div>}
+        {test && (
+          <div style={{ ...testBox(test.ok), display: "flex", alignItems: "center", gap: 6 }}>
+            <NavIcon name={test.ok ? "check" : "x"} size={14} />
+            {test.message}
+          </div>
+        )}
 
         {data.embeddingsProvider === "voyage" && (
-          <p style={{ ...hint, color: "#e0b766" }}>
-            ⚠️ Si cambias de embedder (o pones/quitas la key), los vectores
+          <p style={{ ...hint, color: "#e0b766", display: "flex", alignItems: "flex-start", gap: 6 }}>
+            <NavIcon name="alert" size={14} />
+            Si cambias de embedder (o pones/quitas la key), los vectores
             antiguos dejan de ser comparables: hay que reindexar la base de
             conocimiento.
           </p>

@@ -26,7 +26,7 @@ const NODE_META: Record<string, { icon: IconName; label: string }> = {
 };
 
 const ACTION_LABEL: Record<string, string> = {
-  ai: "Pasar a bot IA",
+  ai: "Pasar a agente IA",
   handoff: "Pasar a humano",
   tag: "Poner etiqueta",
   move_deal: "Mover en pipeline",
@@ -149,13 +149,13 @@ export function NodeInspector({
             </select>
           </Field>
           {data.action === "ai" && (
-            <Field label="Bot que toma la conversación">
+            <Field label="Agente que toma la conversación">
               <select
                 style={input}
                 value={data.botId ?? ""}
                 onChange={(e) => patch({ botId: e.target.value || null })}
               >
-                <option value="">Bot del canal / por defecto</option>
+                <option value="">Agente del canal / por defecto</option>
                 {bots.map((b) => (
                   <option key={b.id} value={b.id}>
                     {b.name}

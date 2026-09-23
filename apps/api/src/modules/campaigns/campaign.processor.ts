@@ -6,7 +6,8 @@ import {
   MessageDirection,
   MessageStatus,
   MessageType,
-  type VariableValue,
+  type TemplateButton,
+  type TemplateHeader,
 } from "@crm/shared";
 import { QUEUE_CAMPAIGN } from "../../infra/queue/queue.constants";
 import { PrismaService } from "../../infra/prisma/prisma.service";
@@ -16,6 +17,7 @@ import {
   type WhatsAppProvider,
 } from "../whatsapp/whatsapp-provider.interface";
 import { CampaignService } from "./campaign.service";
+import { TemplateFillService, normalizeFill } from "./template-fill.service";
 
 type CampaignJob =
   | { kind: "launch"; campaignId: string }
@@ -35,6 +37,7 @@ export class CampaignProcessor extends WorkerHost {
     private readonly prisma: PrismaService,
     private readonly tenant: TenantService,
     private readonly campaigns: CampaignService,
+    private readonly fills: TemplateFillService,
     @Inject(WHATSAPP_PROVIDER) private readonly wa: WhatsAppProvider,
   ) {
     super();
@@ -60,14 +63,27 @@ export class CampaignProcessor extends WorkerHost {
     if (campaign.status === "CANCELLED") return;
     if (!contact.optIn) return; // respeta opt-out
 
-    const variables = this.resolveVariables(
-      (campaign.variableValues as VariableValue[] | null) ?? [],
+    const fill = normalizeFill(campaign.variableValues);
+    const spec = await this.fills.build(
+      {
+        name: campaign.template.name,
+        language: campaign.template.language,
+        header: (campaign.template.header as TemplateHeader | null) ?? null,
+        buttons: (campaign.template.buttons as TemplateButton[] | null) ?? [],
+        body: campaign.template.body,
+      },
+      fill,
       contact,
+      campaign.channel?.phoneNumberId,
     );
+<<<<<<< HEAD
     const preview = this.render(campaign.template.body, variables);
     // Esto corre en un worker, sin petición HTTP detrás: la organización sale
     // del propio contacto, no del contexto.
     const orgId = contact.orgId;
+=======
+    const preview = this.fills.preview(campaign.template.body, spec);
+>>>>>>> 2da1df078dfaeb0e81b9d1a84182da2d2c7e8417
     const conversationId = await this.ensureConversation(
       orgId,
       contactId,
@@ -91,9 +107,7 @@ export class CampaignProcessor extends WorkerHost {
     try {
       const res = await this.wa.sendTemplate(
         contact.phone,
-        campaign.template.name,
-        campaign.template.language,
-        variables,
+        spec,
         campaign.channel?.phoneNumberId,
       );
       await this.prisma.message.update({
@@ -117,32 +131,11 @@ export class CampaignProcessor extends WorkerHost {
         data: { failedCount: { increment: 1 } },
       });
       this.logger.warn(
-        `Envío de campaña falló a ${contact.phone}: ${(e as Error).message}`,
+        `Envío de difusión falló a ${contact.phone}: ${(e as Error).message}`,
       );
     }
 
     await this.campaigns.checkCompletion(campaignId);
-  }
-
-  // Variables posicionales según el mapeo de la campaña.
-  private resolveVariables(
-    values: VariableValue[],
-    contact: { name: string | null; phone: string },
-  ): string[] {
-    return [...values]
-      .sort((a, b) => a.index - b.index)
-      .map((v) => {
-        if (v.source === "contact_name") return contact.name ?? "";
-        if (v.source === "contact_phone") return contact.phone;
-        return v.value ?? "";
-      });
-  }
-
-  private render(body: string, vars: string[]): string {
-    return body.replace(/\{\{\s*(\d+)\s*\}\}/g, (_, n: string) => {
-      const idx = Number(n) - 1;
-      return vars[idx] ?? "";
-    });
   }
 
   // Reusa la conversación abierta del contacto o crea una nueva.

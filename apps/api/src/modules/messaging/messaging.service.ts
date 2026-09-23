@@ -25,7 +25,11 @@ import {
   type MessageDto,
   type ReplyFilter,
   type NoteDto,
+  type SendInteractiveInput,
   type SendMessageInput,
+  type SendTemplateMessageInput,
+  type TemplateButton,
+  type TemplateHeader,
 } from "@crm/shared";
 import type { Prisma } from "@prisma/client";
 import { PrismaService } from "../../infra/prisma/prisma.service";
@@ -43,6 +47,8 @@ import {
   type StorageProvider,
 } from "../../infra/storage/storage.provider";
 import type { MetaReferral } from "../whatsapp/webhook.types";
+import { TemplateFillService } from "../campaigns/template-fill.service";
+import { i18n } from "../../i18n/i18n";
 
 // Aplana el payload de Meta a nuestra forma, en camelCase y con nulls
 // explícitos, para guardarlo en Conversation.referral.
@@ -77,6 +83,8 @@ export interface InboundMessage {
   referral?: MetaReferral;
   /** waMessageId que el cliente citó al responder. */
   replyToWaMessageId?: string;
+  /** Identificador del botón pulsado (plantilla o mensaje interactivo). */
+  buttonPayload?: string;
 }
 
 @Injectable()
@@ -92,6 +100,7 @@ export class MessagingService {
     @Inject(STORAGE_PROVIDER) private readonly storage: StorageProvider,
     private readonly events: EventEmitter2,
     private readonly webhooks: WebhookOutService,
+    private readonly fills: TemplateFillService,
   ) {}
 
   private notify(conversationId: string): void {
@@ -243,6 +252,7 @@ export class MessagingService {
         author: MessageAuthor.CONTACT,
         content: text,
         mediaUrl: msg.mediaUrl,
+        buttonPayload: msg.buttonPayload ?? null,
         status: MessageStatus.DELIVERED,
       },
     });
@@ -555,6 +565,150 @@ export class MessagingService {
     this.notify(msg.conversationId);
   }
 
+  /**
+   * Mensaje con botones (sin plantilla). Solo dentro de la ventana de 24h:
+   * fuera de ella Meta únicamente admite plantillas aprobadas.
+   */
+  async queueInteractive(
+    input: SendInteractiveInput,
+    author: MessageAuthor,
+  ): Promise<MessageDto> {
+    const conversation = await this.prisma.conversation.findUnique({
+      where: { id: input.conversationId },
+    });
+    if (!conversation) throw new NotFoundException("Conversación no encontrada");
+    if (
+      !conversation.windowExpiresAt ||
+      conversation.windowExpiresAt <= new Date()
+    ) {
+      throw new BadRequestException(
+        "Fuera de la ventana de 24h: solo se pueden enviar plantillas aprobadas.",
+      );
+    }
+
+    // El id identifica al botón cuando el contacto lo pulsa (llega por webhook).
+    const buttons = input.buttons.map((b, i) => ({
+      id: b.id?.trim() || `btn_${i + 1}`,
+      title: b.title,
+    }));
+
+    const message = await this.prisma.message.create({
+      data: {
+        conversationId: conversation.id,
+        direction: MessageDirection.OUTBOUND,
+        type: MessageType.TEXT,
+        author,
+        content: input.body,
+        interactive: {
+          buttons,
+          ...(input.header ? { header: input.header } : {}),
+          ...(input.footer ? { footer: input.footer } : {}),
+        } as Prisma.InputJsonValue,
+        status: MessageStatus.QUEUED,
+      },
+    });
+
+    await this.outbound.add("send", { messageId: message.id });
+    await this.prisma.conversation.update({
+      where: { id: conversation.id },
+      data: {
+        awaitingReply: false,
+        ...(author === MessageAuthor.HUMAN
+          ? { aiPausedUntil: new Date(Date.now() + this.humanPauseMs) }
+          : {}),
+      },
+    });
+    this.notify(conversation.id);
+    return this.toMessageDto(message);
+  }
+
+  /**
+   * Envía una plantilla aprobada a la conversación. Es la única forma de
+   * escribir fuera de la ventana de 24h (p. ej. para reactivar un chat).
+   */
+  async sendTemplateMessage(
+    input: SendTemplateMessageInput,
+    author: MessageAuthor,
+  ): Promise<MessageDto> {
+    const [conversation, template] = await Promise.all([
+      this.prisma.conversation.findUnique({
+        where: { id: input.conversationId },
+        include: { contact: true, channel: true },
+      }),
+      this.prisma.template.findUnique({ where: { id: input.templateId } }),
+    ]);
+    if (!conversation) throw new NotFoundException("Conversación no encontrada");
+    if (!template) throw new NotFoundException("Plantilla no encontrada");
+    if (template.status !== "APPROVED") {
+      throw new BadRequestException(
+        "La plantilla no está aprobada por Meta, así que no se puede enviar.",
+      );
+    }
+
+    const from = conversation.channel?.phoneNumberId;
+    const spec = await this.fills.build(
+      {
+        name: template.name,
+        language: template.language,
+        header: (template.header as TemplateHeader | null) ?? null,
+        buttons: (template.buttons as TemplateButton[] | null) ?? [],
+        body: template.body,
+      },
+      input.fill,
+      conversation.contact,
+      from,
+    );
+
+    const message = await this.prisma.message.create({
+      data: {
+        conversationId: conversation.id,
+        templateId: template.id,
+        direction: MessageDirection.OUTBOUND,
+        type: MessageType.TEMPLATE,
+        author,
+        content: this.fills.preview(template.body, spec),
+        mediaUrl: input.fill.headerMediaUrl ?? null,
+        status: MessageStatus.QUEUED,
+      },
+    });
+
+    try {
+      const res = await this.wa.sendTemplate(
+        conversation.contact.phone,
+        spec,
+        from,
+      );
+      const sent = await this.prisma.message.update({
+        where: { id: message.id },
+        data: { waMessageId: res.waMessageId, status: MessageStatus.SENT },
+      });
+      await this.prisma.conversation.update({
+        where: { id: conversation.id },
+        data: {
+          awaitingReply: false,
+          ...(author === MessageAuthor.HUMAN
+            ? { aiPausedUntil: new Date(Date.now() + this.humanPauseMs) }
+            : {}),
+        },
+      });
+      this.notify(conversation.id);
+      return this.toMessageDto(sent);
+    } catch (e) {
+      const failed = await this.prisma.message.update({
+        where: { id: message.id },
+        data: {
+          status: MessageStatus.FAILED,
+          errorReason: (e as Error).message.slice(0, 500),
+        },
+      });
+      this.notify(conversation.id);
+      void failed;
+      throw new BadRequestException(
+        i18n("template.sendFailed", { reason: (e as Error).message }),
+      );
+    }
+  }
+
   // ── Saliente: validar ventana, persistir QUEUED y encolar ──────
   async queueOutbound(
     input: SendMessageInput,
@@ -673,8 +827,21 @@ export class MessagingService {
     const to = message.conversation.contact.phone;
     // Responder por el mismo número (canal) por el que entró la conversación.
     const from = message.conversation.channel?.phoneNumberId;
-    const result =
-      message.type === MessageType.TEXT
+    const interactive = message.interactive as {
+      buttons?: { id: string; title: string }[];
+      header?: string;
+      footer?: string;
+    } | null;
+
+    const result = interactive?.buttons?.length
+      ? await this.wa.sendInteractiveButtons(
+          to,
+          message.content ?? "",
+          interactive.buttons,
+          { header: interactive.header, footer: interactive.footer },
+          from,
+        )
+      : message.type === MessageType.TEXT
         ? await this.wa.sendText(
             to,
             message.content ?? "",
@@ -900,7 +1067,11 @@ export class MessagingService {
     reaction?: string | null;
     status: string;
     createdAt: Date;
+    interactive?: unknown;
   }): MessageDto {
+    const interactive = m.interactive as {
+      buttons?: { id: string; title: string }[];
+    } | null;
     return {
       id: m.id,
       direction: m.direction as MessageDirection,
@@ -908,6 +1079,7 @@ export class MessagingService {
       author: m.author as MessageAuthor,
       content: m.content,
       mediaUrl: m.mediaUrl,
+      buttons: interactive?.buttons?.length ? interactive.buttons : null,
       replyTo: m.replyTo
         ? {
             id: m.replyTo.id,

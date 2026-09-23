@@ -72,7 +72,7 @@ function setupEnv() {
   // por secretos reales para que nadie arranque con uno conocido.
   for (const key of ["JWT_ACCESS_SECRET", "AUTH_SECRET", "APP_ENCRYPTION_KEY"]) {
     const secret = randomBytes(32).toString("base64url");
-    const re = new RegExp(`^#?\\s*${key}=.*$`, "m");
+    const re = new RegExp(`^#?[ \\t]*${key}=.*$`, "m");
     if (re.test(content)) content = content.replace(re, `${key}="${secret}"`);
     else content += `\n${key}="${secret}"\n`;
   }

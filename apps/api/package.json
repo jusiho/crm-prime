@@ -11,12 +11,16 @@
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
+<<<<<<< HEAD
     "test:tenancy": "tsx --test test/tenancy.test.ts",
     "test:rls": "tsx --test test/rls.test.ts",
     "pretest:rls": "node ../../scripts/setup-rls-test-db.mjs",
     "test:slug": "tsx --test test/org-slug.test.ts",
     "pretest:tenancy": "node ../../scripts/ensure-test-db.mjs crm_tenancy_test",
     "test:cors": "tsx --test test/cors.test.ts"
+=======
+    "check:i18n": "tsx scripts/check-i18n.ts"
+>>>>>>> 2da1df078dfaeb0e81b9d1a84182da2d2c7e8417
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

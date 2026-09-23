@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { NavIcon } from "@/components/NavIcons";
 import { confirmDialog } from "@/lib/confirm";
 import type { CreateProductInput, ProductDto } from "@crm/shared";
 import {
@@ -10,6 +11,7 @@ import {
   fetchProducts,
   updateProduct,
 } from "@/lib/bff";
+import { ImportProductsDialog } from "./ImportProductsDialog";
 
 // Al pegar una imagen es fácil olvidar el esquema ("midominio.com/foto.jpg").
 // Se añade https:// para que no lo rechace la validación de URL.
@@ -31,6 +33,7 @@ export function ProductsManager() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<ProductDto | "new" | null>(null);
+  const [importing, setImporting] = useState(false);
 
   const { data: products, isPending } = useQuery({
     queryKey: ["products", search],
@@ -52,10 +55,20 @@ export function ProductsManager() {
           placeholder="Buscar por nombre o SKU…"
           onChange={(e) => setSearch(e.target.value)}
         />
+        <button onClick={() => setImporting(true)} style={ghostBtn}>
+          Importar CSV
+        </button>
         <button onClick={() => setEditing("new")} style={primaryBtn}>
           + Nuevo producto
         </button>
       </div>
+
+      {importing && (
+        <ImportProductsDialog
+          onClose={() => setImporting(false)}
+          onImported={refresh}
+        />
+      )}
 
       {editing && (
         <ProductForm
@@ -78,7 +91,9 @@ export function ProductsManager() {
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={p.imageUrl} alt={p.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
               ) : (
-                <span style={{ fontSize: 28, opacity: 0.4 }}>📦</span>
+                <span style={{ opacity: 0.4 }}>
+                  <NavIcon name="package" size={28} />
+                </span>
               )}
             </div>
             <div style={{ padding: 12 }}>

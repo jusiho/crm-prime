@@ -67,6 +67,14 @@ export class CampaignsController {
     return this.templates.remove(id);
   }
 
+  // Trae del panel de Meta las plantillas ya creadas (y sus estados).
+  @Post("templates/sync")
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
+  syncTemplates() {
+    return this.templates.importFromMeta();
+  }
+
   // ── Campañas ───────────────────────────────────────────────
   @Get("campaigns/meta")
   meta() {

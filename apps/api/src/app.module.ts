@@ -15,6 +15,8 @@ import { UsersModule } from "./modules/users/users.module";
 import { AiModule } from "./modules/ai/ai.module";
 import { KnowledgeModule } from "./modules/knowledge/knowledge.module";
 import { CampaignsModule } from "./modules/campaigns/campaigns.module";
+import { QuickRepliesModule } from "./modules/quick-replies/quick-replies.module";
+import { MetaLeadsModule } from "./modules/meta-leads/meta-leads.module";
 import { SourcesModule } from "./modules/sources/sources.module";
 import { TagsModule } from "./modules/tags/tags.module";
 import { ProductsModule } from "./modules/products/products.module";
@@ -48,6 +50,8 @@ import { HealthController } from "./health.controller";
     KnowledgeModule,
     AiModule,
     CampaignsModule,
+    QuickRepliesModule,
+    MetaLeadsModule,
     SourcesModule,
     TagsModule,
     ProductsModule,

@@ -1,36 +1,46 @@
 "use client";
 
 import type { ConversationDto } from "@crm/shared";
+import { NavIcon } from "@/components/NavIcons";
+import { useT } from "@/i18n/I18nProvider";
+import type { Translator } from "@/i18n/translate";
 
+/** Iniciales del contacto: dos palabras si las hay, si no los últimos dígitos. */
 function initials(name: string | null, phone: string): string {
-  if (name) return name.slice(0, 2).toUpperCase();
-  return phone.slice(-2);
+  const parts = (name ?? "").trim().split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return (parts[0]![0]! + parts[1]![0]!).toUpperCase();
+  if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
+  return phone.replace(/\D/g, "").slice(-2);
 }
 
-function timeAgo(iso: string | null): string {
+function timeAgo(iso: string | null, t: Translator): string {
   if (!iso) return "";
   const diff = Date.now() - new Date(iso).getTime();
   const m = Math.floor(diff / 60000);
-  if (m < 1) return "ahora";
-  if (m < 60) return `${m}m`;
+  if (m < 1) return t("inbox.timeNow");
+  if (m < 60) return t("inbox.timeMinutes", { n: m });
   const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h`;
-  return `${Math.floor(h / 24)}d`;
+  if (h < 24) return t("inbox.timeHours", { n: h });
+  return t("inbox.timeDays", { n: Math.floor(h / 24) });
 }
 
 export function ConversationList({
   conversations,
   selectedId,
   onSelect,
+  emptyMessage,
 }: {
   conversations: ConversationDto[];
   selectedId: string | null;
   onSelect: (c: ConversationDto) => void;
+  emptyMessage?: string;
 }) {
+  const t = useT();
+
   if (conversations.length === 0) {
     return (
       <p style={{ color: "var(--muted)", padding: 16, fontSize: 14 }}>
-        Sin conversaciones todavía.
+        {emptyMessage ?? t("inbox.noConversations")}
       </p>
     );
   }
@@ -47,7 +57,7 @@ export function ConversationList({
             style={{
               display: "flex",
               gap: 12,
-              alignItems: "center",
+              alignItems: "flex-start",
               padding: "12px 16px",
               cursor: "pointer",
               borderBottom: "1px solid var(--border)",
@@ -55,7 +65,7 @@ export function ConversationList({
           >
             <div style={avatar}>{initials(c.contact.name, c.contact.phone)}</div>
             <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+              <div style={topRow}>
                 <strong
                   style={{
                     ...ellipsis,
@@ -66,55 +76,65 @@ export function ConversationList({
                 </strong>
                 <span style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
                   {c.awaitingReply && (
-                    <span
-                      title="Sin responder"
-                      style={{
-                        width: 8,
-                        height: 8,
-                        borderRadius: "50%",
-                        background: "var(--warning)",
-                        boxShadow: "0 0 0 3px color-mix(in srgb, var(--warning) 22%, transparent)",
-                      }}
-                    />
+                    <span title={t("inbox.awaitingReply")} style={pendingDot} />
                   )}
                   <span style={{ color: "var(--muted)", fontSize: 12 }}>
-                    {timeAgo(c.lastMessageAt)}
+                    {timeAgo(c.lastMessageAt, t)}
                   </span>
                 </span>
               </div>
-              <div style={{ color: "var(--muted)", fontSize: 13 }}>
+
+              <div style={{ color: "var(--muted)", fontSize: 13, ...ellipsis }}>
                 {c.contact.phone}
+              </div>
+
+              <div style={badgeRow}>
+                {/* Una conversación fuera de las 24 h no admite texto libre:
+                    es lo primero que hay que saber antes de abrirla. */}
                 {!c.windowOpen && (
-                  <span style={{ color: "#e0a458", marginLeft: 8 }}>
-                    · cerrada 24h
+                  <span
+                    style={{
+                      ...badgeOutline,
+                      color: "var(--warning)",
+                      borderColor: "var(--warning)",
+                    }}
+                  >
+                    <NavIcon name="hourglass" size={10} />
+                    {t("inbox.windowClosedShort")}
                   </span>
                 )}
-              </div>
-              <div style={{ display: "flex", gap: 6, marginTop: 4, flexWrap: "wrap" }}>
                 {c.aiMode === "AUTOPILOT" && (
-                  <span style={badge("#1f6f46")}>🤖 auto</span>
+                  <span style={badgeAccent}>
+                    <NavIcon name="bot" size={10} />
+                    {t("inbox.modeAuto")}
+                  </span>
                 )}
                 {c.aiMode === "COPILOT" && (
-                  <span style={badge("#2c4b7a")}>🤖 copilot</span>
+                  <span style={badgeOutline}>
+                    <NavIcon name="bot" size={10} />
+                    {t("inbox.modeCopilot")}
+                  </span>
                 )}
                 {c.status !== "OPEN" && (
-                  <span style={badge(c.status === "PENDING" ? "#caa14a" : "#7a8aa0")}>
-                    {c.status === "PENDING" ? "pendiente" : "cerrada"}
+                  <span style={badgeOutline}>
+                    {c.status === "PENDING"
+                      ? t("inbox.statusPending")
+                      : t("inbox.statusClosed")}
                   </span>
                 )}
-                <span style={badge(c.assignedAgent ? "#3a5f9d" : "#43506a")}>
-                  {c.assignedAgent
-                    ? (c.assignedAgent.name ?? "asignado")
-                    : "sin asignar"}
+                <span style={badgeOutline}>
+                  <NavIcon name="user" size={10} />
+                  {c.assignedAgent?.name ?? t("inbox.unassigned")}
                 </span>
                 {c.channel && (
-                  <span style={badge("#1f5a6f")}>
-                    📱 {c.channel.label ?? c.channel.displayPhoneNumber}
+                  <span style={badgeOutline}>
+                    <NavIcon name="phone" size={10} />
+                    {c.channel.label ?? c.channel.displayPhoneNumber}
                   </span>
                 )}
-                {c.contact.tags.map((t) => (
-                  <span key={t.name} style={badge(tagColor(t.color))}>
-                    {t.name}
+                {c.contact.tags.map((tag) => (
+                  <span key={tag.name} style={badgeTag(tag.color)}>
+                    {tag.name}
                   </span>
                 ))}
               </div>
@@ -154,22 +174,70 @@ export function ConversationListSkeleton() {
   );
 }
 
-function tagColor(color: string | null): string {
-  if (color && /^#?[0-9a-fA-F]{3,8}$/.test(color)) {
-    return color.startsWith("#") ? color : `#${color}`;
-  }
-  return "#2c4b7a";
-}
+const topRow: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: 8,
+};
 
-function badge(bg: string): React.CSSProperties {
+const pendingDot: React.CSSProperties = {
+  width: 8,
+  height: 8,
+  borderRadius: "50%",
+  background: "var(--warning)",
+  boxShadow: "0 0 0 3px var(--warning-soft)",
+};
+
+const badgeRow: React.CSSProperties = {
+  display: "flex",
+  gap: 5,
+  marginTop: 6,
+  flexWrap: "wrap",
+  alignItems: "center",
+};
+
+// Base común: los distintivos secundarios van en contorno para que los únicos
+// rellenos —las etiquetas del contacto y el autopilot— destaquen de verdad.
+const badgeBase: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 4,
+  fontSize: 10,
+  padding: "1px 7px",
+  borderRadius: 999,
+  textTransform: "uppercase",
+  letterSpacing: 0.3,
+  whiteSpace: "nowrap",
+  maxWidth: 150,
+  overflow: "hidden",
+};
+
+const badgeOutline: React.CSSProperties = {
+  ...badgeBase,
+  border: "1px solid var(--border)",
+  color: "var(--muted)",
+};
+
+const badgeAccent: React.CSSProperties = {
+  ...badgeBase,
+  border: "1px solid transparent",
+  background: "var(--accent-soft)",
+  color: "#9dc0ff",
+};
+
+function badgeTag(color: string | null): React.CSSProperties {
+  const bg =
+    color && /^#?[0-9a-fA-F]{3,8}$/.test(color)
+      ? color.startsWith("#")
+        ? color
+        : `#${color}`
+      : "#2c4b7a";
   return {
-    fontSize: 10,
-    padding: "1px 7px",
-    borderRadius: 999,
+    ...badgeBase,
+    border: "1px solid transparent",
     background: bg,
-    color: "#e9f1ff",
-    textTransform: "uppercase",
-    letterSpacing: 0.3,
+    color: "#eaf2ff",
   };
 }
 

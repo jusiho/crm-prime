@@ -74,6 +74,73 @@ type Form = {
   keywordTriggers: KeywordTrigger[];
 };
 
+/**
+ * Niveles de "cuándo rendirse", en vez del umbral 0–1 que nadie sabe elegir.
+ *
+ * El agente puntúa cada mensaje del cliente restando a una base de 0.85:
+ * −0.30 si pide hablar con una persona, −0.15 si está molesto y −0.10 si es
+ * urgente. Escala cuando la puntuación queda POR DEBAJO del umbral, así que
+ * cada valor de aquí corresponde a una combinación concreta de señales.
+ */
+const HANDOFF_LEVELS = [
+  {
+    value: 0,
+    label: "Nunca por su cuenta",
+    hint: "Solo se aparta con las palabras de arriba. El agente intenta responderlo todo.",
+  },
+  {
+    value: 0.6,
+    label: "Solo si pide ayuda humana",
+    hint: "Se aparta cuando detecta que el cliente quiere hablar con alguien, aunque no use esas palabras exactas.",
+  },
+  {
+    value: 0.75,
+    label: "Si pide ayuda o está molesto (recomendado)",
+    hint: "Añade los casos en que el cliente suena enfadado o frustrado.",
+  },
+  {
+    value: 0.8,
+    label: "Ante cualquier señal",
+    hint: "También cuando el asunto es urgente. El agente resuelve menos casos, pero se equivoca menos.",
+  },
+] as const;
+
+const BUDGET_PRESETS = [
+  { value: 0, label: "Sin límite" },
+  { value: 200_000, label: "200 mil" },
+  { value: 500_000, label: "500 mil" },
+  { value: 1_000_000, label: "1 millón" },
+] as const;
+
+// Una respuesta con su contexto ronda los 1.500 tokens. Sirve para dar una
+// idea de magnitud, no para presupuestar al céntimo.
+const TOKENS_PER_REPLY = 1500;
+
+/**
+ * Un agente creado antes puede tener un umbral que no coincida con ninguno de
+ * los niveles (p. ej. 0.65). Se marca el más cercano en vez de dejar la lista
+ * sin nada seleccionado.
+ */
+function nearestLevel(value: number): number {
+  return HANDOFF_LEVELS.reduce((best, l) =>
+    Math.abs(l.value - value) < Math.abs(best.value - value) ? l : best,
+  ).value;
+}
+
+function budgetHint(budget: number): string {
+  if (budget <= 0) {
+    return "Sin límite: el agente responde siempre. Vigila el consumo en la barra de abajo.";
+  }
+  const replies = Math.round(budget / TOKENS_PER_REPLY);
+  return `Alcanza para unas ${replies.toLocaleString("es")} respuestas al mes, aproximadamente.`;
+}
+
+function iterationsHint(n: number): string {
+  if (n <= 2) return "Muy justo: responderá rápido, pero casi sin consultar el catálogo ni el contacto.";
+  if (n <= 8) return "Equilibrado: suficiente para buscar un producto y revisar la ficha del cliente.";
+  return "Generoso: resuelve casos enredados, pero tarda más y gasta más en cada respuesta.";
+}
+
 function defaultHours(): BusinessHours {
   return {
     timezone: "America/Lima",
@@ -110,7 +177,7 @@ function toForm(bot: BotDto | null): Form {
       isActive: true,
       channelId: null,
       escalateOnNegativeSentiment: true,
-      minConfidence: 0.6,
+      minConfidence: 0.75,
       keywords: "humano, agente, reclamo",
       autopilotByDefault: false,
       welcomeEnabled: false,
@@ -249,11 +316,11 @@ export function BotEditor({
       <div style={box}>
         <SectionTitle>Identidad</SectionTitle>
         <div style={field}>
-          <span style={lbl}>Nombre del bot</span>
+          <span style={lbl}>Nombre del agente</span>
           <input
             style={input}
             value={form.name}
-            placeholder="Bot de Ventas"
+            placeholder="Agente de Ventas"
             onChange={(e) => set("name", e.target.value)}
           />
         </div>
@@ -264,7 +331,7 @@ export function BotEditor({
             value={form.channelId ?? ""}
             onChange={(e) => set("channelId", e.target.value || null)}
           >
-            <option value="">Cualquiera (bot por defecto)</option>
+            <option value="">Cualquiera (agente por defecto)</option>
             {channels.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.label ?? c.displayPhoneNumber ?? c.id}
@@ -461,14 +528,58 @@ export function BotEditor({
 
       {tab === "limites" && (
       <>
-      {/* Escalado y límites */}
+      {/* ── Cuándo pasar la conversación a una persona ── */}
       <div style={box}>
-        <SectionTitle>Escalado y límites</SectionTitle>
+        <SectionTitle>Cuándo pasar el chat a una persona</SectionTitle>
         <p style={sectionHint}>
-          Cuándo el bot deja de intentarlo y pasa la conversación a una
-          persona. Si se cumple cualquiera de estas condiciones, el bot no
-          responde y la conversación queda marcada como pendiente.
+          Un agente no debería insistir cuando el caso se le escapa. Si ocurre
+          cualquiera de estas cosas, <strong>no responde</strong>, la
+          conversación pasa a <strong>Pendiente</strong> en la bandeja y tu
+          equipo la ve para atenderla.
         </p>
+
+        <div style={field}>
+          <span style={lbl}>Si el cliente escribe alguna de estas palabras</span>
+          <span style={fieldHint}>
+            Lo más directo: si el cliente pide hablar con alguien, se le pasa
+            sin discutir. Separa las palabras con comas.
+          </span>
+          <input
+            style={input}
+            value={form.keywords}
+            onChange={(e) => set("keywords", e.target.value)}
+            placeholder="humano, agente, reclamo, gerente, abogado"
+          />
+        </div>
+
+        <div style={field}>
+          <span style={lbl}>Cuándo rendirse por su cuenta</span>
+          <span style={fieldHint}>
+            El agente evalúa cada mensaje del cliente: si suena molesto, si
+            pide ayuda humana y si es urgente. Con esto decides cuánta señal
+            hace falta para que se aparte.
+          </span>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 4 }}>
+            {HANDOFF_LEVELS.map((level) => (
+              <label key={level.value} style={radioCard(nearestLevel(form.minConfidence) === level.value)}>
+                <input
+                  type="radio"
+                  name="handoff-level"
+                  checked={nearestLevel(form.minConfidence) === level.value}
+                  onChange={() => set("minConfidence", level.value)}
+                  style={{ marginTop: 3 }}
+                />
+                <span>
+                  <strong style={{ fontSize: 13.5 }}>{level.label}</strong>
+                  <span style={{ ...fieldHint, display: "block", marginTop: 2 }}>
+                    {level.hint}
+                  </span>
+                </span>
+              </label>
+            ))}
+          </div>
+        </div>
+
         <label style={toggle}>
           <input
             type="checkbox"
@@ -477,61 +588,74 @@ export function BotEditor({
               set("escalateOnNegativeSentiment", e.target.checked)
             }
           />
-          Escalar si el sentimiento es negativo
+          Pasar siempre a una persona si el cliente está molesto
         </label>
-        <div style={{ display: "flex", gap: 12 }}>
-          <div style={{ ...field, flex: 1 }}>
-            <span style={lbl}>Confianza mínima (0–1)</span>
-            <span style={fieldHint}>
-              Por debajo de este valor, escala. 0 lo desactiva.
-            </span>
-            <input
-              type="number"
-              step="0.05"
-              min={0}
-              max={1}
-              style={input}
-              value={form.minConfidence}
-              onChange={(e) => set("minConfidence", Number(e.target.value))}
-            />
-          </div>
-          <div style={{ ...field, flex: 1 }}>
-            <span style={lbl}>Máx. iteraciones</span>
-            <span style={fieldHint}>
-              Cuántas veces puede consultar herramientas antes de rendirse.
-            </span>
-            <input
-              type="number"
-              min={1}
-              max={20}
-              style={input}
-              value={form.maxIterations}
-              onChange={(e) => set("maxIterations", Number(e.target.value))}
-            />
-          </div>
-        </div>
+        <span style={{ ...fieldHint, marginTop: -4 }}>
+          Un cliente enfadado rara vez se calma con un bot. Recomendado
+          dejarlo activado.
+        </span>
+      </div>
+
+      {/* ── Cuánto puede trabajar por respuesta ── */}
+      <div style={box}>
+        <SectionTitle>Cuánto puede buscar antes de responder</SectionTitle>
+        <p style={sectionHint}>
+          Antes de contestar, el agente puede consultar el CRM: buscar el
+          producto, leer la ficha del contacto o revisar tu base de
+          conocimiento. Cada consulta suma tiempo y gasto.
+        </p>
         <div style={field}>
-          <span style={lbl}>Palabras de escalado (separadas por coma)</span>
-          <input
-            style={input}
-            value={form.keywords}
-            onChange={(e) => set("keywords", e.target.value)}
-            placeholder="humano, reclamo, agente"
-          />
-        </div>
-        <div style={field}>
-          <span style={lbl}>Presupuesto de tokens / mes (0 = sin límite)</span>
-          <span style={fieldHint}>
-            Al superarlo, el bot deja de responder hasta el mes siguiente. No
-            se llama al modelo, así que el gasto se detiene de verdad.
+          <span style={lbl}>
+            Máximo de consultas por respuesta: <strong>{form.maxIterations}</strong>
           </span>
+          <input
+            type="range"
+            min={1}
+            max={20}
+            value={form.maxIterations}
+            onChange={(e) => set("maxIterations", Number(e.target.value))}
+            style={{ width: "100%" }}
+          />
+          <span style={fieldHint}>{iterationsHint(form.maxIterations)}</span>
+        </div>
+      </div>
+
+      {/* ── Límite de gasto ── */}
+      <div style={box}>
+        <SectionTitle>Límite de gasto al mes</SectionTitle>
+        <p style={sectionHint}>
+          El gasto de la IA se mide en <em>tokens</em>: trocitos de texto que
+          se cuentan tanto al leer la conversación como al escribir la
+          respuesta. Cuando el agente llega al límite{" "}
+          <strong>deja de responder hasta el mes siguiente</strong> y sus chats
+          pasan a tu equipo. No se llama al modelo, así que el gasto se corta
+          de verdad.
+        </p>
+
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+          {BUDGET_PRESETS.map((preset) => (
+            <button
+              key={preset.value}
+              type="button"
+              onClick={() => set("monthlyTokenBudget", preset.value)}
+              style={chipBtn(form.monthlyTokenBudget === preset.value)}
+            >
+              {preset.label}
+            </button>
+          ))}
+        </div>
+
+        <div style={field}>
+          <span style={lbl}>Tokens al mes (0 = sin límite)</span>
           <input
             type="number"
             min={0}
+            step={10000}
             style={input}
             value={form.monthlyTokenBudget}
             onChange={(e) => set("monthlyTokenBudget", Number(e.target.value))}
           />
+          <span style={fieldHint}>{budgetHint(form.monthlyTokenBudget)}</span>
           {!isNew && bot && <BudgetMeter bot={bot} limit={form.monthlyTokenBudget} />}
         </div>
       </div>
@@ -561,7 +685,7 @@ export function BotEditor({
           disabled={save.isPending || !form.name.trim()}
           style={primaryBtn}
         >
-          {save.isPending ? "Guardando…" : isNew ? "Crear bot" : "Guardar"}
+          {save.isPending ? "Guardando…" : isNew ? "Crear agente" : "Guardar"}
         </button>
       </div>
     </div>
@@ -782,10 +906,35 @@ function BudgetMeter({ bot, limit }: { bot: BotDto; limit: number }) {
       </div>
       <span style={{ ...fieldHint, color: over ? "#e08a8a" : "var(--muted)" }}>
         {spent.toLocaleString("es")} de {limit.toLocaleString("es")} tokens
-        {over ? " · agotado, el bot no responde" : ` · ${pct}%`}
+        {over ? " · agotado, el agente no responde" : ` · ${pct}%`}
       </span>
     </div>
   );
+}
+
+function radioCard(active: boolean): React.CSSProperties {
+  return {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: 9,
+    padding: "10px 12px",
+    borderRadius: 9,
+    border: `1px solid ${active ? "var(--accent)" : "var(--border)"}`,
+    background: active ? "#10243a" : "transparent",
+    cursor: "pointer",
+  };
+}
+
+function chipBtn(active: boolean): React.CSSProperties {
+  return {
+    padding: "7px 13px",
+    borderRadius: 999,
+    border: `1px solid ${active ? "var(--accent)" : "var(--border)"}`,
+    background: active ? "#10243a" : "transparent",
+    color: active ? "var(--text)" : "var(--muted)",
+    cursor: "pointer",
+    fontSize: 13,
+  };
 }
 
 const meterTrack: React.CSSProperties = {

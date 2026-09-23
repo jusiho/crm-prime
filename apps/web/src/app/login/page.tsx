@@ -2,17 +2,25 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AuthError } from "next-auth";
 import { auth, signIn } from "@/auth";
+<<<<<<< HEAD
 import { currentOrgContext, currentOrgSlug } from "@/lib/org";
 import { OrgNotFound } from "./OrgNotFound";
+=======
+import { safeCallbackUrl } from "@/lib/session-token";
+import { getTranslator } from "@/i18n/server";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+>>>>>>> 2da1df078dfaeb0e81b9d1a84182da2d2c7e8417
 
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; expired?: string; callbackUrl?: string }>;
 }) {
+  const t = await getTranslator();
+  const { error, expired, callbackUrl: rawCallback } = await searchParams;
+  const callbackUrl = safeCallbackUrl(rawCallback);
   const session = await auth();
-  if (session) redirect("/");
-  const { error } = await searchParams;
+  if (session) redirect(callbackUrl);
 
   // Empresa del subdominio. Con DNS comodín cualquier subdominio responde, así
   // que hay que distinguir "no hay subdominio" de "subdominio que no existe".
@@ -24,6 +32,7 @@ export default async function LoginPage({
 
   async function login(formData: FormData) {
     "use server";
+    const target = safeCallbackUrl(formData.get("callbackUrl"));
     try {
       // El subdominio se lee del servidor, no del formulario: así no depende de
       // un campo oculto que cualquiera puede cambiar en el navegador.
@@ -31,14 +40,20 @@ export default async function LoginPage({
       await signIn("credentials", {
         email: formData.get("email"),
         password: formData.get("password"),
+<<<<<<< HEAD
         ...(orgSlug ? { orgSlug } : {}),
         redirectTo: "/",
+=======
+        redirectTo: target,
+>>>>>>> 2da1df078dfaeb0e81b9d1a84182da2d2c7e8417
       });
     } catch (e) {
       // signIn lanza NEXT_REDIRECT al tener éxito (hay que re-lanzarlo).
       // Si las credenciales fallan, lanza AuthError → volvemos con error.
       if (e instanceof AuthError) {
-        redirect("/login?error=credentials");
+        const params = new URLSearchParams({ error: "credentials" });
+        if (target !== "/") params.set("callbackUrl", target);
+        redirect(`/login?${params.toString()}`);
       }
       throw e;
     }
@@ -68,7 +83,11 @@ export default async function LoginPage({
         padding: 24,
       }}
     >
+      <div style={{ position: "absolute", top: 20, right: 20 }}>
+        <LanguageSwitcher />
+      </div>
       <form action={login} style={card}>
+<<<<<<< HEAD
         <h1 style={{ marginTop: 0 }}>{org?.name ?? "Trimmo"}</h1>
         <p style={{ color: "var(--muted)", marginTop: -8 }}>
           {org ? `Acceso de ${org.name}` : "Inicia sesión"}
@@ -81,23 +100,38 @@ export default async function LoginPage({
               : "Credenciales inválidas."}
           </p>
         )}
+=======
+        <h1 style={{ marginTop: 0 }}>{t("auth.signInTitle")}</h1>
+        <p style={{ color: "var(--muted)", marginTop: -8 }}>{t("auth.signInSubtitle")}</p>
 
-        <label style={label}>Email</label>
+        {error ? (
+          <p style={{ color: "#ff6b6b" }}>{t("auth.invalidCredentials")}</p>
+        ) : expired ? (
+          <p style={{ color: "var(--muted)" }}>
+            {t("auth.sessionExpired")}
+          </p>
+        ) : null}
+>>>>>>> 2da1df078dfaeb0e81b9d1a84182da2d2c7e8417
+
+        <input type="hidden" name="callbackUrl" value={callbackUrl} />
+
+        <label style={label}>{t("auth.email")}</label>
         <input
           name="email"
           type="email"
           required
-          placeholder="tucorreo@empresa.com"
+          placeholder={t("auth.emailPlaceholder")}
           style={input}
         />
 
-        <label style={label}>Contraseña</label>
+        <label style={label}>{t("auth.password")}</label>
         <input name="password" type="password" required style={input} />
 
         <button type="submit" style={btn}>
-          Entrar
+          {t("auth.signIn")}
         </button>
 
+<<<<<<< HEAD
         {/*
           Qué se ofrece debajo del formulario depende de dónde estés:
 
@@ -127,6 +161,14 @@ export default async function LoginPage({
             </Link>
           </p>
         )}
+=======
+        <p style={{ color: "var(--muted)", fontSize: 13, marginTop: 18, textAlign: "center" }}>
+          {t("auth.noAccount")}{" "}
+          <Link href="/register" style={{ color: "var(--accent)" }}>
+            {t("auth.signUp")}
+          </Link>
+        </p>
+>>>>>>> 2da1df078dfaeb0e81b9d1a84182da2d2c7e8417
       </form>
     </main>
   );

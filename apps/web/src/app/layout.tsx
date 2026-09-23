@@ -1,29 +1,42 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Providers } from "@/providers";
+import { I18nProvider } from "@/i18n/I18nProvider";
+import { getLocale, getMessages } from "@/i18n/server";
 
 export const metadata: Metadata = {
+<<<<<<< HEAD
   title: "Trimmo — Vende por WhatsApp con agentes de IA",
+=======
+  title: "CRM Prime — Sell on WhatsApp with AI agents",
+>>>>>>> 2da1df078dfaeb0e81b9d1a84182da2d2c7e8417
   description:
-    "El CRM con agentes de IA que responde, califica y agenda a tus leads en segundos, 24/7, directo en tu número de WhatsApp.",
+    "The CRM with AI agents that replies, qualifies and books your leads in seconds, 24/7, straight from your WhatsApp number.",
   openGraph: {
+<<<<<<< HEAD
     title: "Trimmo — Convierte WhatsApp en tu mejor vendedor",
+=======
+    title: "CRM Prime — Turn WhatsApp into your best salesperson",
+>>>>>>> 2da1df078dfaeb0e81b9d1a84182da2d2c7e8417
     description:
-      "Agentes de IA que atienden, califican y agendan tus leads de WhatsApp las 24 horas. Bandeja en tiempo real, pipeline, campañas y flujos sin código.",
+      "AI agents that answer, qualify and book your WhatsApp leads around the clock. Real-time inbox, pipeline, broadcasts and no-code flows.",
     type: "website",
-    locale: "es_ES",
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const locale = await getLocale();
+
   return (
-    <html lang="es">
+    <html lang={locale}>
       <body>
-        <Providers>{children}</Providers>
+        <I18nProvider locale={locale} messages={getMessages(locale)}>
+          <Providers>{children}</Providers>
+        </I18nProvider>
       </body>
     </html>
   );

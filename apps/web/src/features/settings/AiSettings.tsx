@@ -1,5 +1,6 @@
 "use client";
 
+import { NavIcon } from "@/components/NavIcons";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -84,7 +85,7 @@ export function AiSettings() {
   return (
     <Panel
       title="Inteligencia Artificial"
-      subtitle="La API key que usarán los bots, el copilot del inbox y el asistente de flujos. Se guarda cifrada; si la dejas vacía se usa la del archivo .env."
+      subtitle="La API key que usarán los agentes IA, el copilot del inbox y el asistente de flujos. Se guarda cifrada; si la dejas vacía se usa la del archivo .env."
     >
       {/* Estado actual */}
       <div style={card}>
@@ -114,8 +115,9 @@ export function AiSettings() {
         </div>
 
         {test && (
-          <div style={testBox(test.ok)}>
-            {test.ok ? "✓" : "✕"} {test.message}
+          <div style={{ ...testBox(test.ok), display: "flex", alignItems: "center", gap: 6 }}>
+            <NavIcon name={test.ok ? "check" : "x"} size={14} />
+            {test.message}
             {test.ok && (
               <span style={{ color: "var(--muted)" }}>
                 {" "}

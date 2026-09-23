@@ -1,5 +1,6 @@
 "use client";
 
+import { NavIcon } from "@/components/NavIcons";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -115,7 +116,7 @@ function NewKeyBanner({
       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
         <code style={secretBox}>{created.secret}</code>
         <button onClick={copy} style={primaryBtn}>
-          {copied ? "Copiada ✓" : "Copiar"}
+          {copied ? "Copiada" : "Copiar"}
         </button>
         <button onClick={onClose} style={ghostBtn}>
           Ya la guardé
@@ -265,7 +266,7 @@ function KeyRow({
           style={dangerBtn}
           title="Eliminar"
         >
-          ✕
+          <NavIcon name="x" size={14} />
         </button>
       </div>
 

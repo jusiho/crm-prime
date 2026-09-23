@@ -1,5 +1,6 @@
 "use client";
 
+import { NavIcon } from "@/components/NavIcons";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
@@ -114,7 +115,7 @@ function SourceRow({ source, onChanged }: { source: SourceDto; onChanged: () => 
         style={dangerBtn}
         title="Eliminar"
       >
-        ✕
+        <NavIcon name="x" size={14} />
       </button>
     </div>
   );
@@ -225,7 +226,7 @@ function FieldRow({ field, onDelete }: { field: CustomFieldDto; onDelete: () => 
         style={dangerBtn}
         title="Eliminar"
       >
-        ✕
+        <NavIcon name="x" size={14} />
       </button>
     </div>
   );
@@ -337,7 +338,7 @@ function StageRow({
         style={dangerBtn}
         title="Eliminar"
       >
-        ✕
+        <NavIcon name="x" size={14} />
       </button>
     </div>
   );

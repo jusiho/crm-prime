@@ -1,225 +1,250 @@
 # Trimmo
 
-**CRM para WhatsApp con agentes de IA.** Centraliza las conversaciones de varios
-números en una bandeja en tiempo real, automatiza la atención con bots y flujos
-visuales, y conecta esa conversación con el negocio: pipeline de ventas,
-contactos, catálogo de productos y campañas.
+**A WhatsApp CRM with AI agents.** It brings the conversations of all your
+numbers into one real-time inbox, automates replies with AI agents and visual
+flows, and ties those chats to the business: sales pipeline, contacts, product
+catalog and broadcasts.
 
-[![Licencia: AGPL v3](https://img.shields.io/badge/licencia-AGPL--3.0-blue.svg)](./LICENSE)
+[![License: AGPL v3](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](./LICENSE)
+[🇪🇸 Léeme en español](./README.es.md)
 
-> **Estado:** en desarrollo activo. Funciona de punta a punta contra la
-> WhatsApp Cloud API, pero todavía no hay release estable ni garantía de
-> compatibilidad entre versiones.
+> **Status:** under active development. It works end to end against the WhatsApp
+> Cloud API, but there is no stable release yet and no compatibility guarantee
+> between versions.
 
 ---
 
-## Qué hace
+## What it does
 
-**Bandeja multi-número.** Todas las conversaciones de todos tus números de
-WhatsApp en un sitio, con actualización en vivo por WebSocket. Cada respuesta
-sale por el mismo número por el que entró el mensaje. Soporta *coexistencia*:
-seguir usando la app de WhatsApp en el celular mientras gestionas desde el CRM
-(los mensajes que escribes desde el móvil también aparecen aquí).
+**Multi-number inbox.** Every conversation from every WhatsApp number in one
+place, updated live over WebSocket. Each reply goes out through the same number
+the message came in on. It supports *coexistence*: keep using the WhatsApp app on
+the phone while your team works from the CRM (messages you send from the phone
+show up here too).
 
-**Agentes de IA con dos modos.** *Copilot* redacta la respuesta y un humano la
-revisa antes de enviar; *Autopilot* responde solo. El agente puede consultar el
-catálogo de productos, buscar en tu base de conocimiento (RAG), y **ejecutar
-acciones sobre el CRM**: etiquetar el contacto, moverlo de etapa en el pipeline,
-actualizar su ficha, asignarle un vendedor o enviarle la foto de un producto.
+**AI agents with two modes.** *Copilot* drafts the reply and a human reviews it
+before sending; *Autopilot* replies on its own. The agent can look up the product
+catalog, search your knowledge base (RAG) and **act on the CRM**: tag the
+contact, move them along the pipeline, update their record, assign a seller or
+send them a product photo.
 
-En copilot esas acciones **quedan pendientes de aprobación** y solo se aplican
-cuando el agente humano envía la respuesta.
+In copilot those actions **wait for approval** and are only applied when the
+human sends the reply.
 
-**Constructor visual de flujos.** Automatizaciones tipo diagrama de nodos
-(enviar mensaje, preguntar y guardar, condición, esperar, llamada HTTP, asignar,
-saltar a otro flujo). Incluye un asistente que construye el flujo a partir de una
-descripción en lenguaje natural.
+**Visual flow builder.** Node-based automations (send a message, ask and store,
+condition, wait, HTTP call, assign, jump to another flow). It includes an
+assistant that builds the flow from a plain-language description.
 
-**Pipeline de ventas.** Kanban de oportunidades con etapas configurables, dueño
-por vendedor y totales por etapa.
+**Sales pipeline.** A kanban of deals with configurable stages, an owner per
+seller and totals per stage.
 
-**Contactos.** Directorio con etiquetas, campos personalizados, fuente comercial
-y **procedencia técnica** (por qué API entró cada contacto: anuncio, WhatsApp,
-webhook, importación). Captura la atribución de los anuncios Click-to-WhatsApp
-(incluido el `ctwa_clid` para la Conversions API) y los `utm_*`.
+**Contacts.** A directory with tags, custom fields, commercial source and
+**technical origin** (which API created each contact: ad, WhatsApp, webhook,
+import). It captures Click-to-WhatsApp ad attribution (including `ctwa_clid` for
+the Conversions API) and `utm_*` parameters.
 
-**Campañas.** Envíos masivos con plantillas aprobadas por Meta, segmentando por
-etiquetas.
+**Broadcasts.** Bulk sends with Meta-approved templates, segmented by tags.
 
-**Base de conocimiento (RAG).** Documentos troceados y vectorizados con pgvector
-para que el bot responda con información tuya en vez de inventar.
+**Knowledge base (RAG).** Documents chunked and vectorized with pgvector so the
+agent answers with your information instead of making things up.
 
-**Claves de API.** Emite credenciales por integración (n8n, Zapier, una landing)
-con ámbitos y revocación, para recibir leads de sistemas externos.
+**API keys.** Issue credentials per integration (n8n, Zapier, a landing page)
+with scopes and revocation, to receive leads from outside systems.
+
+**Two languages.** The interface ships in English and Spanish, and API error
+messages follow the language the browser asks for.
 
 ---
 
 ## Stack
 
-| Capa | Tecnología |
+| Layer | Technology |
 |---|---|
-| Backend | NestJS 10 · Prisma 6 · PostgreSQL + pgvector · BullMQ sobre Redis |
+| Backend | NestJS 10 · Prisma 6 · PostgreSQL + pgvector · BullMQ on Redis |
 | Frontend | Next.js 15 (App Router) · React 19 · TanStack Query · NextAuth |
-| Compartido | Zod — un solo esquema valida en API, web y futura app móvil |
-| Mensajería | WhatsApp Business Cloud API (Meta) |
-| IA | OpenAI o Anthropic, intercambiables · Voyage AI para embeddings |
+| Shared | Zod — one schema validates in the API, the web and a future mobile app |
+| Messaging | WhatsApp Business Cloud API (Meta) |
+| AI | OpenAI or Anthropic, interchangeable · Voyage AI for embeddings |
 
 ```
 apps/
-  api/      NestJS — API REST, Prisma, colas, IA, WhatsApp
-  web/      Next.js — UI + BFF (el JWT vive en cookie httpOnly, nunca en el navegador)
+  api/      NestJS — REST API, Prisma, queues, AI, WhatsApp
+  web/      Next.js — UI + BFF (the JWT lives in an httpOnly cookie, never in the browser)
 packages/
-  shared/   Zod + tipos compartidos
+  shared/   Zod schemas + shared types
 ```
 
-La arquitectura usa el patrón adaptador en las tres integraciones externas
-(WhatsApp, LLM, almacenamiento de archivos), así que cada una tiene su
-implementación real y una simulada. **El CRM arranca y funciona sin credenciales
-de nada**: los adaptadores simulados registran en log y devuelven respuestas
-sintéticas.
+The architecture uses the adapter pattern for the three external integrations
+(WhatsApp, LLM, file storage), so each one has a real implementation and a
+simulated one. **The CRM boots and runs with no credentials at all**: the
+simulated adapters log what they would do and return synthetic responses.
 
 ---
 
-## Puesta en marcha
+## Getting started
 
-Necesitas **Node.js ≥ 20** y **Docker**.
+You need **Node.js ≥ 20** and **Docker**.
 
 ```bash
 git clone https://github.com/jusiho/trimmo.git
 cd trimmo
 npm install
-npm run setup     # crea el .env, levanta Docker, migra y siembra
+npm run setup     # creates .env, starts Docker, migrates and seeds
 npm run dev
 ```
 
 - Web: http://localhost:3000
 - API: http://localhost:3001/api/v1
-- Acceso de prueba: **admin@crm.local** / **admin1234**
+- Demo login: **admin@crm.local** / **admin1234**
 
-`npm run setup` es idempotente: puedes relanzarlo cuando quieras. No pisa un
-`.env` existente ni duplica datos. Genera secretos aleatorios propios, espera a
-que Postgres acepte conexiones y habilita pgvector con su índice vectorial.
+`npm run setup` is idempotent: run it again whenever you want. It never
+overwrites an existing `.env` and never duplicates data. It generates its own
+random secrets, waits for Postgres to accept connections and enables pgvector
+with its vector index.
 
-> Si `prisma generate` falla con `EPERM` en Windows, hay un servidor de
-> desarrollo usando el cliente. Ciérralo y relanza `npm run setup`.
+> If `prisma generate` fails with `EPERM` on Windows, a dev server is holding the
+> client. Close it and run `npm run setup` again.
 
-### Solo probarlo, sin instalar nada
+### Just try it, install nothing
 
 ```bash
-npm run demo      # o: docker compose -f docker-compose.demo.yml up --build
+npm run demo      # or: docker compose -f docker-compose.demo.yml up --build
 ```
 
-Levanta el CRM entero en contenedores (base de datos, Redis, API y web) con
-datos ya sembrados. **No es para producción**: los secretos están a la vista.
-Para desplegar de verdad, `docker-compose.prod.yml`.
+This starts the whole CRM in containers (database, Redis, API and web) with data
+already seeded. **Not for production**: the secrets are in plain sight. To deploy
+for real, use `docker-compose.prod.yml`.
 
 ---
 
-## Variables de entorno
+## Environment variables
 
-> **Los valores de `.env.example` son públicos.** Están en este repositorio, así
-> que un `.env` copiado tal cual usa secretos que cualquiera puede leer.
-> `npm run setup` genera los suyos; si creas el `.env` a mano, cámbialos antes
-> de exponer nada a internet.
+> **The values in `.env.example` are public.** They live in this repository, so a
+> `.env` copied as-is uses secrets anyone can read. `npm run setup` generates its
+> own; if you write the `.env` by hand, change them before exposing anything to
+> the internet.
 
-Solo tres son obligatorias para arrancar:
+Only three are required to boot:
 
-| Variable | Para qué |
+| Variable | What it is for |
 |---|---|
 | `DATABASE_URL` | Postgres |
-| `JWT_ACCESS_SECRET` | Firma de los tokens de acceso |
-| `AUTH_SECRET` | Sesión de NextAuth en la web |
+| `JWT_ACCESS_SECRET` | Signing access tokens |
+| `AUTH_SECRET` | NextAuth session on the web |
 
-El resto son opcionales y **casi todas se pueden configurar desde el panel**, que
-manda sobre el `.env`:
+The rest are optional and **most can be set from the panel**, which takes
+precedence over `.env`:
 
-| Variable | Dónde se configura en la UI |
+| Variable | Where it is set in the UI |
 |---|---|
-| `OPENAI_API_KEY` · `ANTHROPIC_API_KEY` | Ajustes › Inteligencia Artificial |
-| `VOYAGE_API_KEY` | Ajustes › Integraciones |
-| `WHATSAPP_APP_SECRET` · `WHATSAPP_VERIFY_TOKEN` | Ajustes › Integraciones |
-| `WHATSAPP_TOKEN` · `WHATSAPP_PHONE_NUMBER_ID` | Ajustes › Canales (por número) |
+| `OPENAI_API_KEY` · `ANTHROPIC_API_KEY` | Settings › Artificial Intelligence |
+| `VOYAGE_API_KEY` | Settings › Integrations |
+| `WHATSAPP_APP_SECRET` · `WHATSAPP_VERIFY_TOKEN` | Settings › Integrations |
+| `WHATSAPP_TOKEN` · `WHATSAPP_PHONE_NUMBER_ID` | Settings › Channels (per number) |
 
-Las credenciales guardadas desde el panel se cifran con AES-256-GCM usando
-`APP_ENCRYPTION_KEY` (si no la defines, se deriva de `JWT_ACCESS_SECRET`).
+Credentials saved from the panel are encrypted with AES-256-GCM using
+`APP_ENCRYPTION_KEY` (if you don't set it, it is derived from
+`JWT_ACCESS_SECRET`).
 
-> Una variable declarada pero **vacía** cuenta como no definida. Si dejas
-> `OPENAI_BASE_URL=""` no se rompe nada: se usa el valor por defecto.
+> A variable that is declared but **empty** counts as undefined. Leaving
+> `OPENAI_BASE_URL=""` breaks nothing: the default is used.
 
 ---
 
-## Conectar WhatsApp
+## Connecting WhatsApp
 
-1. En Meta → tu app → WhatsApp → **API Setup**, copia el *Phone number ID* y un
-   token de acceso.
-2. En el CRM: **Ajustes › Canales → Añadir un número a mano** y pega ambos.
-3. Para **recibir** mensajes, Meta necesita alcanzar tu API por HTTPS. En local:
+1. In Meta → your app → WhatsApp → **API Setup**, copy the *Phone number ID* and
+   an access token.
+2. In the CRM: **Settings › Channels → Add a number manually** and paste both.
+3. To **receive** messages, Meta needs to reach your API over HTTPS. Locally:
 
    ```bash
    cloudflared tunnel --url http://localhost:3001
    ```
 
-4. En Meta → WhatsApp → Configuración → Webhooks:
-   - **Callback URL**: `https://TU-TUNEL/api/v1/whatsapp/webhook`
-   - **Verify token**: el de Ajustes › Integraciones
-   - Suscribe los campos `messages` y `message_echoes`
+4. In Meta → WhatsApp → Configuration → Webhooks:
+   - **Callback URL**: `https://YOUR-TUNNEL/api/v1/whatsapp/webhook`
+   - **Verify token**: the one in Settings › Integrations
+   - Subscribe to the `messages` and `message_echoes` fields
 
-Tres cosas que suelen fallar y no dan error claro:
+Three things that usually go wrong without a clear error:
 
-- La app tiene que estar en modo **Live**; en *Desarrollo* Meta no entrega
-  algunos webhooks.
-- **Suscribir el campo `messages` no basta**: la cuenta de WhatsApp Business
-  (WABA) tiene que estar suscrita a tu app. Compruébalo con
-  `GET /{waba-id}/subscribed_apps`; si solo aparece una app de Meta, falta la tuya.
-- El **token temporal caduca en 24 h**. Para algo estable, usa un token de
-  usuario de sistema con caducidad *Nunca*.
+- The app must be in **Live** mode; in *Development* Meta withholds some
+  webhooks.
+- **Subscribing to the `messages` field is not enough**: the WhatsApp Business
+  Account (WABA) has to be subscribed to your app. Check it with
+  `GET /{waba-id}/subscribed_apps`; if you only see a Meta app there, yours is
+  missing.
+- The **temporary token expires in 24 hours**. For something stable, use a system
+  user token with expiry set to *Never*.
 
 ---
 
-## Recibir leads externos
+## Receiving external leads
 
-Crea una clave en **Ajustes › Claves de API** con el ámbito `leads:write`:
+Create a key in **Settings › API keys** with the `leads:write` scope:
 
 ```bash
-curl -X POST https://tu-crm/api/v1/webhooks/lead \
+curl -X POST https://your-crm/api/v1/webhooks/lead \
   -H "Authorization: Bearer crm_xxxx_xxxx" \
   -H "Content-Type: application/json" \
   -d '{"phone":"+51999888777","name":"Ana","source":"Facebook Ads"}'
 ```
 
-El nombre de la clave queda como procedencia del contacto, así que sabes qué
-integración lo creó sin fiarte de lo que declare quien llama.
+The key's name is recorded as the contact's origin, so you know which
+integration created it without trusting whatever the caller claims.
+
+Leads from **Meta lead forms** (Facebook and Instagram) come in on their own:
+connect your pages in **Settings › Meta leads**.
 
 ---
 
-## Desarrollo
+## Languages
+
+The interface is available in **English (default)** and **Spanish**. Each person
+picks theirs from the header; the choice is stored in a cookie, so the server
+already knows it when rendering and nothing flickers.
+
+To add a language: copy `apps/web/src/i18n/messages/en.ts`, translate the values,
+register it in `apps/web/src/i18n/config.ts` and add its dictionary in
+`apps/web/src/i18n/server.ts`. TypeScript will flag any key you forget.
+
+API error messages are translated at the edge, based on the browser's
+`Accept-Language`. A check makes sure none is left behind:
+
+```bash
+npm run check:i18n -w @crm/api
+```
+
+---
+
+## Development
 
 ```bash
 npm run dev                   # api + web
-npm run dev -w @crm/api       # solo la API (puerto 3001)
-npm run dev -w @crm/web       # solo la web (puerto 3000)
+npm run dev -w @crm/api       # API only (port 3001)
+npm run dev -w @crm/web       # web only (port 3000)
 
-npm run typecheck             # TypeScript en todo el monorepo
+npm run typecheck             # TypeScript across the monorepo
 npm run lint
 ```
 
-Si tocas `packages/shared`, recompílalo (`npm run build -w @crm/shared`) para que
-api y web vean los tipos nuevos.
+If you touch `packages/shared`, rebuild it (`npm run build -w @crm/shared`) so
+the api and the web see the new types.
 
 ---
 
-## Contribuir
+## Contributing
 
-Se aceptan issues y pull requests. Lee [CONTRIBUTING.md](./CONTRIBUTING.md) para
-el flujo de trabajo y las convenciones del código.
+Issues and pull requests are welcome. Read [CONTRIBUTING.md](./CONTRIBUTING.md)
+for the workflow and code conventions.
 
 ---
 
-## Licencia
+## License
 
 [AGPL-3.0](./LICENSE).
 
-Puedes usar, modificar y desplegar este software libremente. Si lo ofreces como
-servicio a terceros, la AGPL te obliga a publicar tus modificaciones. Para usos
-que no encajen con esa condición, contacta con los autores para una licencia
-comercial.
+You can use, modify and deploy this software freely. If you offer it as a service
+to third parties, the AGPL requires you to publish your modifications. For uses
+that don't fit that condition, contact the authors for a commercial license.

@@ -115,7 +115,7 @@ function SecretBanner({
           }}
           style={primaryBtn}
         >
-          {copied ? "Copiado ✓" : "Copiar"}
+          {copied ? "Copiado" : "Copiar"}
         </button>
         <button onClick={onClose} style={ghostBtn}>
           Ya lo guardé
@@ -263,8 +263,9 @@ function WebhookRow({
       </div>
 
       {test.data && (
-        <div style={resultBox(test.data.ok)}>
-          {test.data.ok ? "✓" : "✕"} {test.data.message} · {test.data.latencyMs} ms
+        <div style={{ ...resultBox(test.data.ok), display: "flex", alignItems: "center", gap: 6 }}>
+          <NavIcon name={test.data.ok ? "check" : "x"} size={14} />
+          {test.data.message} · {test.data.latencyMs} ms
         </div>
       )}
 

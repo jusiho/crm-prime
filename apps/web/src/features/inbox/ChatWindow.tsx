@@ -8,6 +8,7 @@ import {
   MessageType,
   type AiSuggestion,
   type ConversationDto,
+  type NoteDto,
 } from "@crm/shared";
 import {
   addNote,
@@ -24,10 +25,13 @@ import {
   resolveAiActions,
   suggestReply,
   uploadMedia,
+  mediaSrc,
   type UploadedMedia,
 } from "@/lib/bff";
 import { toast } from "@/lib/toast";
 import { MessageText } from "./MessageText";
+import { SendTemplateDialog } from "./SendTemplateDialog";
+import { SendButtonsDialog } from "./SendButtonsDialog";
 import { MediaBubble } from "./MediaBubble";
 import { AiModeSwitch } from "./AiModeSwitch";
 import { Composer } from "./Composer";
@@ -39,20 +43,65 @@ import {
   isNewDay,
 } from "./ChatBits";
 import { NavIcon } from "@/components/NavIcons";
+import { useLocale, useT } from "@/i18n/I18nProvider";
+import type { Translator } from "@/i18n/translate";
 import type { MessageDto } from "@crm/shared";
 
+/**
+ * Cuánto queda de la ventana de 24 h de WhatsApp. Devuelve null si ya cerró:
+ * el dato estaba en la API desde siempre y no se enseñaba en ningún sitio, así
+ * que el vendedor solo se enteraba cuando ya era tarde para escribir libre.
+ */
+function windowLeft(iso: string | null): string | null {
+  if (!iso) return null;
+  const ms = new Date(iso).getTime() - Date.now();
+  if (ms <= 0) return null;
+  const hours = Math.floor(ms / 3_600_000);
+  const minutes = Math.floor((ms % 3_600_000) / 60_000);
+  return hours > 0 ? `${hours} h` : `${minutes} min`;
+}
+
 export function ChatWindow({ conversation }: { conversation: ConversationDto }) {
+  const t = useT();
+  const locale = useLocale();
   const queryClient = useQueryClient();
   const [text, setText] = useState("");
-  const [showNotes, setShowNotes] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
   // Archivo ya subido y pendiente de enviar (se manda al pulsar Enviar).
   const [attachment, setAttachment] = useState<UploadedMedia | null>(null);
   // Mensaje citado en la respuesta que se está redactando.
   const [replyTo, setReplyTo] = useState<MessageDto | null>(null);
+  const [templateOpen, setTemplateOpen] = useState(false);
+  const [buttonsOpen, setButtonsOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [ai, setAi] = useState<AiSuggestion | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
+
+  // La cuenta atrás de la ventana se recalcula cada minuto; si no, un "quedan
+  // 3 h" se queda congelado toda la tarde en la pantalla de quien no recarga.
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (!conversation.windowOpen) return;
+    const id = setInterval(() => setTick((n) => n + 1), 60_000);
+    return () => clearInterval(id);
+  }, [conversation.windowOpen]);
+
+  /**
+   * Adjunta un archivo que ya está guardado (el de una respuesta rápida), sin
+   * volver a subirlo. El tamaño real no lo sabemos aquí y no hace falta: solo
+   * se usa para el envío.
+   */
+  function attachSaved(mediaUrl: string, kind: "IMAGE" | "DOCUMENT") {
+    setAttachment({
+      mediaUrl,
+      previewUrl: mediaSrc(mediaUrl) ?? "",
+      kind,
+      mimeType: kind === "IMAGE" ? "image/jpeg" : "application/octet-stream",
+      size: 0,
+      fileName: t("inbox.quickReplyFile"),
+    });
+  }
 
   const suggestMut = useMutation({
     mutationFn: () => suggestReply(conversation.id),
@@ -60,6 +109,7 @@ export function ChatWindow({ conversation }: { conversation: ConversationDto }) 
       setAi(s);
       if (s.suggestion) setText(s.suggestion);
     },
+    onError: (e) => toast.error((e as Error).message),
   });
 
   const { data: messages = [], isLoading } = useQuery({
@@ -70,6 +120,13 @@ export function ChatWindow({ conversation }: { conversation: ConversationDto }) 
   const { data: agents = [] } = useQuery({
     queryKey: ["agents"],
     queryFn: fetchAgents,
+  });
+
+  // Las notas se piden siempre, no solo al abrir el panel: es lo que permite
+  // que el botón lleve el número y que se vean sin tener que ir a buscarlas.
+  const { data: notes = [], isLoading: notesLoading } = useQuery({
+    queryKey: ["notes", conversation.id],
+    queryFn: () => fetchNotes(conversation.id),
   });
 
   // Filtro del buscador: se aplica sobre lo ya cargado, sin ir al servidor.
@@ -122,7 +179,9 @@ export function ChatWindow({ conversation }: { conversation: ConversationDto }) 
       setReplyTo(null);
       setAi(null);
       if (result?.executed.length) {
-        toast.success(`Acciones aplicadas: ${result.executed.length}`);
+        toast.success(
+          t("inbox.actionsApplied", { count: result.executed.length }),
+        );
         // Las acciones tocan contacto, etiquetas y pipeline.
         queryClient.invalidateQueries({ queryKey: ["contacts"] });
         queryClient.invalidateQueries({ queryKey: ["pipeline"] });
@@ -189,109 +248,132 @@ export function ChatWindow({ conversation }: { conversation: ConversationDto }) 
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length]);
 
+  const left = conversation.windowOpen
+    ? windowLeft(conversation.windowExpiresAt)
+    : null;
+
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       <header style={chatHeader}>
         <div style={{ display: "flex", gap: 12, minWidth: 0 }}>
           <span style={avatar} aria-hidden>
-            {initials(
-              conversation.contact.name ?? conversation.contact.phone,
-            )}
+            {initials(conversation.contact.name ?? conversation.contact.phone)}
           </span>
           <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
-          <strong style={{ fontSize: 16 }}>
-            {conversation.contact.name ?? conversation.contact.phone}
-          </strong>
-          <span style={{ color: "var(--muted)", fontSize: 13 }}>
-            {conversation.contact.phone}
-          </span>
-          {conversation.contact.tags.length > 0 && (
-            <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginTop: 4 }}>
-              {conversation.contact.tags.map((t) => (
-                <span key={t.name} style={tagChip(t.color)}>
-                  {t.name}
-                </span>
-              ))}
-            </div>
-          )}
-          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
-            <span style={{ fontSize: 11, color: "var(--muted)" }}>Fuente:</span>
-            <select
-              value={conversation.contact.source?.id ?? ""}
-              onChange={(e) => sourceMut.mutate(e.target.value || null)}
-              disabled={sourceMut.isPending}
-              style={sourceSelect}
-            >
-              <option value="">— Sin fuente —</option>
-              {sources.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-          </div>
+            <strong style={{ fontSize: 16 }}>
+              {conversation.contact.name ?? conversation.contact.phone}
+            </strong>
+            <span style={{ color: "var(--muted)", fontSize: 13 }}>
+              {conversation.contact.phone}
+            </span>
+            {conversation.contact.tags.length > 0 && (
+              <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginTop: 4 }}>
+                {conversation.contact.tags.map((tag) => (
+                  <span key={tag.name} style={tagChip(tag.color)}>
+                    {tag.name}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         </div>
+
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          {/* Cuánto queda de la ventana de 24 h: el dato que decide si puedes
+              escribir libre o solo mandar una plantilla. */}
+          {left && (
+            <span
+              style={windowChip}
+              title={t("inbox.windowOpenTitle", { time: left })}
+            >
+              <NavIcon name="hourglass" size={12} />
+              {t("inbox.windowOpenLeft", { time: left })}
+            </span>
+          )}
+
           <AiModeSwitch
             value={conversation.aiMode}
             paused={conversation.aiPaused}
             disabled={aiModeMut.isPending}
             onChange={(m) => aiModeMut.mutate(m)}
           />
+
           <button
             type="button"
             onClick={() => {
               setSearchOpen((v) => !v);
               setSearch("");
             }}
-            title="Buscar en la conversación"
-            style={{
-              ...control,
-              padding: "7px 9px",
-              color: searchOpen ? "var(--accent)" : "var(--muted)",
-            }}
+            title={t("inbox.searchInThread")}
+            aria-label={t("inbox.searchInThread")}
+            aria-pressed={searchOpen}
+            style={toggleBtn(searchOpen)}
           >
             <NavIcon name="search" size={16} />
           </button>
+
           <select
             value={conversation.assignedAgent?.id ?? ""}
             onChange={(e) => assignMut.mutate(e.target.value || null)}
             disabled={assignMut.isPending}
-            title="Asignar a"
+            title={t("inbox.assignTo")}
+            aria-label={t("inbox.assignTo")}
             style={control}
           >
-            <option value="">Sin asignar</option>
+            <option value="">{t("inbox.unassigned")}</option>
             {agents.map((a) => (
               <option key={a.id} value={a.id}>
                 {a.name ?? a.email}
               </option>
             ))}
           </select>
+
           <select
             value={conversation.status}
             onChange={(e) =>
               statusMut.mutate(e.target.value as ConversationStatus)
             }
             disabled={statusMut.isPending}
-            title="Estado"
+            title={t("inbox.status")}
+            aria-label={t("inbox.status")}
             style={control}
           >
-            <option value={ConversationStatus.OPEN}>Abierta</option>
-            <option value={ConversationStatus.PENDING}>Pendiente</option>
-            <option value={ConversationStatus.CLOSED}>Cerrada</option>
+            <option value={ConversationStatus.OPEN}>{t("inbox.statusOpen")}</option>
+            <option value={ConversationStatus.PENDING}>
+              {t("inbox.statusPending")}
+            </option>
+            <option value={ConversationStatus.CLOSED}>
+              {t("inbox.statusClosed")}
+            </option>
           </select>
+
+          {/* Antes decía solo "Notas" y no se sabía si había alguna sin
+              abrirlo. El número lo dice de un vistazo. */}
           <button
-            onClick={() => setShowNotes((v) => !v)}
-            style={{ ...control, cursor: "pointer" }}
-            title="Notas internas"
+            type="button"
+            onClick={() => setShowDetails((v) => !v)}
+            title={t("inbox.detailsHint")}
+            aria-pressed={showDetails}
+            style={{ ...toggleBtn(showDetails), width: "auto", padding: "0 10px", gap: 6 }}
           >
-            Notas
+            <NavIcon name="note" size={15} />
+            {t("inbox.details")}
+            {notes.length > 0 && <span style={countBadge}>{notes.length}</span>}
           </button>
         </div>
       </header>
 
-      {showNotes && <NotesPanel conversationId={conversation.id} />}
+      {showDetails && (
+        <DetailsPanel
+          conversationId={conversation.id}
+          notes={notes}
+          notesLoading={notesLoading}
+          sourceId={conversation.contact.source?.id ?? ""}
+          sources={sources}
+          onSourceChange={(id) => sourceMut.mutate(id)}
+          sourceSaving={sourceMut.isPending}
+        />
+      )}
 
       <div style={messagesArea}>
         {isLoading && <MessagesSkeleton />}
@@ -299,10 +381,10 @@ export function ChatWindow({ conversation }: { conversation: ConversationDto }) 
           <div style={emptyThread}>
             <NavIcon name="message" size={28} />
             <p style={{ margin: "10px 0 0", fontWeight: 600 }}>
-              Todavía no hay mensajes
+              {t("inbox.emptyThread")}
             </p>
             <p style={{ margin: "4px 0 0", fontSize: 13 }}>
-              Escribe abajo para empezar la conversación.
+              {t("inbox.emptyThreadHint")}
             </p>
           </div>
         )}
@@ -310,7 +392,7 @@ export function ChatWindow({ conversation }: { conversation: ConversationDto }) 
           <div style={emptyThread}>
             <NavIcon name="search" size={24} />
             <p style={{ margin: "10px 0 0", fontSize: 13 }}>
-              Ningún mensaje contiene «{search.trim()}».
+              {t("inbox.noSearchMatches", { query: search.trim() })}
             </p>
           </div>
         )}
@@ -323,6 +405,8 @@ export function ChatWindow({ conversation }: { conversation: ConversationDto }) 
             )}
             <MessageBubble
               message={m}
+              locale={locale}
+              t={t}
               highlight={searching ? search.trim() : null}
               onReact={(emoji) => reactMut.mutate({ messageId: m.id, emoji })}
               onReply={() => setReplyTo(m)}
@@ -340,21 +424,27 @@ export function ChatWindow({ conversation }: { conversation: ConversationDto }) 
             autoFocus
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar en este hilo…"
+            placeholder={t("inbox.searchPlaceholder")}
             style={searchInput}
           />
           <span style={{ fontSize: 12, color: "var(--muted)" }}>
             {search.trim()
-              ? `${visible.length} de ${messages.length}`
-              : `${messages.length} mensajes`}
+              ? t("inbox.searchResults", {
+                  shown: visible.length,
+                  total: messages.length,
+                })
+              : messages.length === 1
+                ? t("inbox.threadMessagesOne")
+                : t("inbox.threadMessagesOther", { count: messages.length })}
           </span>
           <button
             onClick={() => {
               setSearchOpen(false);
               setSearch("");
             }}
-            style={{ ...control, padding: "5px 7px" }}
-            title="Cerrar"
+            style={{ ...control, padding: "5px 7px", cursor: "pointer" }}
+            title={t("common.close")}
+            aria-label={t("common.close")}
           >
             <NavIcon name="x" size={14} />
           </button>
@@ -363,22 +453,20 @@ export function ChatWindow({ conversation }: { conversation: ConversationDto }) 
 
       {ai && (
         <div style={ai.escalate ? aiBannerWarn : aiBanner}>
-          {ai.escalate ? (
-            <span>
-              ⚠️ La IA recomienda <strong>escalar a un humano</strong>
-              {ai.escalationReason ? `: ${ai.escalationReason}` : ""}.
-            </span>
-          ) : (
-            <span>
-              ✨ Sugerencia de IA cargada en el cuadro — revísala y edítala antes
-              de enviar.
-            </span>
-          )}
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
+            <NavIcon name={ai.escalate ? "alert" : "sparkles"} size={15} />
+            {ai.escalate ? (
+              <span>
+                {t("inbox.aiEscalate")}
+                {ai.escalationReason ? `: ${ai.escalationReason}` : ""}.
+              </span>
+            ) : (
+              <span>{t("inbox.aiLoaded")}</span>
+            )}
+          </span>
           {ai.pendingActions.length > 0 && (
             <div style={actionsBox}>
-              <strong style={{ fontSize: 12 }}>
-                Al enviar se aplicará en el CRM:
-              </strong>
+              <strong style={{ fontSize: 12 }}>{t("inbox.aiWillApply")}</strong>
               <ul style={{ margin: "5px 0 0", paddingLeft: 18 }}>
                 {ai.pendingActions.map((a) => (
                   <li key={a.id} style={{ fontSize: 12.5 }}>
@@ -391,62 +479,77 @@ export function ChatWindow({ conversation }: { conversation: ConversationDto }) 
           <span style={{ color: "var(--muted)", fontSize: 11 }}>
             {ai.classification && (
               <>
-                {ai.classification.intent} · {sentimentLabel(ai.classification.sentiment)}
-                {ai.classification.urgency === "high" ? " · 🔴 urgente" : ""} ·{" "}
+                {ai.classification.intent} ·{" "}
+                {sentimentLabel(ai.classification.sentiment, t)}
+                {ai.classification.urgency === "high"
+                  ? ` · ${t("inbox.aiUrgent")}`
+                  : ""}{" "}
+                ·{" "}
               </>
             )}
             {ai.provider}/{ai.model}
             {ai.toolsUsed.length ? ` · ${ai.toolsUsed.join(", ")}` : ""}
             {" · "}
             <button onClick={discardAi} style={discardBtn}>
-              descartar
+              {t("inbox.aiDiscard")}
             </button>
           </span>
         </div>
       )}
 
-      {attachment && (
-        <AttachmentPreview
-          attachment={attachment}
-          onRemove={() => setAttachment(null)}
-        />
-      )}
-
       {conversation.windowOpen ? (
-        <>
-          <div style={suggestRow}>
-            <button
-              type="button"
-              onClick={() => suggestMut.mutate()}
-              disabled={suggestMut.isPending}
-              title="Que la IA redacte una respuesta para que tú la revises"
-              style={aiBtn}
-            >
-              <NavIcon name="sparkles" size={14} />
-              {suggestMut.isPending ? "Redactando…" : "Sugerir con IA"}
-            </button>
-          </div>
-          <Composer
-            text={text}
-            onTextChange={setText}
-            onSend={() => sendMut.mutate()}
-            sending={sendMut.isPending}
-            attachment={attachment}
-            onAttach={(f) => uploadMut.mutate(f)}
-            onRemoveAttachment={() => setAttachment(null)}
-            uploading={uploadMut.isPending}
-            replyTo={replyTo}
-            onCancelReply={() => setReplyTo(null)}
-          />
-        </>
+        <Composer
+          text={text}
+          onTextChange={setText}
+          onSend={() => sendMut.mutate()}
+          sending={sendMut.isPending}
+          attachment={attachment}
+          onAttach={(f) => uploadMut.mutate(f)}
+          onRemoveAttachment={() => setAttachment(null)}
+          uploading={uploadMut.isPending}
+          replyTo={replyTo}
+          onCancelReply={() => setReplyTo(null)}
+          contact={conversation.contact}
+          onAttachSaved={attachSaved}
+          onOpenTemplates={() => setTemplateOpen(true)}
+          onOpenButtons={() => setButtonsOpen(true)}
+          onSuggest={() => suggestMut.mutate()}
+          suggesting={suggestMut.isPending}
+          windowOpen
+        />
       ) : (
         <div style={windowClosed}>
-          Ventana de 24h cerrada. Solo se pueden enviar plantillas aprobadas
-          (Fase 3).
+          <span style={{ color: "var(--warning)", display: "inline-flex", flexShrink: 0 }}>
+            <NavIcon name="hourglass" size={18} />
+          </span>
+          <div style={{ flex: 1, minWidth: 0, fontSize: 13 }}>
+            {t("inbox.windowClosedBody")}
+          </div>
+          <button
+            onClick={() => setTemplateOpen(true)}
+            style={sendTemplateBtn}
+            type="button"
+          >
+            <NavIcon name="template" size={15} />
+            {t("inbox.sendTemplate")}
+          </button>
         </div>
       )}
+
+      {templateOpen && (
+        <SendTemplateDialog
+          conversationId={conversation.id}
+          onClose={() => setTemplateOpen(false)}
+        />
+      )}
+      {buttonsOpen && (
+        <SendButtonsDialog
+          conversationId={conversation.id}
+          onClose={() => setButtonsOpen(false)}
+        />
+      )}
       {sendMut.isError && (
-        <div style={{ color: "#ff6b6b", padding: "0 16px 12px", fontSize: 13 }}>
+        <div style={{ color: "var(--danger)", padding: "0 16px 12px", fontSize: 13 }}>
           {(sendMut.error as Error).message}
         </div>
       )}
@@ -454,122 +557,32 @@ export function ChatWindow({ conversation }: { conversation: ConversationDto }) 
   );
 }
 
-/** Botón de clip: sube el archivo al elegirlo y deja la referencia lista. */
-function AttachButton({
-  attachment,
-  onAttached,
-  disabled,
+/**
+ * Datos del contacto en esta conversación y notas internas. La fuente vivía
+ * suelta en la cabecera, entre el nombre y el teléfono, donde parecía parte de
+ * la identidad del contacto; aquí queda junto a lo demás que se edita.
+ */
+function DetailsPanel({
+  conversationId,
+  notes,
+  notesLoading,
+  sourceId,
+  sources,
+  onSourceChange,
+  sourceSaving,
 }: {
-  attachment: UploadedMedia | null;
-  onAttached: (m: UploadedMedia) => void;
-  disabled: boolean;
+  conversationId: string;
+  notes: NoteDto[];
+  notesLoading: boolean;
+  sourceId: string;
+  sources: { id: string; name: string }[];
+  onSourceChange: (id: string | null) => void;
+  sourceSaving: boolean;
 }) {
-  const inputRef = useRef<HTMLInputElement | null>(null);
-
-  const upload = useMutation({
-    mutationFn: (file: File) => uploadMedia(file),
-    onSuccess: onAttached,
-    onError: (e) => toast.error((e as Error).message),
-  });
-
-  return (
-    <>
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/jpeg,image/png,image/webp,application/pdf,.doc,.docx,.xls,.xlsx,.txt,.csv"
-        style={{ display: "none" }}
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) upload.mutate(file);
-          // Permite volver a elegir el mismo archivo tras quitarlo.
-          e.target.value = "";
-        }}
-      />
-      <button
-        type="button"
-        onClick={() => inputRef.current?.click()}
-        disabled={disabled || upload.isPending || !!attachment}
-        title={attachment ? "Ya hay un archivo adjunto" : "Adjuntar archivo"}
-        style={attachBtn}
-      >
-        {upload.isPending ? "…" : "📎"}
-      </button>
-    </>
-  );
-}
-
-function AttachmentPreview({
-  attachment,
-  onRemove,
-}: {
-  attachment: UploadedMedia;
-  onRemove: () => void;
-}) {
-  const kb = Math.round(attachment.size / 1024);
-  return (
-    <div style={previewBar}>
-      {attachment.kind === "IMAGE" ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={attachment.previewUrl.replace("/api/v1/media/", "/api/bff/media/")}
-          alt={attachment.fileName}
-          style={{ height: 44, borderRadius: 6, objectFit: "cover" }}
-        />
-      ) : (
-        <span style={{ fontSize: 22 }}>📄</span>
-      )}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {attachment.fileName}
-        </div>
-        <div style={{ fontSize: 11, color: "var(--muted)" }}>
-          {kb < 1024 ? `${kb} KB` : `${(kb / 1024).toFixed(1)} MB`}
-        </div>
-      </div>
-      <button onClick={onRemove} style={removeBtn} title="Quitar">
-        ✕
-      </button>
-    </div>
-  );
-}
-
-const attachBtn = {
-  padding: "8px 10px",
-  borderRadius: 8,
-  border: "1px solid var(--border)",
-  background: "transparent",
-  color: "var(--text)",
-  cursor: "pointer",
-  fontSize: 16,
-  lineHeight: 1,
-} as React.CSSProperties;
-
-const previewBar: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: 10,
-  padding: "8px 16px",
-  borderTop: "1px solid var(--border)",
-  background: "var(--panel)",
-};
-
-const removeBtn: React.CSSProperties = {
-  border: "none",
-  background: "transparent",
-  color: "var(--muted)",
-  cursor: "pointer",
-  fontSize: 14,
-};
-
-function NotesPanel({ conversationId }: { conversationId: string }) {
+  const t = useT();
+  const locale = useLocale();
   const queryClient = useQueryClient();
   const [body, setBody] = useState("");
-
-  const { data: notes = [], isLoading } = useQuery({
-    queryKey: ["notes", conversationId],
-    queryFn: () => fetchNotes(conversationId),
-  });
 
   const add = useMutation({
     mutationFn: () => addNote(conversationId, body.trim()),
@@ -580,21 +593,45 @@ function NotesPanel({ conversationId }: { conversationId: string }) {
   });
 
   return (
-    <div style={notesPanel}>
-      <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 8 }}>
-        Notas internas (no se envían al contacto)
+    <div style={detailsPanel}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={fieldLabel}>{t("inbox.source")}</span>
+        <select
+          value={sourceId}
+          onChange={(e) => onSourceChange(e.target.value || null)}
+          disabled={sourceSaving}
+          aria-label={t("inbox.source")}
+          style={sourceSelect}
+        >
+          <option value="">{t("inbox.noSource")}</option>
+          {sources.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div style={{ fontSize: 12, color: "var(--muted)" }}>
+        {t("inbox.notesHint")}
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 160, overflowY: "auto" }}>
-        {isLoading && <span style={{ color: "var(--muted)", fontSize: 13 }}>Cargando…</span>}
-        {!isLoading && notes.length === 0 && (
-          <span style={{ color: "var(--muted)", fontSize: 13 }}>Sin notas.</span>
+        {notesLoading && (
+          <span style={{ color: "var(--muted)", fontSize: 13 }}>
+            {t("common.loading")}
+          </span>
+        )}
+        {!notesLoading && notes.length === 0 && (
+          <span style={{ color: "var(--muted)", fontSize: 13 }}>
+            {t("inbox.noNotes")}
+          </span>
         )}
         {notes.map((n) => (
           <div key={n.id} style={noteItem}>
             <div style={{ fontSize: 13 }}>{n.body}</div>
             <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>
-              {n.author.name ?? "Agente"} ·{" "}
-              {new Date(n.createdAt).toLocaleString("es")}
+              {n.author.name ?? t("inbox.agent")} ·{" "}
+              {new Date(n.createdAt).toLocaleString(locale)}
             </div>
           </div>
         ))}
@@ -604,16 +641,20 @@ function NotesPanel({ conversationId }: { conversationId: string }) {
           e.preventDefault();
           if (body.trim()) add.mutate();
         }}
-        style={{ display: "flex", gap: 8, marginTop: 8 }}
+        style={{ display: "flex", gap: 8 }}
       >
         <input
           value={body}
           onChange={(e) => setBody(e.target.value)}
-          placeholder="Agregar nota…"
-          style={{ ...input, padding: "8px 10px" }}
+          placeholder={t("inbox.addNote")}
+          style={noteInput}
         />
-        <button type="submit" disabled={add.isPending} style={sendBtn}>
-          Añadir
+        <button
+          type="submit"
+          disabled={add.isPending || !body.trim()}
+          style={addNoteBtn(!!body.trim() && !add.isPending)}
+        >
+          {t("inbox.add")}
         </button>
       </form>
     </div>
@@ -627,11 +668,15 @@ function MessageBubble({
   onReact,
   onReply,
   highlight,
+  locale,
+  t,
 }: {
   message: MessageDto;
   onReact: (emoji: string) => void;
   onReply: () => void;
   highlight: string | null;
+  locale: string;
+  t: Translator;
 }) {
   const out = m.direction === "OUTBOUND";
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -663,7 +708,9 @@ function MessageBubble({
         {m.replyTo && (
           <div style={quotedBlock}>
             <div style={quotedWho}>
-              {m.replyTo.direction === "OUTBOUND" ? "Tú" : "Cliente"}
+              {m.replyTo.direction === "OUTBOUND"
+                ? t("inbox.you")
+                : t("inbox.customer")}
             </div>
             <div style={quotedText}>
               {m.replyTo.content || `[${m.replyTo.type.toLowerCase()}]`}
@@ -671,11 +718,7 @@ function MessageBubble({
           </div>
         )}
         {m.mediaUrl && (
-          <MediaBubble
-            mediaUrl={m.mediaUrl}
-            type={m.type}
-            caption={m.content}
-          />
+          <MediaBubble mediaUrl={m.mediaUrl} type={m.type} caption={m.content} />
         )}
         {m.content ? (
           <MessageText text={m.content} highlight={highlight} />
@@ -684,9 +727,18 @@ function MessageBubble({
             <div style={{ opacity: 0.6 }}>[{m.type.toLowerCase()}]</div>
           )
         )}
+        {m.buttons && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 3, marginTop: 6 }}>
+            {m.buttons.map((b) => (
+              <div key={b.id} style={messageButton}>
+                {b.title}
+              </div>
+            ))}
+          </div>
+        )}
         <div style={metaRow(out)}>
           <span style={{ fontSize: 10.5, color: "rgba(230,237,246,0.45)" }}>
-            {new Date(m.createdAt).toLocaleTimeString("es", {
+            {new Date(m.createdAt).toLocaleTimeString(locale, {
               hour: "2-digit",
               minute: "2-digit",
             })}
@@ -699,7 +751,7 @@ function MessageBubble({
               position: "absolute",
               bottom: -10,
               [out ? "left" : "right"]: 8,
-              background: "#0d1320",
+              background: "var(--field)",
               border: "1px solid var(--border)",
               borderRadius: 999,
               padding: "0 5px",
@@ -712,43 +764,59 @@ function MessageBubble({
         )}
       </div>
 
-      {/* Disparador de reacción (aparece al pasar el cursor) */}
-      <button
-        className="react-trigger"
-        onClick={() => setPickerOpen((v) => !v)}
-        title="Reaccionar"
-        style={reactTriggerBtn}
-      >
-        ☺
-      </button>
+      {/* Acciones del mensaje. Citar ya estaba hecho de punta a punta —el
+          cuadro de abajo sabe mostrar la cita y el envío manda replyToId—
+          pero no había ningún botón que lo disparara: la función existía y
+          era inalcanzable. */}
+      <div className="msg-actions" style={{ display: "flex", gap: 4 }}>
+        <button
+          className="msg-action"
+          onClick={onReply}
+          title={t("inbox.reply")}
+          aria-label={t("inbox.reply")}
+        >
+          <NavIcon name="reply" size={13} />
+        </button>
+        <button
+          className="msg-action"
+          onClick={() => setPickerOpen((v) => !v)}
+          title={t("inbox.react")}
+          aria-label={t("inbox.react")}
+        >
+          <NavIcon name="smile" size={13} />
+        </button>
+      </div>
 
       {pickerOpen && (
-        <div style={emojiPicker}>
-          {REACTIONS.map((e) => (
-            <button
-              key={e}
-              onClick={() => {
-                onReact(m.reaction === e ? "" : e);
-                setPickerOpen(false);
-              }}
-              style={emojiBtn}
-            >
-              {e}
-            </button>
-          ))}
-        </div>
+        <>
+          <div style={pickerBackdrop} onClick={() => setPickerOpen(false)} />
+          <div style={emojiPicker}>
+            {REACTIONS.map((e) => (
+              <button
+                key={e}
+                onClick={() => {
+                  onReact(m.reaction === e ? "" : e);
+                  setPickerOpen(false);
+                }}
+                style={{
+                  ...emojiBtn,
+                  background: m.reaction === e ? "var(--accent-soft)" : "transparent",
+                }}
+              >
+                {e}
+              </button>
+            ))}
+          </div>
+        </>
       )}
     </div>
   );
 }
 
-const reactTriggerBtn: React.CSSProperties = {
-  background: "transparent",
-  border: "none",
-  color: "var(--muted)",
-  cursor: "pointer",
-  fontSize: 16,
-  padding: 2,
+const pickerBackdrop: React.CSSProperties = {
+  position: "fixed",
+  inset: 0,
+  zIndex: 4,
 };
 
 const emojiPicker: React.CSSProperties = {
@@ -756,12 +824,12 @@ const emojiPicker: React.CSSProperties = {
   top: -42,
   display: "flex",
   gap: 2,
-  background: "#0d1320",
+  background: "var(--field)",
   border: "1px solid var(--border)",
   borderRadius: 999,
   padding: "4px 6px",
   zIndex: 5,
-  boxShadow: "var(--shadow)",
+  boxShadow: "var(--shadow-overlay)",
 };
 
 const emojiBtn: React.CSSProperties = {
@@ -774,18 +842,29 @@ const emojiBtn: React.CSSProperties = {
 };
 
 const sourceSelect: React.CSSProperties = {
-  background: "#0d1320",
+  background: "var(--field)",
   color: "var(--text)",
   border: "1px solid var(--border)",
   borderRadius: 7,
-  fontSize: 12,
-  padding: "3px 8px",
+  fontSize: 12.5,
+  padding: "5px 8px",
+};
+
+const fieldLabel: React.CSSProperties = {
+  fontSize: 11,
+  color: "var(--muted)",
+  textTransform: "uppercase",
+  letterSpacing: 0.4,
+  fontWeight: 600,
 };
 
 function tagChip(color: string | null): React.CSSProperties {
-  const bg = color && /^#?[0-9a-fA-F]{3,8}$/.test(color)
-    ? color.startsWith("#") ? color : `#${color}`
-    : "#2c4b7a";
+  const bg =
+    color && /^#?[0-9a-fA-F]{3,8}$/.test(color)
+      ? color.startsWith("#")
+        ? color
+        : `#${color}`
+      : "#2c4b7a";
   return {
     fontSize: 11,
     padding: "1px 8px",
@@ -795,38 +874,10 @@ function tagChip(color: string | null): React.CSSProperties {
   };
 }
 
-function sentimentLabel(s: string): string {
-  if (s === "negative") return "😟 negativo";
-  if (s === "positive") return "🙂 positivo";
-  return "😐 neutral";
-}
-
-function ChatSkeleton() {
-  const rows = [
-    { side: "flex-start", w: 180 },
-    { side: "flex-end", w: 220 },
-    { side: "flex-start", w: 140 },
-    { side: "flex-end", w: 200 },
-    { side: "flex-start", w: 240 },
-  ] as const;
-  return (
-    <>
-      {rows.map((r, i) => (
-        <div
-          key={i}
-          className="skeleton"
-          style={{
-            alignSelf: r.side,
-            width: r.w,
-            maxWidth: "70%",
-            height: 38,
-            borderRadius: 10,
-            opacity: 0.8,
-          }}
-        />
-      ))}
-    </>
-  );
+function sentimentLabel(s: string, t: Translator): string {
+  if (s === "negative") return t("inbox.sentimentNegative");
+  if (s === "positive") return t("inbox.sentimentPositive");
+  return t("inbox.sentimentNeutral");
 }
 
 const chatHeader: React.CSSProperties = {
@@ -839,18 +890,69 @@ const chatHeader: React.CSSProperties = {
 };
 
 const control: React.CSSProperties = {
-  padding: "6px 10px",
+  height: 32,
+  padding: "0 8px",
   borderRadius: 8,
   border: "1px solid var(--border)",
-  background: "#0d1320",
+  background: "var(--field)",
   color: "var(--text)",
   fontSize: 13,
 };
 
-const notesPanel: React.CSSProperties = {
+// Botón que se queda encendido mientras su panel está abierto: el estado del
+// panel se ve en el botón que lo abrió, no hay que buscarlo en la pantalla.
+function toggleBtn(active: boolean): React.CSSProperties {
+  return {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    height: 32,
+    width: 32,
+    borderRadius: 8,
+    border: `1px solid ${active ? "var(--accent)" : "var(--border)"}`,
+    background: active ? "var(--accent-soft)" : "var(--field)",
+    color: active ? "var(--accent)" : "var(--muted)",
+    fontSize: 13,
+    fontWeight: 600,
+    cursor: "pointer",
+    transition: "color 150ms, background 150ms, border-color 150ms",
+  };
+}
+
+const countBadge: React.CSSProperties = {
+  minWidth: 17,
+  height: 17,
+  padding: "0 5px",
+  borderRadius: 999,
+  background: "var(--accent)",
+  color: "var(--accent-ink)",
+  fontSize: 10.5,
+  fontWeight: 700,
+  display: "inline-grid",
+  placeItems: "center",
+};
+
+const windowChip: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 5,
+  height: 32,
+  padding: "0 10px",
+  borderRadius: 999,
+  border: "1px solid var(--border)",
+  color: "var(--muted)",
+  fontSize: 11.5,
+  fontWeight: 600,
+  whiteSpace: "nowrap",
+};
+
+const detailsPanel: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 10,
   padding: "12px 16px",
   borderBottom: "1px solid var(--border)",
-  background: "#0e1420",
+  background: "var(--panel-2)",
 };
 
 const noteItem: React.CSSProperties = {
@@ -869,48 +971,58 @@ const messagesArea: React.CSSProperties = {
   gap: 8,
 };
 
-const composer: React.CSSProperties = {
-  display: "flex",
-  gap: 8,
-  padding: 12,
-  borderTop: "1px solid var(--border)",
-};
-
-const input: React.CSSProperties = {
+const noteInput: React.CSSProperties = {
   flex: 1,
-  padding: "10px 12px",
+  padding: "8px 10px",
   borderRadius: 8,
   border: "1px solid var(--border)",
-  background: "#0d1320",
+  background: "var(--field)",
   color: "var(--text)",
 };
 
-const sendBtn: React.CSSProperties = {
-  padding: "10px 18px",
+function addNoteBtn(active: boolean): React.CSSProperties {
+  return {
+    padding: "8px 16px",
+    borderRadius: 8,
+    border: "none",
+    background: active ? "var(--accent)" : "var(--field)",
+    color: active ? "var(--accent-ink)" : "var(--muted)",
+    fontWeight: 600,
+    cursor: active ? "pointer" : "default",
+  };
+}
+
+const messageButton: React.CSSProperties = {
+  background: "rgba(255,255,255,0.08)",
+  color: "#53bdeb",
+  textAlign: "center",
+  borderRadius: 7,
+  padding: "6px 8px",
+  fontSize: 12.5,
+};
+
+const sendTemplateBtn: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 7,
+  flexShrink: 0,
+  padding: "9px 14px",
   borderRadius: 8,
   border: "none",
   background: "var(--accent)",
-  color: "#f3f8ff",
+  color: "var(--accent-ink)",
   fontWeight: 600,
   cursor: "pointer",
 };
 
 const windowClosed: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 12,
   padding: 16,
   borderTop: "1px solid var(--border)",
-  color: "#e0a458",
-  fontSize: 13,
-};
-
-const aiBtn: React.CSSProperties = {
-  padding: "10px 12px",
-  borderRadius: 8,
-  border: "1px solid #3a4a6a",
-  background: "#16203a",
-  color: "#a9c3ff",
-  fontWeight: 600,
-  cursor: "pointer",
-  whiteSpace: "nowrap",
+  background: "var(--warning-soft)",
+  color: "var(--text)",
 };
 
 // Iniciales del contacto: identidad sin pedir foto a nadie.
@@ -931,8 +1043,8 @@ const avatar: React.CSSProperties = {
   height: 40,
   flexShrink: 0,
   borderRadius: "50%",
-  background: "rgba(37,211,102,0.14)",
-  color: "var(--positive, #7ee2a8)",
+  background: "var(--accent-soft)",
+  color: "#9dc0ff",
   fontSize: 14,
   fontWeight: 700,
   letterSpacing: "0.01em",
@@ -944,7 +1056,7 @@ const searchBar: React.CSSProperties = {
   gap: 9,
   padding: "8px 16px",
   borderBottom: "1px solid var(--border)",
-  background: "var(--panel, #131a26)",
+  background: "var(--panel)",
   color: "var(--muted)",
 };
 
@@ -958,12 +1070,6 @@ const searchInput: React.CSSProperties = {
   outline: "none",
 };
 
-const suggestRow: React.CSSProperties = {
-  display: "flex",
-  justifyContent: "flex-end",
-  padding: "8px 16px 0",
-};
-
 const emptyThread: React.CSSProperties = {
   margin: "auto",
   textAlign: "center",
@@ -973,7 +1079,7 @@ const emptyThread: React.CSSProperties = {
 
 // Cita dentro de la burbuja: barra de acento a la izquierda y texto apagado.
 const quotedBlock: React.CSSProperties = {
-  borderLeft: "3px solid var(--accent, #25d366)",
+  borderLeft: "3px solid var(--accent)",
   paddingLeft: 8,
   marginBottom: 6,
   opacity: 0.85,
@@ -982,7 +1088,7 @@ const quotedBlock: React.CSSProperties = {
 const quotedWho: React.CSSProperties = {
   fontSize: 11,
   fontWeight: 700,
-  color: "var(--accent, #25d366)",
+  color: "#9dc0ff",
 };
 
 const quotedText: React.CSSProperties = {
@@ -1012,7 +1118,7 @@ const aiBanner: React.CSSProperties = {
   gap: 12,
   padding: "8px 16px",
   borderTop: "1px solid var(--border)",
-  background: "#101a2e",
+  background: "var(--accent-soft)",
   color: "#a9c3ff",
   fontSize: 13,
 };
@@ -1040,6 +1146,6 @@ const discardBtn: React.CSSProperties = {
 
 const aiBannerWarn: React.CSSProperties = {
   ...aiBanner,
-  background: "#2a2113",
-  color: "#e0b766",
+  background: "var(--warning-soft)",
+  color: "var(--warning)",
 };

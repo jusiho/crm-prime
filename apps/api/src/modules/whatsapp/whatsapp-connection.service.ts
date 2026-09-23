@@ -81,6 +81,36 @@ export class WhatsappConnectionService {
   }
 
   /**
+   * Credenciales de la cuenta de WhatsApp Business (WABA), que es donde viven
+   * las plantillas. Usa el canal indicado o el primero activo que tenga WABA.
+   */
+  async resolveWabaCreds(
+    phoneNumberId?: string,
+  ): Promise<{ wabaId: string; token: string; version: string } | null> {
+    const conn = await this.prisma.whatsappConnection.findFirst({
+      where: {
+        isActive: true,
+        wabaId: { not: null },
+        ...(phoneNumberId ? { phoneNumberId } : {}),
+      },
+      orderBy: { connectedAt: "desc" },
+    });
+    if (conn?.wabaId && conn.accessToken) {
+      return {
+        wabaId: conn.wabaId,
+        token: conn.accessToken,
+        version: this.version,
+      };
+    }
+    const envWaba = process.env.WHATSAPP_WABA_ID;
+    const envToken = process.env.WHATSAPP_TOKEN;
+    if (envWaba && envToken) {
+      return { wabaId: envWaba, token: envToken, version: this.version };
+    }
+    return null;
+  }
+
+  /**
    * Resuelve el id de la conexión (canal) a partir del phone_number_id que
    * Meta envía en el webhook. Devuelve null si es el del .env o no se conoce.
    */
@@ -222,7 +252,66 @@ export class WhatsappConnectionService {
       },
     });
     this.logger.log(`WhatsApp conectado (${input.mode}) ${input.phoneNumberId}`);
+
+    // Sin suscribir la app a la WABA, Meta no entrega los webhooks de ese número.
+    if (input.wabaId) {
+      const err = await this.graphPost(`${input.wabaId}/subscribed_apps`, token);
+      if (err) {
+        await this.markError(
+          input.phoneNumberId,
+          `No se pudo suscribir la app a los webhooks de la WABA: ${err}`,
+        );
+      }
+    } else if (input.code) {
+      await this.markError(
+        input.phoneNumberId,
+        "Meta no envió el waba_id, así que no se suscribió a los webhooks. Vuelve a conectar el número.",
+      );
+    }
+
+    // Contactos e historial del celular: Meta solo acepta pedirlos en las 24 h
+    // siguientes a conectar, y una sola vez (al reconectar fallan sin más).
+    if (input.mode === "coexistence") {
+      for (const syncType of ["smb_app_state_sync", "history"]) {
+        const err = await this.graphPost(
+          `${input.phoneNumberId}/smb_app_data`,
+          token,
+          { messaging_product: "whatsapp", sync_type: syncType },
+        );
+        if (err) {
+          this.logger.warn(
+            `Sincronización ${syncType} de ${input.phoneNumberId} falló: ${err}`,
+          );
+        }
+      }
+    }
+
     return this.listChannels();
+  }
+
+  /** POST a la Graph API. Devuelve el mensaje de error de Meta, o null si fue bien. */
+  private async graphPost(
+    path: string,
+    token: string,
+    body?: Record<string, unknown>,
+  ): Promise<string | null> {
+    try {
+      const res = await fetch(`https://graph.facebook.com/${this.version}/${path}`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          ...(body ? { "Content-Type": "application/json" } : {}),
+        },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      if (res.ok) return null;
+      const data = (await res.json().catch(() => null)) as {
+        error?: { message?: string };
+      } | null;
+      return data?.error?.message ?? `HTTP ${res.status}`;
+    } catch (e) {
+      return (e as Error).message.slice(0, 200);
+    }
   }
 
   /**

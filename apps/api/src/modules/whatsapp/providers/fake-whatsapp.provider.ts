@@ -2,7 +2,9 @@ import { Injectable, Logger } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
 import type {
   DownloadedMedia,
+  InteractiveButton,
   SendResult,
+  TemplateSendSpec,
   WhatsAppProvider,
 } from "../whatsapp-provider.interface";
 
@@ -39,15 +41,27 @@ export class FakeWhatsAppProvider implements WhatsAppProvider {
     return { waMessageId };
   }
 
-  async sendTemplate(
+  async sendTemplate(to: string, spec: TemplateSendSpec): Promise<SendResult> {
+    const waMessageId = `wamid.fake.${randomUUID()}`;
+    const extras = [
+      spec.header ? `header:${spec.header.format}` : null,
+      spec.buttons.length ? `botones:${spec.buttons.length}` : null,
+    ].filter(Boolean);
+    this.logger.log(
+      `→ [template:${spec.name}/${spec.language}] a ${to} vars=[${spec.bodyParams.join(", ")}]` +
+        `${extras.length ? ` (${extras.join(", ")})` : ""}  (${waMessageId})`,
+    );
+    return { waMessageId };
+  }
+
+  async sendInteractiveButtons(
     to: string,
-    templateName: string,
-    language: string,
-    variables: string[],
+    body: string,
+    buttons: InteractiveButton[],
   ): Promise<SendResult> {
     const waMessageId = `wamid.fake.${randomUUID()}`;
     this.logger.log(
-      `→ [template:${templateName}/${language}] a ${to} vars=[${variables.join(", ")}]  (${waMessageId})`,
+      `→ [interactive] a ${to}: "${body}" [${buttons.map((b) => b.title).join(" | ")}]  (${waMessageId})`,
     );
     return { waMessageId };
   }

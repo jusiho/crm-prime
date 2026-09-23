@@ -1,16 +1,16 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { AppShell } from "@/components/AppShell";
-import { BotsManager } from "@/features/bots/BotsManager";
+import { CampaignsManager } from "@/features/campaigns/CampaignsManager";
 
-export default async function BotsPage() {
+export default async function DifusionesPage() {
   const session = await auth();
   if (!session) redirect("/login");
   const role = (session.user as { role?: string })?.role;
 
   return (
-    <AppShell email={session.user?.email ?? ""} role={role} active="bots">
-      <BotsManager />
+    <AppShell email={session.user?.email ?? ""} role={role} active="campaigns">
+      <CampaignsManager />
     </AppShell>
   );
 }

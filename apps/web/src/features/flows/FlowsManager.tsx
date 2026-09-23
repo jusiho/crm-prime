@@ -1,5 +1,6 @@
 "use client";
 
+import { NavIcon } from "@/components/NavIcons";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { confirmDialog } from "@/lib/confirm";
@@ -77,7 +78,9 @@ export function FlowsManager() {
         ))}
         {!isPending && flows.length === 0 && (
           <div style={empty}>
-            <div style={{ fontSize: 38 }}>🔀</div>
+            <div style={{ color: "var(--muted)", opacity: 0.6 }}>
+              <NavIcon name="flow" size={34} />
+            </div>
             <p style={muted}>
               Aún no hay flujos. Crea el primero y arrástralo a tu gusto.
             </p>
@@ -108,10 +111,22 @@ function FlowRow({
               ? "al iniciar chat"
               : "palabra clave"}
           </span>
-          <span style={badge(flow.channel ? "#1f5a6f" : "#43506a")}>
-            {flow.channel
-              ? `📱 ${flow.channel.label ?? flow.channel.displayPhoneNumber}`
-              : "cualquier número"}
+          <span
+            style={{
+              ...badge(flow.channel ? "#1f5a6f" : "#43506a"),
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 4,
+            }}
+          >
+            {flow.channel ? (
+              <>
+                <NavIcon name="whatsapp" size={11} />
+                {flow.channel.label ?? flow.channel.displayPhoneNumber}
+              </>
+            ) : (
+              "cualquier número"
+            )}
           </span>
           <span style={badge("#43506a")}>{flow.nodeCount} bloques</span>
           {!flow.isActive && <span style={badge("#5a4a2a")}>inactivo</span>}

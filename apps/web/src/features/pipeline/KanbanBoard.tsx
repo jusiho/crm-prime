@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { confirmDialog } from "@/lib/confirm";
+import { NavIcon } from "@/components/NavIcons";
 import type { DealDto, PipelineDto, StageDto } from "@crm/shared";
 import {
   createDeal,
@@ -104,8 +105,12 @@ export function KanbanBoard() {
           }}
         />
         <div style={{ flex: 1 }} />
-        <button onClick={() => setShowStages(true)} style={ghostBtn}>
-          ⚙ Etapas
+        <button
+          onClick={() => setShowStages(true)}
+          style={{ ...ghostBtn, display: "inline-flex", alignItems: "center", gap: 6 }}
+        >
+          <NavIcon name="settings" size={15} />
+          Etapas
         </button>
         <NewDealForm onCreated={invalidate} />
       </div>
@@ -131,8 +136,8 @@ export function KanbanBoard() {
             >
               <div style={columnHeader}>
                 <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  {stage.isWon && "🏆 "}
-                  {stage.isLost && "✕ "}
+                  {stage.isWon && <NavIcon name="trophy" size={14} />}
+                  {stage.isLost && <NavIcon name="x" size={14} />}
                   {stage.name}
                 </span>
                 <span style={{ color: "var(--muted)" }}>{deals.length}</span>
@@ -264,7 +269,9 @@ function DealDetail({
       <aside style={drawer}>
         <header style={drawerHeader}>
           <strong>Oportunidad</strong>
-          <button onClick={onClose} style={closeBtn}>✕</button>
+          <button onClick={onClose} style={closeBtn} title="Cerrar">
+            <NavIcon name="x" size={16} />
+          </button>
         </header>
         <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 14, overflowY: "auto" }}>
           <Field label="Título">
@@ -301,13 +308,21 @@ function DealDetail({
           </Field>
           <div style={{ display: "flex", gap: 8 }}>
             {won && (
-              <button onClick={() => setStage.mutate(won.id)} style={{ ...primaryBtn, flex: 1, background: "#1f6f46", color: "#eaf2ff" }}>
-                🏆 Ganado
+              <button
+                onClick={() => setStage.mutate(won.id)}
+                style={{ ...primaryBtn, flex: 1, background: "#1f6f46", color: "#eaf2ff", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+              >
+                <NavIcon name="trophy" size={15} />
+                Ganado
               </button>
             )}
             {lost && (
-              <button onClick={() => setStage.mutate(lost.id)} style={{ ...ghostBtn, flex: 1, borderColor: "#5a2a2a", color: "#e08a8a" }}>
-                ✕ Perdido
+              <button
+                onClick={() => setStage.mutate(lost.id)}
+                style={{ ...ghostBtn, flex: 1, borderColor: "#5a2a2a", color: "#e08a8a", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+              >
+                <NavIcon name="x" size={15} />
+                Perdido
               </button>
             )}
           </div>
@@ -397,7 +412,9 @@ function StageManager({
       <aside style={drawer}>
         <header style={drawerHeader}>
           <strong>Etapas del pipeline</strong>
-          <button onClick={onClose} style={closeBtn}>✕</button>
+          <button onClick={onClose} style={closeBtn} title="Cerrar">
+            <NavIcon name="x" size={16} />
+          </button>
         </header>
         <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 8, overflowY: "auto" }}>
           {stages.map((s, i) => (
@@ -410,8 +427,12 @@ function StageManager({
                     rename.mutate({ id: s.id, name: e.target.value.trim() });
                 }}
               />
-              <button onClick={() => moveStage(i, -1)} disabled={i === 0} style={miniBtn}>↑</button>
-              <button onClick={() => moveStage(i, 1)} disabled={i === stages.length - 1} style={miniBtn}>↓</button>
+              <button onClick={() => moveStage(i, -1)} disabled={i === 0} style={miniBtn} title="Subir">
+                <NavIcon name="arrow-up" size={13} />
+              </button>
+              <button onClick={() => moveStage(i, 1)} disabled={i === stages.length - 1} style={miniBtn} title="Bajar">
+                <NavIcon name="arrow-down" size={13} />
+              </button>
               <button
                 onClick={() => {
                   void confirmDialog({
@@ -420,7 +441,10 @@ function StageManager({
                   }).then((ok) => ok && remove.mutate(s.id));
                 }}
                 style={{ ...miniBtn, color: "#e08a8a" }}
-              >✕</button>
+                title="Eliminar etapa"
+              >
+                <NavIcon name="x" size={13} />
+              </button>
             </div>
           ))}
           {remove.isError && (

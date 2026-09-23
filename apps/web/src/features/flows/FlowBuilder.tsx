@@ -274,8 +274,12 @@ export function FlowBuilder({
     <div style={{ height: "calc(100vh - 56px)", display: "flex", flexDirection: "column" }}>
       {/* Barra superior */}
       <div style={bar}>
-        <button onClick={onBack} style={ghost}>
-          ← Volver
+        <button
+          onClick={onBack}
+          style={{ ...ghost, display: "inline-flex", alignItems: "center", gap: 6 }}
+        >
+          <NavIcon name="arrow-left" size={15} />
+          Volver
         </button>
         <input
           style={{ ...input, width: 200, fontWeight: 600 }}
@@ -326,8 +330,13 @@ export function FlowBuilder({
         </label>
         <div style={{ flex: 1 }} />
         {undoPoint && (
-          <button onClick={undoAssistant} style={ghost} title="Volver al flujo anterior">
-            ↩ Deshacer IA
+          <button
+            onClick={undoAssistant}
+            style={{ ...ghost, display: "inline-flex", alignItems: "center", gap: 6 }}
+            title="Volver al flujo anterior"
+          >
+            <NavIcon name="reply" size={15} />
+            Deshacer IA
           </button>
         )}
         <button

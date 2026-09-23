@@ -2,7 +2,9 @@ import { Inject, Injectable, Logger } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
 import type {
   DownloadedMedia,
+  InteractiveButton,
   SendResult,
+  TemplateSendSpec,
   WhatsAppProvider,
 } from "../whatsapp-provider.interface";
 import {
@@ -72,29 +74,50 @@ export class MetaWhatsAppProvider implements WhatsAppProvider {
 
   async sendTemplate(
     to: string,
-    templateName: string,
-    language: string,
-    variables: string[],
+    spec: TemplateSendSpec,
     fromPhoneNumberId?: string,
   ): Promise<SendResult> {
     const creds = await this.connection.resolveCreds(fromPhoneNumberId);
-    if (!creds) return this.simulate("template", to, templateName);
-    const components = variables.length
-      ? [
-          {
-            type: "body",
-            parameters: variables.map((v) => ({ type: "text", text: v })),
-          },
-        ]
-      : [];
+    if (!creds) return this.simulate("template", to, spec.name);
+    const components = buildTemplateComponents(spec);
     return this.post(creds, {
       messaging_product: "whatsapp",
       to,
       type: "template",
       template: {
-        name: templateName,
-        language: { code: language },
+        name: spec.name,
+        language: { code: spec.language },
         ...(components.length ? { components } : {}),
+      },
+    });
+  }
+
+  async sendInteractiveButtons(
+    to: string,
+    body: string,
+    buttons: InteractiveButton[],
+    options?: { header?: string; footer?: string },
+    fromPhoneNumberId?: string,
+  ): Promise<SendResult> {
+    const creds = await this.connection.resolveCreds(fromPhoneNumberId);
+    if (!creds) return this.simulate("interactive", to, body);
+    return this.post(creds, {
+      messaging_product: "whatsapp",
+      to,
+      type: "interactive",
+      interactive: {
+        type: "button",
+        ...(options?.header
+          ? { header: { type: "text", text: options.header } }
+          : {}),
+        body: { text: body },
+        ...(options?.footer ? { footer: { text: options.footer } } : {}),
+        action: {
+          buttons: buttons.map((b) => ({
+            type: "reply",
+            reply: { id: b.id, title: b.title },
+          })),
+        },
       },
     });
   }
@@ -287,4 +310,77 @@ export class MetaWhatsAppProvider implements WhatsAppProvider {
     );
     return { waMessageId };
   }
+}
+
+/**
+ * Traduce una plantilla rellenada al array `components` que espera Meta.
+ * Los botones se referencian por su posición (zero-indexed) y solo se envían
+ * los que llevan algo dinámico: URL con sufijo y código de cupón.
+ */
+export function buildTemplateComponents(
+  spec: TemplateSendSpec,
+): Record<string, unknown>[] {
+  const components: Record<string, unknown>[] = [];
+  const header = spec.header;
+
+  if (header?.format === "TEXT" && spec.headerTextParam) {
+    components.push({
+      type: "header",
+      parameters: [{ type: "text", text: spec.headerTextParam }],
+    });
+  } else if (
+    header &&
+    (header.format === "IMAGE" ||
+      header.format === "VIDEO" ||
+      header.format === "DOCUMENT") &&
+    spec.headerMedia
+  ) {
+    const kind = header.format.toLowerCase();
+    const media: Record<string, string> = {};
+    if (spec.headerMedia.id) media.id = spec.headerMedia.id;
+    if (spec.headerMedia.link) media.link = spec.headerMedia.link;
+    if (kind === "document" && spec.headerMedia.filename) {
+      media.filename = spec.headerMedia.filename;
+    }
+    components.push({
+      type: "header",
+      parameters: [{ type: kind, [kind]: media }],
+    });
+  } else if (header?.format === "LOCATION" && spec.headerLocation) {
+    components.push({
+      type: "header",
+      parameters: [{ type: "location", location: spec.headerLocation }],
+    });
+  }
+
+  if (spec.bodyParams.length) {
+    components.push({
+      type: "body",
+      parameters: spec.bodyParams.map((text) => ({ type: "text", text })),
+    });
+  }
+
+  spec.buttons.forEach((button, index) => {
+    if (button.type === "URL") {
+      const value = spec.urlButtonParams?.find((p) => p.index === index)?.value;
+      // Solo lleva parámetro si la URL termina en un hueco {{1}}.
+      if (value && button.url.includes("{{")) {
+        components.push({
+          type: "button",
+          sub_type: "url",
+          index: String(index),
+          parameters: [{ type: "text", text: value }],
+        });
+      }
+    } else if (button.type === "COPY_CODE") {
+      components.push({
+        type: "button",
+        sub_type: "copy_code",
+        index: String(index),
+        parameters: [{ type: "coupon_code", coupon_code: button.example }],
+      });
+    }
+  });
+
+  return components;
 }

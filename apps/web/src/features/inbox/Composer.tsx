@@ -2,18 +2,23 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import type { MessageDto, TemplateDto } from "@crm/shared";
-import { fetchTemplates, type UploadedMedia } from "@/lib/bff";
-import { NavIcon } from "@/components/NavIcons";
+import type { MessageDto, QuickReplyDto } from "@crm/shared";
+import { renderQuickReply } from "@crm/shared";
+import { fetchQuickReplies, mediaSrc, type UploadedMedia } from "@/lib/bff";
+import { NavIcon, type IconName } from "@/components/NavIcons";
+import { useT } from "@/i18n/I18nProvider";
+import type { MessageKey } from "@/i18n/translate";
 import { EmojiPicker } from "./EmojiPicker";
 
 /**
  * Cuadro de redacción del inbox.
  *
- * Antes era un `<input>` de una sola línea, así que era imposible enviar un
- * mensaje con saltos — justo lo que el hilo ya sabe renderizar. Ahora es un
- * textarea que crece solo, con Enter para enviar y Shift+Enter para saltar,
- * más dos atajos del oficio: adjuntar y respuestas rápidas con "/".
+ * La barra tenía cinco iconos sueltos en fila y dos de ellos no decían lo que
+ * hacían: "plantilla" usaba el icono de archivo (igual que adjuntar) y
+ * "mensaje con botones" repetía el rayo de las respuestas rápidas. Ahora lo
+ * que *manda contenido* vive en un menú «+» con su nombre y una línea de
+ * ayuda, y en la barra solo quedan las acciones de uso continuo: emoji,
+ * respuestas rápidas, IA y enviar.
  */
 export function Composer({
   text,
@@ -26,6 +31,13 @@ export function Composer({
   uploading,
   replyTo,
   onCancelReply,
+  contact,
+  onAttachSaved,
+  onOpenTemplates,
+  onOpenButtons,
+  windowOpen,
+  onSuggest,
+  suggesting,
 }: {
   text: string;
   onTextChange: (v: string) => void;
@@ -37,16 +49,29 @@ export function Composer({
   uploading: boolean;
   replyTo: MessageDto | null;
   onCancelReply: () => void;
+  /** Para sustituir {{nombre}} y {{telefono}} en las respuestas rápidas. */
+  contact?: { name?: string | null; phone?: string | null };
+  /** Adjunta un archivo ya guardado (el de una respuesta rápida). */
+  onAttachSaved: (mediaUrl: string, kind: "IMAGE" | "DOCUMENT") => void;
+  onOpenTemplates: () => void;
+  onOpenButtons: () => void;
+  /** Dentro de las 24h se puede escribir libre; fuera, solo plantillas. */
+  windowOpen: boolean;
+  /** Pide a la IA un borrador y lo carga en el cuadro. */
+  onSuggest: () => void;
+  suggesting: boolean;
 }) {
+  const t = useT();
   const fileRef = useRef<HTMLInputElement | null>(null);
   const areaRef = useRef<HTMLTextAreaElement | null>(null);
   const [quickOpen, setQuickOpen] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
-  // Las plantillas solo se piden cuando el usuario abre el menú.
-  const { data: templates = [] } = useQuery({
-    queryKey: ["templates"],
-    queryFn: fetchTemplates,
+  // Las respuestas rápidas solo se piden cuando el usuario abre el menú.
+  const { data: quickReplies = [] } = useQuery({
+    queryKey: ["quick-replies"],
+    queryFn: fetchQuickReplies,
     enabled: quickOpen,
   });
 
@@ -63,29 +88,38 @@ export function Composer({
     if (replyTo) areaRef.current?.focus();
   }, [replyTo]);
 
-  // "/" al principio de un cuadro vacío abre las respuestas rápidas.
+  // "/" al principio del cuadro sigue abriendo las respuestas rápidas y va
+  // filtrando; el botón de la barra abre la lista entera sin escribir nada.
   const slashQuery = useMemo(
     () => (text.startsWith("/") ? text.slice(1).toLowerCase().trim() : null),
     [text],
   );
   const matches = useMemo(() => {
-    if (slashQuery === null) return [];
-    return templates
+    if (!quickOpen) return [];
+    const q = slashQuery ?? "";
+    return quickReplies
       .filter(
-        (t) =>
-          !slashQuery ||
-          t.name.toLowerCase().includes(slashQuery) ||
-          t.body.toLowerCase().includes(slashQuery),
+        (r) =>
+          !q ||
+          r.shortcut.slice(1).toLowerCase().includes(q) ||
+          r.title.toLowerCase().includes(q) ||
+          r.body.toLowerCase().includes(q),
       )
       .slice(0, 6);
-  }, [templates, slashQuery]);
+  }, [quickReplies, quickOpen, slashQuery]);
 
   useEffect(() => {
     if (slashQuery !== null) setQuickOpen(true);
   }, [slashQuery]);
 
-  const showQuick = quickOpen && slashQuery !== null;
   const canSend = (!!text.trim() || !!attachment) && !sending;
+  const thumb = attachment?.kind === "IMAGE" ? mediaSrc(attachment.mediaUrl) : null;
+
+  function closeMenus() {
+    setMenuOpen(false);
+    setEmojiOpen(false);
+    setQuickOpen(false);
+  }
 
   /**
    * Inserta el emoji donde está el cursor y lo deja justo detrás. Añadirlo al
@@ -105,30 +139,76 @@ export function Composer({
     });
   }
 
-  function insertTemplate(t: TemplateDto) {
-    onTextChange(t.body);
+  /** Inserta la respuesta rápida, ya con el nombre del contacto sustituido. */
+  function insertQuickReply(q: QuickReplyDto) {
+    onTextChange(renderQuickReply(q.body, contact ?? {}));
+    if (q.mediaUrl && q.mediaType) onAttachSaved(q.mediaUrl, q.mediaType);
     setQuickOpen(false);
     areaRef.current?.focus();
   }
 
   function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (showQuick && e.key === "Escape") {
-      setQuickOpen(false);
+    if (e.key === "Escape" && (quickOpen || emojiOpen || menuOpen)) {
+      closeMenus();
       return;
     }
     // Enter envía; Shift+Enter (o Alt) hace salto de línea.
     if (e.key === "Enter" && !e.shiftKey && !e.altKey) {
-      e.preventDefault();
-      if (showQuick && matches[0]) {
-        insertTemplate(matches[0]);
+      // Solo se inserta la respuesta rápida si el cuadro empieza por "/": es
+      // el modo en que Enter "completa". Con el panel abierto desde el botón,
+      // el texto escrito es un mensaje real y Enter debe enviarlo.
+      if (slashQuery !== null && quickOpen && matches[0]) {
+        e.preventDefault();
+        insertQuickReply(matches[0]);
         return;
       }
+      e.preventDefault();
       if (canSend) onSend();
     }
   }
 
+  // Lo que manda contenido distinto del texto. Cada entrada dice su nombre y
+  // para qué sirve, en vez de dejarlo en un icono que hay que adivinar.
+  const actions: {
+    icon: IconName;
+    labelKey: MessageKey;
+    hintKey: MessageKey;
+    onClick: () => void;
+    disabled?: boolean;
+    disabledHintKey?: MessageKey;
+  }[] = [
+    {
+      icon: "paperclip",
+      labelKey: "inbox.attach",
+      hintKey: "inbox.attachHint",
+      onClick: () => fileRef.current?.click(),
+      disabled: uploading || !!attachment,
+      disabledHintKey: "inbox.attachTaken",
+    },
+    {
+      icon: "template",
+      labelKey: "inbox.templateAction",
+      hintKey: "inbox.templateHint",
+      onClick: onOpenTemplates,
+    },
+    {
+      icon: "buttons",
+      labelKey: "inbox.buttonsAction",
+      hintKey: "inbox.buttonsHint",
+      onClick: onOpenButtons,
+      disabled: !windowOpen,
+      disabledHintKey: "inbox.buttonsClosed",
+    },
+  ];
+
   return (
     <div style={wrap}>
+      {/* Cierra al pulsar fuera. El selector de emojis no entra aquí: ya
+          vigila por su cuenta el clic fuera y la tecla Esc. */}
+      {(menuOpen || (quickOpen && slashQuery === null)) && (
+        <div style={backdrop} onClick={closeMenus} />
+      )}
+
       {/* Respuesta citada */}
       {replyTo && (
         <div style={quoteBar}>
@@ -137,66 +217,123 @@ export function Composer({
           </span>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={quoteWho}>
-              {replyTo.direction === "OUTBOUND" ? "Tú" : "Cliente"}
+              {replyTo.direction === "OUTBOUND" ? t("inbox.you") : t("inbox.customer")}
             </div>
             <div style={quoteText}>
               {replyTo.content || `[${replyTo.type.toLowerCase()}]`}
             </div>
           </div>
-          <button onClick={onCancelReply} style={iconBtn} title="Quitar cita">
+          <button
+            onClick={onCancelReply}
+            style={chipBtn}
+            title={t("inbox.quoteRemove")}
+            aria-label={t("inbox.quoteRemove")}
+          >
             <NavIcon name="x" size={14} />
           </button>
         </div>
       )}
 
-      {/* Adjunto pendiente de enviar */}
+      {/* Adjunto pendiente de enviar: con miniatura si es una imagen, porque
+          "archivo.jpg" no dice si te equivocaste de foto. */}
       {attachment && (
         <div style={quoteBar}>
-          <span style={quoteIcon}>
-            <NavIcon
-              name={attachment.kind === "IMAGE" ? "image" : "file"}
-              size={14}
-            />
-          </span>
+          {thumb ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={thumb} alt={attachment.fileName} style={thumbImg} />
+          ) : (
+            <span style={quoteIcon}>
+              <NavIcon name="file" size={16} />
+            </span>
+          )}
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={quoteWho}>{attachment.fileName}</div>
             <div style={quoteText}>
-              {attachment.size < 1024 * 1024
-                ? `${Math.round(attachment.size / 1024)} KB`
-                : `${(attachment.size / 1024 / 1024).toFixed(1)} MB`}
+              {attachment.size > 0
+                ? attachment.size < 1024 * 1024
+                  ? `${Math.round(attachment.size / 1024)} KB`
+                  : `${(attachment.size / 1024 / 1024).toFixed(1)} MB`
+                : t("inbox.quickReplyFile")}
             </div>
           </div>
-          <button onClick={onRemoveAttachment} style={iconBtn} title="Quitar">
+          <button
+            onClick={onRemoveAttachment}
+            style={chipBtn}
+            title={t("inbox.removeAttachment")}
+            aria-label={t("inbox.removeAttachment")}
+          >
             <NavIcon name="x" size={14} />
           </button>
+        </div>
+      )}
+
+      {/* Menú «+»: adjuntar, plantilla y botones */}
+      {menuOpen && (
+        <div style={actionMenu} role="menu">
+          {actions.map((a) => {
+            const off = !!a.disabled;
+            return (
+              <button
+                key={a.labelKey}
+                role="menuitem"
+                disabled={off}
+                onClick={() => {
+                  setMenuOpen(false);
+                  a.onClick();
+                }}
+                title={off && a.disabledHintKey ? t(a.disabledHintKey) : undefined}
+                style={menuItem(off)}
+              >
+                <span style={menuIcon}>
+                  <NavIcon name={a.icon} size={17} />
+                </span>
+                <span style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0 }}>
+                  <strong style={{ fontSize: 13 }}>{t(a.labelKey)}</strong>
+                  <span style={menuHint}>
+                    {off && a.disabledHintKey ? t(a.disabledHintKey) : t(a.hintKey)}
+                  </span>
+                </span>
+              </button>
+            );
+          })}
         </div>
       )}
 
       {/* Respuestas rápidas */}
-      {showQuick && (
+      {quickOpen && (
         <div style={quickPanel}>
           <div style={quickHead}>
             <NavIcon name="zap" size={13} />
-            Respuestas rápidas
+            {t("inbox.quickReplies")}
             <span style={{ marginLeft: "auto", opacity: 0.7 }}>
-              Enter inserta la primera · Esc cierra
+              {slashQuery !== null ? t("inbox.quickRepliesKeys") : "Esc"}
             </span>
           </div>
           {matches.length === 0 ? (
             <div style={quickEmpty}>
-              {templates.length === 0
-                ? "Aún no tienes plantillas. Créalas en Campañas › Plantillas."
-                : "Ninguna plantilla coincide."}
+              {quickReplies.length === 0
+                ? t("inbox.noQuickReplies")
+                : t("inbox.noQuickMatches")}
             </div>
           ) : (
-            matches.map((t, i) => (
+            matches.map((q, i) => (
               <button
-                key={t.id}
-                onClick={() => insertTemplate(t)}
-                style={quickItem(i === 0)}
+                key={q.id}
+                onClick={() => insertQuickReply(q)}
+                style={quickItem(slashQuery !== null && i === 0)}
               >
-                <strong style={{ fontSize: 12.5 }}>{t.name}</strong>
-                <span style={quickBody}>{t.body}</span>
+                <strong
+                  style={{
+                    fontSize: 12.5,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 5,
+                  }}
+                >
+                  {q.shortcut} · {q.title}
+                  {q.mediaUrl && <NavIcon name="paperclip" size={12} />}
+                </strong>
+                <span style={quickBody}>{q.body}</span>
               </button>
             ))
           )}
@@ -219,27 +356,41 @@ export function Composer({
             e.target.value = "";
           }}
         />
-        <button
-          type="button"
-          onClick={() => setEmojiOpen((v) => !v)}
-          title="Emojis"
-          style={{
-            ...iconBtn,
-            color: emojiOpen ? "var(--accent, #25d366)" : "var(--muted)",
-          }}
-        >
-          <NavIcon name="smile" size={18} />
-        </button>
 
-        <button
-          type="button"
-          onClick={() => fileRef.current?.click()}
-          disabled={uploading || !!attachment}
-          title={attachment ? "Ya hay un archivo adjunto" : "Adjuntar archivo"}
-          style={iconBtn}
-        >
-          <NavIcon name={uploading ? "clock" : "paperclip"} size={18} />
-        </button>
+        <BarButton
+          icon={uploading ? "clock" : "plus"}
+          label={uploading ? t("inbox.attachUploading") : t("inbox.moreActions")}
+          active={menuOpen}
+          disabled={uploading}
+          onClick={() => {
+            setEmojiOpen(false);
+            setQuickOpen(false);
+            setMenuOpen((v) => !v);
+          }}
+        />
+
+        <BarButton
+          icon="smile"
+          label={t("inbox.emojis")}
+          active={emojiOpen}
+          onClick={() => {
+            setMenuOpen(false);
+            setQuickOpen(false);
+            setEmojiOpen((v) => !v);
+          }}
+        />
+
+        <BarButton
+          icon="zap"
+          label={t("inbox.quickReplies")}
+          active={quickOpen}
+          onClick={() => {
+            setMenuOpen(false);
+            setEmojiOpen(false);
+            setQuickOpen((v) => !v);
+            areaRef.current?.focus();
+          }}
+        />
 
         <textarea
           ref={areaRef}
@@ -249,33 +400,108 @@ export function Composer({
           onKeyDown={onKeyDown}
           placeholder={
             attachment
-              ? "Añade un pie de foto (opcional)…"
-              : "Escribe un mensaje…  «/» para respuestas rápidas"
+              ? t("inbox.placeholderCaption")
+              : t("inbox.placeholderQuickHint")
           }
           style={area}
+        />
+
+        <BarButton
+          icon="sparkles"
+          label={suggesting ? t("inbox.aiSuggesting") : t("inbox.aiSuggestHint")}
+          disabled={suggesting}
+          busy={suggesting}
+          onClick={onSuggest}
         />
 
         <button
           type="button"
           onClick={() => canSend && onSend()}
           disabled={!canSend}
-          title="Enviar (Enter)"
+          title={sending ? t("inbox.sending") : t("inbox.sendHint")}
+          aria-label={sending ? t("inbox.sending") : t("inbox.sendHint")}
           style={sendBtn(canSend)}
         >
-          <NavIcon name={sending ? "clock" : "send"} size={17} />
+          {sending ? <Spinner /> : <NavIcon name="send" size={17} />}
         </button>
       </div>
     </div>
   );
 }
 
+/** Botón de la barra: mismo tamaño y mismo acento para todos. */
+function BarButton({
+  icon,
+  label,
+  onClick,
+  active,
+  disabled,
+  busy,
+}: {
+  icon: IconName;
+  label: string;
+  onClick: () => void;
+  active?: boolean;
+  disabled?: boolean;
+  busy?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      title={label}
+      aria-label={label}
+      aria-pressed={active}
+      style={{
+        ...iconBtn,
+        color: active ? "var(--accent)" : "var(--muted)",
+        borderColor: active ? "var(--accent)" : "var(--border)",
+        background: active ? "var(--accent-soft)" : "transparent",
+        cursor: disabled ? "default" : "pointer",
+        opacity: disabled && !busy ? 0.5 : 1,
+      }}
+    >
+      {busy ? <Spinner /> : <NavIcon name={icon} size={18} />}
+    </button>
+  );
+}
+
+function Spinner() {
+  return (
+    <span
+      aria-hidden
+      style={{
+        width: 15,
+        height: 15,
+        borderRadius: "50%",
+        border: "2px solid currentColor",
+        borderTopColor: "transparent",
+        opacity: 0.8,
+        animation: "spin 0.8s linear infinite",
+        display: "inline-block",
+      }}
+    />
+  );
+}
+
 const wrap: React.CSSProperties = {
   position: "relative",
   borderTop: "1px solid var(--border)",
-  background: "var(--panel, #131a26)",
+  background: "var(--panel)",
+};
+
+const backdrop: React.CSSProperties = {
+  position: "fixed",
+  inset: 0,
+  zIndex: 15,
 };
 
 const bar: React.CSSProperties = {
+  // Por encima del fondo que cierra los menús, para que se pueda saltar de un
+  // botón a otro sin que el primer clic se gaste solo en cerrar.
+  position: "relative",
+  zIndex: 16,
   display: "flex",
   alignItems: "flex-end",
   gap: 8,
@@ -289,7 +515,7 @@ const area: React.CSSProperties = {
   padding: "9px 12px",
   borderRadius: 10,
   border: "1px solid var(--border)",
-  background: "var(--field, #0d1320)",
+  background: "var(--field)",
   color: "var(--text)",
   fontSize: 14,
   lineHeight: 1.45,
@@ -310,7 +536,14 @@ const iconBtn: React.CSSProperties = {
   background: "transparent",
   color: "var(--muted)",
   cursor: "pointer",
-  transition: "color 150ms, background 150ms",
+  transition: "color 150ms, background 150ms, border-color 150ms",
+};
+
+const chipBtn: React.CSSProperties = {
+  ...iconBtn,
+  width: 28,
+  height: 28,
+  borderColor: "transparent",
 };
 
 function sendBtn(active: boolean): React.CSSProperties {
@@ -323,8 +556,8 @@ function sendBtn(active: boolean): React.CSSProperties {
     flexShrink: 0,
     borderRadius: 10,
     border: "none",
-    background: active ? "var(--accent, #25d366)" : "var(--field, #0d1320)",
-    color: active ? "var(--accent-ink, #04210f)" : "var(--muted)",
+    background: active ? "var(--accent)" : "var(--field)",
+    color: active ? "var(--accent-ink)" : "var(--muted)",
     cursor: active ? "pointer" : "default",
     transition: "background 160ms cubic-bezier(0.22,1,0.36,1)",
   };
@@ -340,15 +573,26 @@ const quoteBar: React.CSSProperties = {
 };
 
 const quoteIcon: React.CSSProperties = {
-  color: "var(--accent, #25d366)",
+  color: "var(--accent)",
   display: "inline-flex",
+  flexShrink: 0,
+};
+
+const thumbImg: React.CSSProperties = {
+  width: 38,
+  height: 38,
+  borderRadius: 6,
+  objectFit: "cover",
   flexShrink: 0,
 };
 
 const quoteWho: React.CSSProperties = {
   fontSize: 11.5,
   fontWeight: 700,
-  color: "var(--accent, #25d366)",
+  color: "var(--accent)",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
 };
 
 const quoteText: React.CSSProperties = {
@@ -359,18 +603,67 @@ const quoteText: React.CSSProperties = {
   whiteSpace: "nowrap",
 };
 
-const quickPanel: React.CSSProperties = {
+const panelBase: React.CSSProperties = {
   position: "absolute",
   bottom: "100%",
-  left: 16,
-  right: 16,
   marginBottom: 8,
   borderRadius: 12,
   border: "1px solid var(--border)",
-  background: "var(--surface, #131a26)",
-  boxShadow: "0 6px 20px rgba(0,0,0,0.45)",
+  background: "var(--surface)",
+  boxShadow: "var(--shadow-overlay)",
   overflow: "hidden",
   zIndex: 20,
+};
+
+const actionMenu: React.CSSProperties = {
+  ...panelBase,
+  left: 16,
+  width: 290,
+  maxWidth: "calc(100% - 32px)",
+  padding: 6,
+  display: "flex",
+  flexDirection: "column",
+  gap: 2,
+};
+
+function menuItem(disabled: boolean): React.CSSProperties {
+  return {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    width: "100%",
+    textAlign: "left",
+    padding: "9px 10px",
+    borderRadius: 8,
+    border: "none",
+    background: "transparent",
+    color: disabled ? "var(--muted)" : "var(--text)",
+    cursor: disabled ? "default" : "pointer",
+    opacity: disabled ? 0.55 : 1,
+  };
+}
+
+const menuIcon: React.CSSProperties = {
+  display: "grid",
+  placeItems: "center",
+  width: 32,
+  height: 32,
+  borderRadius: 8,
+  background: "var(--field)",
+  color: "var(--accent)",
+  flexShrink: 0,
+};
+
+const menuHint: React.CSSProperties = {
+  fontSize: 11.5,
+  color: "var(--muted)",
+  lineHeight: 1.35,
+};
+
+const quickPanel: React.CSSProperties = {
+  ...panelBase,
+  left: 16,
+  right: 16,
 };
 
 const quickHead: React.CSSProperties = {
@@ -399,7 +692,7 @@ function quickItem(first: boolean): React.CSSProperties {
     textAlign: "left",
     padding: "9px 12px",
     border: "none",
-    background: first ? "rgba(37,211,102,0.08)" : "transparent",
+    background: first ? "var(--accent-soft)" : "transparent",
     color: "var(--text)",
     cursor: "pointer",
   };

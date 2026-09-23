@@ -1,5 +1,4 @@
-import { auth } from "@/auth";
-import { sessionExpiredResponse } from "@/lib/api";
+import { requireAccessToken } from "@/lib/api";
 
 const API_URL = process.env.API_URL ?? "http://localhost:3001";
 
@@ -9,11 +8,8 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-  const session = await auth();
-  const token = (session as { accessToken?: string } | null)?.accessToken;
-  if (!token || (session as { error?: string } | null)?.error === "RefreshError") {
-    return sessionExpiredResponse();
-  }
+  const token = await requireAccessToken();
+  if (token instanceof Response) return token;
 
   const res = await fetch(`${API_URL}/api/v1/media/${id}`, {
     headers: { Authorization: `Bearer ${token}` },

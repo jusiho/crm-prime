@@ -1,5 +1,6 @@
 "use client";
 
+import { NavIcon } from "@/components/NavIcons";
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { WhatsappChannel } from "@crm/shared";
@@ -377,8 +378,9 @@ function ManualConnect({
         </p>
       )}
       {save.isSuccess && (
-        <p style={{ color: "#7ee2a8", fontSize: 13 }}>
-          {renewing ? "Token actualizado ✓" : "Número conectado ✓"}
+        <p style={{ color: "#7ee2a8", fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>
+          <NavIcon name="check" size={14} />
+          {renewing ? "Token actualizado" : "Número conectado"}
         </p>
       )}
 
@@ -424,7 +426,10 @@ function WebhookInfo() {
       </p>
       {isLocal && (
         <p style={{ margin: "8px 0 0", color: "#e0b766" }}>
-          ⚠️ Estás en localhost: Meta no puede alcanzar tu máquina. Para{" "}
+          <span style={{ marginRight: 6, verticalAlign: "-2px", display: "inline-block" }}>
+            <NavIcon name="alert" size={14} />
+          </span>
+          Estás en localhost: Meta no puede alcanzar tu máquina. Para{" "}
           <strong>recibir</strong> mensajes necesitas exponer el puerto 3001 con
           un túnel, por ejemplo <code>ngrok http 3001</code> o{" "}
           <code>cloudflared tunnel --url http://localhost:3001</code>.{" "}
@@ -521,7 +526,19 @@ function ChannelRow({
             {channel.source === "env" ? " · .env" : ""}
           </span>
           {!online && <span style={pill("#5a4a2a")}>Inactivo</span>}
-          {broken && <span style={pill("#6b3232")}>⚠ Token caducado</span>}
+          {broken && (
+            <span
+              style={{
+                ...pill("#6b3232"),
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 4,
+              }}
+            >
+              <NavIcon name="alert" size={12} />
+              Token caducado
+            </span>
+          )}
         </div>
         {(channel.displayPhoneNumber || channel.label) && (
           <div style={{ color: "var(--muted)", fontSize: 13, marginTop: 2 }}>
@@ -548,7 +565,10 @@ function ChannelRow({
               color: test.data.ok ? "#8fe6c0" : "#ffb3b3",
             }}
           >
-            {test.data.ok ? "✓" : "✕"} {test.data.message}
+            <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <NavIcon name={test.data.ok ? "check" : "x"} size={14} />
+              {test.data.message}
+            </span>
           </div>
         )}
       </div>

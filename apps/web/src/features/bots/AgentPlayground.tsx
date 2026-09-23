@@ -74,7 +74,7 @@ export function AgentPlayground({
           <div>
             <div style={{ fontWeight: 700 }}>🧪 Probar agente</div>
             <div style={{ fontSize: 12.5, color: "var(--muted)" }}>
-              {botName ? botName : "Bot por defecto"} · no se envía nada real
+              {botName ? botName : "Agente por defecto"} · no se envía nada real
             </div>
           </div>
           <div style={{ display: "flex", gap: 8 }}>

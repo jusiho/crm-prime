@@ -4,6 +4,7 @@ import {
   QUEUE_CAMPAIGN,
   QUEUE_FLOW,
   QUEUE_INBOUND,
+  QUEUE_META_LEADS,
   QUEUE_OUTBOUND,
   QUEUE_WEBHOOK,
 } from "./queue.constants";
@@ -56,6 +57,17 @@ import {
         name: QUEUE_FLOW,
         defaultJobOptions: {
           attempts: 3,
+          backoff: { type: "exponential", delay: 5000 },
+          removeOnComplete: 1000,
+          removeOnFail: 5000,
+        },
+      },
+      {
+        // Leads de formularios de Meta: el webhook solo avisa, y el worker
+        // descarga las respuestas y crea el contacto.
+        name: QUEUE_META_LEADS,
+        defaultJobOptions: {
+          attempts: 5,
           backoff: { type: "exponential", delay: 5000 },
           removeOnComplete: 1000,
           removeOnFail: 5000,

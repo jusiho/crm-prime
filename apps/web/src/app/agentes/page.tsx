@@ -1,16 +1,16 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { AppShell } from "@/components/AppShell";
-import { CampaignsManager } from "@/features/campaigns/CampaignsManager";
+import { BotsManager } from "@/features/bots/BotsManager";
 
-export default async function CampaignsPage() {
+export default async function AgentesPage() {
   const session = await auth();
   if (!session) redirect("/login");
   const role = (session.user as { role?: string })?.role;
 
   return (
-    <AppShell email={session.user?.email ?? ""} role={role} active="campaigns">
-      <CampaignsManager />
+    <AppShell email={session.user?.email ?? ""} role={role} active="bots">
+      <BotsManager />
     </AppShell>
   );
 }

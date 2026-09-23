@@ -1,99 +1,34 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { signOut } from "@/auth";
-import { NavIcon, type IconName } from "./NavIcons";
+import { readSessionCookie, revokeRefreshToken } from "@/lib/session-token";
+import { NavIcon } from "./NavIcons";
+import { SideNav, type NavKey } from "./SideNav";
+import { LanguageSwitcher } from "./LanguageSwitcher";
+import { getTranslator } from "@/i18n/server";
+import type { MessageKey } from "@/i18n/translate";
 
-export type NavKey =
-  | "inbox"
-  | "contacts"
-  | "pipeline"
-  | "products"
-  | "bots"
-  | "flows"
-  | "campaigns"
-  | "sellers"
-  | "knowledge"
-  | "whatsapp"
-  | "sessions"
-  | "account"
-  | "settings";
+export type { NavKey };
 
-type Item = {
-  key: NavKey;
-  href: string;
-  label: string;
-  icon: IconName;
-  adminOnly?: boolean;
-};
-type Group = { label: string; items: Item[] };
-
-const NAV: Group[] = [
-  {
-    label: "Ventas",
-    items: [
-      { key: "inbox", href: "/", label: "Bandeja", icon: "inbox" },
-      { key: "contacts", href: "/contacts", label: "Contactos", icon: "user" },
-      { key: "pipeline", href: "/pipeline", label: "Pipeline", icon: "pipeline" },
-      { key: "products", href: "/products", label: "Productos", icon: "tag" },
-    ],
-  },
-  {
-    label: "Automatización",
-    items: [
-      { key: "bots", href: "/bots", label: "Bots IA", icon: "bot" },
-      { key: "flows", href: "/flows", label: "Flujos", icon: "flow" },
-      { key: "campaigns", href: "/campaigns", label: "Campañas", icon: "megaphone" },
-    ],
-  },
-  {
-    label: "Equipo",
-    items: [
-      {
-        key: "sellers",
-        href: "/sellers",
-        label: "Vendedores",
-        icon: "user",
-        adminOnly: true,
-      },
-    ],
-  },
-  {
-    label: "Recursos",
-    items: [
-      { key: "knowledge", href: "/knowledge", label: "Conocimiento", icon: "book" },
-      { key: "whatsapp", href: "/whatsapp", label: "WhatsApp", icon: "whatsapp" },
-    ],
-  },
-  {
-    label: "Sistema",
-    items: [
-      {
-        key: "settings",
-        href: "/settings",
-        label: "Ajustes",
-        icon: "settings",
-        adminOnly: true,
-      },
-    ],
-  },
-];
-
-const TITLES: Record<NavKey, { title: string; subtitle: string }> = {
-  inbox: { title: "Bandeja", subtitle: "Conversaciones en tiempo real" },
-  contacts: { title: "Contactos", subtitle: "Directorio de clientes y leads" },
-  pipeline: { title: "Pipeline", subtitle: "Embudo de ventas y deals" },
-  products: { title: "Productos", subtitle: "Catálogo de productos y servicios" },
-  bots: { title: "Bots IA", subtitle: "Agentes que responden por ti" },
-  flows: { title: "Flujos", subtitle: "Automatiza conversaciones paso a paso" },
-  campaigns: { title: "Campañas", subtitle: "Envíos masivos y broadcasts" },
-  sellers: { title: "Vendedores", subtitle: "Fuentes y asignación de leads" },
-  knowledge: { title: "Conocimiento", subtitle: "Base de conocimiento para la IA" },
-  whatsapp: { title: "WhatsApp", subtitle: "Conecta y gestiona tus números" },
-  sessions: { title: "Sesiones", subtitle: "Dispositivos con tu cuenta abierta" },
-  account: { title: "Mi cuenta", subtitle: "Perfil, contraseña y seguridad" },
-  settings: { title: "Ajustes", subtitle: "Etiquetas, canales, fuentes y más" },
+// Cada pantalla toma su título del diccionario; la clave es la misma que su
+// entrada en el menú.
+const TITLE_KEYS: Record<NavKey, string> = {
+  inbox: "inbox",
+  contacts: "contacts",
+  pipeline: "pipeline",
+  products: "products",
+  bots: "agents",
+  flows: "flows",
+  campaigns: "broadcasts",
+  sellers: "sellers",
+  knowledge: "knowledge",
+  whatsapp: "whatsapp",
+  sessions: "sessions",
+  account: "account",
+  settings: "settings",
 };
 
-export function AppShell({
+export async function AppShell({
   email,
   role,
   active,
@@ -104,10 +39,15 @@ export function AppShell({
   active: NavKey;
   children: React.ReactNode;
 }) {
-  const head = TITLES[active];
+  const t = await getTranslator();
+  const page = TITLE_KEYS[active];
+  // La preferencia del menú se lee en el servidor: así se pinta ya plegado,
+  // sin el salto de verlo ancho un instante.
+  const collapsed = (await cookies()).get("sidebar-collapsed")?.value === "1";
 
   return (
     <div style={shell}>
+<<<<<<< HEAD
       <aside style={sidebar}>
         <div style={brand}>
           <span style={brandMark}>P</span>
@@ -138,21 +78,27 @@ export function AppShell({
           })}
         </nav>
       </aside>
+=======
+      <SideNav role={role} active={active} initialCollapsed={collapsed} />
+>>>>>>> 2da1df078dfaeb0e81b9d1a84182da2d2c7e8417
 
       <div style={main}>
         <header style={topbar}>
           <div>
-            <div style={{ fontSize: 16, fontWeight: 700 }}>{head.title}</div>
+            <div style={{ fontSize: 16, fontWeight: 700 }}>
+              {t(`pages.${page}.title` as MessageKey)}
+            </div>
             <div style={{ fontSize: 12.5, color: "var(--muted)" }}>
-              {head.subtitle}
+              {t(`pages.${page}.subtitle` as MessageKey)}
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <LanguageSwitcher />
             <Link
               href="/account"
               className="user-chip"
               style={{ ...userChip, color: "var(--text)" }}
-              title="Mi cuenta"
+              title={t("nav.myAccount")}
             >
               <span style={avatar}>{(email[0] ?? "?").toUpperCase()}</span>
               <div style={{ lineHeight: 1.2 }}>
@@ -163,10 +109,14 @@ export function AppShell({
             <form
               action={async () => {
                 "use server";
+                // Revoca también la sesión en el backend: si no, seguiría
+                // activa (y listada en Sesiones) hasta que caducara.
+                const current = await readSessionCookie(await cookies());
+                await revokeRefreshToken(current?.token.refreshToken);
                 await signOut({ redirectTo: "/login" });
               }}
             >
-              <button type="submit" className="icon-btn" title="Salir">
+              <button type="submit" className="icon-btn" title={t("nav.logout")}>
                 <NavIcon name="logout" />
               </button>
             </form>
@@ -183,37 +133,6 @@ const shell: React.CSSProperties = {
   display: "flex",
   height: "100vh",
   overflow: "hidden",
-};
-
-const sidebar: React.CSSProperties = {
-  width: "var(--sidebar-w)",
-  flexShrink: 0,
-  background: "var(--sidebar)",
-  borderRight: "1px solid var(--border)",
-  display: "flex",
-  flexDirection: "column",
-};
-
-const brand: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: 10,
-  height: "var(--header-h)",
-  padding: "0 16px",
-  borderBottom: "1px solid var(--border)",
-};
-
-const brandMark: React.CSSProperties = {
-  width: 28,
-  height: 28,
-  borderRadius: 8,
-  background: "var(--accent)",
-  color: "#f3f8ff",
-  fontWeight: 800,
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  fontSize: 15,
 };
 
 const main: React.CSSProperties = {

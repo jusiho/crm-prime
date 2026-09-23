@@ -17,6 +17,7 @@ import { PrismaService } from "../../infra/prisma/prisma.service";
 import { TenantService } from "../../infra/tenant/tenant.service";
 import { AgentActionsService } from "./agent-actions.service";
 import { availableTools } from "./tools.registry";
+import { i18n } from "../../i18n/i18n";
 
 @Injectable()
 export class BotService {
@@ -213,7 +214,7 @@ export class BotService {
     });
     if (other) {
       throw new BadRequestException(
-        `El canal ya está asignado al bot "${other.name}". Quítalo de ahí primero.`,
+        i18n("bot.channelTaken", { name: other.name }),
       );
     }
   }

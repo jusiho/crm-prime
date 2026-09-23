@@ -3,8 +3,12 @@ import { Processor, WorkerHost } from "@nestjs/bullmq";
 import { Job } from "bullmq";
 import { QUEUE_INBOUND } from "../../../infra/queue/queue.constants";
 import { MessagingService } from "../../messaging/messaging.service";
+<<<<<<< HEAD
 import { WhatsappConnectionService } from "../whatsapp-connection.service";
 import { runInOrg, tenancyMode } from "../../../infra/tenant/tenant.context";
+=======
+import { TemplateService } from "../../campaigns/template.service";
+>>>>>>> 2da1df078dfaeb0e81b9d1a84182da2d2c7e8417
 import {
   WHATSAPP_PROVIDER,
   type WhatsAppProvider,
@@ -17,7 +21,11 @@ export class InboundProcessor extends WorkerHost {
 
   constructor(
     private readonly messaging: MessagingService,
+<<<<<<< HEAD
     private readonly connection: WhatsappConnectionService,
+=======
+    private readonly templates: TemplateService,
+>>>>>>> 2da1df078dfaeb0e81b9d1a84182da2d2c7e8417
     @Inject(WHATSAPP_PROVIDER) private readonly wa: WhatsAppProvider,
   ) {
     super();
@@ -95,6 +103,12 @@ export class InboundProcessor extends WorkerHost {
       return;
     }
 
+    // Meta revisó una plantilla: aprobada, rechazada, pausada…
+    if (data.kind === "template_status") {
+      await this.templates.applyStatusUpdate(data);
+      return;
+    }
+
     // Mensaje entrante: si trae medio, descargarlo antes de persistir.
     let mediaUrl: string | undefined;
     if (data.mediaId) {
@@ -116,6 +130,7 @@ export class InboundProcessor extends WorkerHost {
       // Anuncio Click-to-WhatsApp que originó la conversación.
       referral: data.referral,
       replyToWaMessageId: data.replyToWaMessageId,
+      buttonPayload: data.buttonPayload,
     });
   }
 }

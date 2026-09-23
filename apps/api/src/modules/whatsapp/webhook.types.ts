@@ -9,6 +9,8 @@ export interface InboundMessageJob {
   type: MessageType;
   text?: string;
   mediaId?: string;
+  /** Identificador del botón que pulsó el contacto (plantilla o interactivo). */
+  buttonPayload?: string;
   // Anuncio que originó la conversación (solo en el primer mensaje).
   referral?: MetaReferral;
   /** waMessageId citado por el cliente, si respondió a un mensaje. */
@@ -71,13 +73,26 @@ export interface InboundStateSyncJob {
   channelPhoneNumberId?: string;
 }
 
+// Meta aprobó, rechazó o pausó una plantilla (field
+// message_template_status_update).
+export interface InboundTemplateStatusJob {
+  kind: "template_status";
+  waTemplateId?: string;
+  name?: string;
+  language?: string;
+  status: string;
+  reason?: string | null;
+  category?: string;
+}
+
 export type InboundJob =
   | InboundMessageJob
   | InboundStatusJob
   | InboundEchoJob
   | InboundReactionJob
   | InboundHistoryJob
-  | InboundStateSyncJob;
+  | InboundStateSyncJob
+  | InboundTemplateStatusJob;
 
 // ── Forma (parcial) del webhook de Meta ──────────────────────
 interface MetaContact {
@@ -109,6 +124,14 @@ interface MetaMessage {
   image?: { id: string; caption?: string };
   document?: { id: string; caption?: string };
   reaction?: { message_id: string; emoji?: string };
+  // Respuesta a un botón de plantilla.
+  button?: { text?: string; payload?: string };
+  // Respuesta a un mensaje interactivo (botones o lista).
+  interactive?: {
+    type?: string;
+    button_reply?: { id?: string; title?: string };
+    list_reply?: { id?: string; title?: string; description?: string };
+  };
   referral?: MetaReferral;
   // El cliente respondió citando un mensaje nuestro.
   context?: { id?: string; from?: string };
@@ -149,7 +172,16 @@ interface MetaStateSync {
   label?: { id?: string; name?: string; color?: string };
   contact_label_association?: { phone_number?: string; label_id?: string };
 }
-interface MetaValue {
+// Cambio de estado de una plantilla (aprobada, rechazada, pausada…).
+interface MetaTemplateStatusValue {
+  event?: string;
+  message_template_id?: string | number;
+  message_template_name?: string;
+  message_template_language?: string;
+  reason?: string | null;
+  new_category?: string;
+}
+interface MetaValue extends MetaTemplateStatusValue {
   metadata?: { display_phone_number?: string; phone_number_id?: string };
   contacts?: MetaContact[];
   messages?: MetaMessage[];
@@ -159,7 +191,7 @@ interface MetaValue {
   state_sync?: MetaStateSync[];
 }
 export interface MetaWebhookBody {
-  entry?: { changes?: { value?: MetaValue }[] }[];
+  entry?: { changes?: { field?: string; value?: MetaValue }[] }[];
 }
 
 const TYPE_MAP: Record<string, MessageType> = {
@@ -192,6 +224,22 @@ export function normalizeWebhook(body: MetaWebhookBody): InboundJob[] {
       const value = change.value;
       if (!value) continue;
 
+      // Estado de una plantilla: no es un mensaje, llega en su propio field.
+      if (change.field === "message_template_status_update" && value.event) {
+        jobs.push({
+          kind: "template_status",
+          waTemplateId: value.message_template_id
+            ? String(value.message_template_id)
+            : undefined,
+          name: value.message_template_name,
+          language: value.message_template_language,
+          status: value.event,
+          reason: value.reason ?? null,
+          category: value.new_category,
+        });
+        continue;
+      }
+
       const channelPhoneNumberId = value.metadata?.phone_number_id;
 
       const nameByWaId = new Map<string, string | undefined>();
@@ -210,6 +258,12 @@ export function normalizeWebhook(body: MetaWebhookBody): InboundJob[] {
           });
           continue;
         }
+        // El contacto pulsó un botón: de plantilla (button) o de un mensaje
+        // interactivo (interactive). Se guarda como texto + identificador.
+        const reply = m.interactive?.button_reply ?? m.interactive?.list_reply;
+        const buttonText = m.button?.text ?? reply?.title;
+        const buttonPayload = m.button?.payload ?? reply?.id;
+
         const type = TYPE_MAP[m.type] ?? MessageType.TEXT;
         jobs.push({
           kind: "message",
@@ -217,8 +271,9 @@ export function normalizeWebhook(body: MetaWebhookBody): InboundJob[] {
           name: nameByWaId.get(m.from),
           waMessageId: m.id,
           type,
-          text: m.text?.body,
+          text: m.text?.body ?? buttonText,
           mediaId: m.image?.id ?? m.document?.id,
+          ...(buttonPayload ? { buttonPayload } : {}),
           channelPhoneNumberId,
           ...(m.referral ? { referral: m.referral } : {}),
           ...(m.context?.id ? { replyToWaMessageId: m.context.id } : {}),

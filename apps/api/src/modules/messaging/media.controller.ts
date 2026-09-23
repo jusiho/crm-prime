@@ -19,6 +19,7 @@ import {
   toStorageRef,
   type StorageProvider,
 } from "../../infra/storage/storage.provider";
+import { i18n } from "../../i18n/i18n";
 
 // Lo que WhatsApp acepta como imagen o documento, acotado a lo razonable.
 const MAX_BYTES = 16 * 1024 * 1024; // límite de Meta para medios
@@ -69,7 +70,7 @@ export class MediaController {
     const isImage = IMAGE_TYPES.includes(mimeType);
     if (!isImage && !DOC_TYPES.includes(mimeType)) {
       throw new BadRequestException(
-        `Tipo no admitido: ${mimeType}. Imágenes JPG/PNG/WebP o documentos PDF, Word, Excel, TXT y CSV.`,
+        i18n("media.unsupportedType", { mimeType }),
       );
     }
 

@@ -1,8 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { NavIcon, type IconName } from "@/components/NavIcons";
 import { WhatsAppConnect } from "@/features/whatsapp/WhatsAppConnect";
 import { TagsManager } from "./TagsManager";
+import { QuickRepliesSettings } from "./QuickRepliesSettings";
+import { MetaLeadsSettings } from "./MetaLeadsSettings";
 import { AiSettings } from "./AiSettings";
 import { ApiKeysSettings } from "./ApiKeysSettings";
 import { IntegrationsSettings } from "./IntegrationsSettings";
@@ -15,7 +18,9 @@ import {
 
 type TabKey =
   | "tags"
+  | "quickReplies"
   | "channels"
+  | "metaLeads"
   | "sources"
   | "fields"
   | "stages"
@@ -24,16 +29,18 @@ type TabKey =
   | "integrations"
   | "webhooksOut";
 
-const TABS: { key: TabKey; label: string; icon: string }[] = [
-  { key: "tags", label: "Etiquetas", icon: "🏷️" },
-  { key: "channels", label: "Canales", icon: "📱" },
-  { key: "sources", label: "Fuentes", icon: "🎯" },
-  { key: "fields", label: "Campos personalizados", icon: "🧩" },
-  { key: "stages", label: "Etapas del pipeline", icon: "📊" },
-  { key: "ai", label: "Inteligencia Artificial", icon: "🤖" },
-  { key: "apiKeys", label: "Claves de API", icon: "🔑" },
-  { key: "integrations", label: "Integraciones", icon: "🔌" },
-  { key: "webhooksOut", label: "Webhooks salientes", icon: "📡" },
+const TABS: { key: TabKey; label: string; icon: IconName }[] = [
+  { key: "tags", label: "Etiquetas", icon: "tag" },
+  { key: "quickReplies", label: "Respuestas rápidas", icon: "zap" },
+  { key: "channels", label: "Canales", icon: "whatsapp" },
+  { key: "metaLeads", label: "Leads de Meta", icon: "megaphone" },
+  { key: "sources", label: "Fuentes", icon: "target" },
+  { key: "fields", label: "Campos personalizados", icon: "puzzle" },
+  { key: "stages", label: "Etapas del pipeline", icon: "pipeline" },
+  { key: "ai", label: "Inteligencia Artificial", icon: "bot" },
+  { key: "apiKeys", label: "Claves de API", icon: "key" },
+  { key: "integrations", label: "Integraciones", icon: "plug" },
+  { key: "webhooksOut", label: "Webhooks salientes", icon: "antenna" },
 ];
 
 export function SettingsManager() {
@@ -48,7 +55,7 @@ export function SettingsManager() {
             onClick={() => setTab(t.key)}
             style={tabBtn(tab === t.key)}
           >
-            <span style={{ marginRight: 7 }}>{t.icon}</span>
+            <NavIcon name={t.icon} size={16} />
             {t.label}
           </button>
         ))}
@@ -56,7 +63,9 @@ export function SettingsManager() {
 
       <div style={{ minWidth: 0 }}>
         {tab === "tags" && <TagsManager />}
+        {tab === "quickReplies" && <QuickRepliesSettings />}
         {tab === "channels" && <WhatsAppConnect />}
+        {tab === "metaLeads" && <MetaLeadsSettings />}
         {tab === "sources" && <SourcesSettings />}
         {tab === "fields" && <CustomFieldsSettings />}
         {tab === "stages" && <StagesSettings />}
@@ -89,6 +98,9 @@ const tabBar: React.CSSProperties = {
 
 function tabBtn(active: boolean): React.CSSProperties {
   return {
+    display: "flex",
+    alignItems: "center",
+    gap: 9,
     textAlign: "left",
     padding: "10px 12px",
     borderRadius: 9,

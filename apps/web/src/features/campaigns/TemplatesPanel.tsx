@@ -1,22 +1,40 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { confirmDialog } from "@/lib/confirm";
-import type { CreateTemplateInput, TemplateDto } from "@crm/shared";
-import {
-  createTemplate,
-  deleteTemplate,
-  fetchTemplates,
-} from "@/lib/bff";
-import { badge, box, ghostBtn, input, label, primaryBtn } from "./styles";
+import type { TemplateDto } from "@crm/shared";
+import { deleteTemplate, fetchTemplates, syncTemplates } from "@/lib/bff";
+import { toast } from "@/lib/toast";
+import { badge, box, ghostBtn, primaryBtn } from "./styles";
+import { TemplateEditor } from "./TemplateEditor";
+import { TemplatePreview } from "./TemplatePreview";
 
-// Extrae los índices {{1}}, {{2}}… del cuerpo.
-function extractVars(body: string): number[] {
-  const set = new Set<number>();
-  for (const m of body.matchAll(/\{\{\s*(\d+)\s*\}\}/g)) set.add(Number(m[1]));
-  return [...set].sort((a, b) => a - b);
-}
+const TEMPLATE_STATUS_COLOR: Record<string, string> = {
+  APPROVED: "#1f6f46",
+  PENDING: "#caa14a",
+  IN_APPEAL: "#caa14a",
+  PENDING_DELETION: "#7a3a3a",
+  REJECTED: "#7a3a3a",
+  PAUSED: "#7a5a2a",
+  DISABLED: "#43506a",
+};
+
+const STATUS_TEXT: Record<string, string> = {
+  APPROVED: "Aprobada",
+  PENDING: "En revisión",
+  IN_APPEAL: "En apelación",
+  PENDING_DELETION: "Eliminándose",
+  REJECTED: "Rechazada",
+  PAUSED: "Pausada",
+  DISABLED: "Deshabilitada",
+};
+
+const CATEGORY_TEXT: Record<string, string> = {
+  MARKETING: "Marketing",
+  UTILITY: "Utilidad",
+  AUTHENTICATION: "Autenticación",
+};
 
 export function TemplatesPanel() {
   const queryClient = useQueryClient();
@@ -25,41 +43,104 @@ export function TemplatesPanel() {
     queryFn: fetchTemplates,
   });
   const [creating, setCreating] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: ["templates"] });
 
   const remove = useMutation({
     mutationFn: deleteTemplate,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["templates"] }),
+    onSuccess: invalidate,
+  });
+
+  const sync = useMutation({
+    mutationFn: syncTemplates,
+    onSuccess: (r) => {
+      toast.success(
+        `Sincronizado con Meta: ${r.imported} nueva(s), ${r.updated} actualizada(s).`,
+      );
+      invalidate();
+    },
   });
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <p style={{ color: "var(--muted)", margin: 0, fontSize: 14 }}>
-          Plantillas de mensaje para enviar fuera de la ventana de 24h. Usa{" "}
-          <code>{"{{1}}"}</code>, <code>{"{{2}}"}</code>… para variables.
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: 12,
+          flexWrap: "wrap",
+        }}
+      >
+        <p style={{ color: "var(--muted)", margin: 0, fontSize: 14, maxWidth: 560 }}>
+          Plantillas aprobadas por Meta: es lo único que se puede enviar fuera de
+          la ventana de 24h. Admiten encabezado con imagen, video, documento o
+          ubicación, y botones. Usa <code>{"{{1}}"}</code>, <code>{"{{2}}"}</code>…
+          para los datos que cambian en cada envío.
         </p>
-        <button onClick={() => setCreating(true)} style={primaryBtn}>
-          + Nueva plantilla
-        </button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            onClick={() => sync.mutate()}
+            disabled={sync.isPending}
+            style={ghostBtn}
+          >
+            {sync.isPending ? "Importando…" : "Importar de Meta"}
+          </button>
+          <button
+            onClick={() => {
+              setEditingId(null);
+              setCreating(true);
+            }}
+            style={primaryBtn}
+          >
+            + Nueva plantilla
+          </button>
+        </div>
       </div>
 
       {creating && (
-        <TemplateForm
+        <TemplateEditor
           onClose={() => setCreating(false)}
           onSaved={() => {
             setCreating(false);
-            queryClient.invalidateQueries({ queryKey: ["templates"] });
+            invalidate();
           }}
         />
       )}
 
       {isPending && <p style={{ color: "var(--muted)" }}>Cargando…</p>}
+
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {(templates ?? []).map((t) => (
-          <TemplateRow key={t.id} template={t} onDelete={() => remove.mutate(t.id)} />
-        ))}
+        {(templates ?? []).map((t) =>
+          editingId === t.id ? (
+            <TemplateEditor
+              key={t.id}
+              template={t}
+              onClose={() => setEditingId(null)}
+              onSaved={() => {
+                setEditingId(null);
+                invalidate();
+              }}
+            />
+          ) : (
+            <TemplateRow
+              key={t.id}
+              template={t}
+              onEdit={() => {
+                setCreating(false);
+                setEditingId(t.id);
+              }}
+              onDelete={() => remove.mutate(t.id)}
+            />
+          ),
+        )}
         {templates && templates.length === 0 && !creating && (
-          <p style={{ color: "var(--muted)" }}>Aún no hay plantillas.</p>
+          <p style={{ color: "var(--muted)" }}>
+            Aún no hay plantillas. Crea una, o impórtalas si ya las tienes en el
+            panel de Meta.
+          </p>
         )}
       </div>
     </div>
@@ -68,114 +149,94 @@ export function TemplatesPanel() {
 
 function TemplateRow({
   template,
+  onEdit,
   onDelete,
 }: {
   template: TemplateDto;
+  onEdit: () => void;
   onDelete: () => void;
 }) {
+  const [open, setOpen] = useState(false);
+
   return (
-    <div style={{ ...box, display: "flex", gap: 12, alignItems: "flex-start" }}>
+    <div style={{ ...box, display: "flex", gap: 14, alignItems: "flex-start" }}>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           <strong>{template.name}</strong>
           <span style={badge("#43506a")}>{template.language}</span>
-          <span style={badge(template.status === "APPROVED" ? "#1f6f46" : "#caa14a")}>
-            {template.status}
+          <span style={badge("#2c3a55")}>
+            {CATEGORY_TEXT[template.category] ?? template.category}
           </span>
+          <span style={badge(TEMPLATE_STATUS_COLOR[template.status] ?? "#43506a")}>
+            {STATUS_TEXT[template.status] ?? template.status}
+          </span>
+          {template.header && (
+            <span style={badge("#2c3a55")}>Encabezado: {template.header.format}</span>
+          )}
+          {template.buttons.length > 0 && (
+            <span style={badge("#2c3a55")}>{template.buttons.length} botón(es)</span>
+          )}
         </div>
-        <div style={{ color: "var(--muted)", fontSize: 13, marginTop: 6, whiteSpace: "pre-wrap" }}>
+
+        {template.status === "REJECTED" && template.rejectedReason && (
+          <div style={{ color: "#e08a8a", fontSize: 12.5, marginTop: 6 }}>
+            Meta la rechazó: {template.rejectedReason}
+          </div>
+        )}
+        {template.status === "PENDING" && (
+          <div style={{ color: "var(--muted)", fontSize: 12.5, marginTop: 6 }}>
+            Meta la está revisando. Suele tardar unos minutos.
+          </div>
+        )}
+
+        <div
+          style={{
+            color: "var(--muted)",
+            fontSize: 13,
+            marginTop: 6,
+            whiteSpace: "pre-wrap",
+          }}
+        >
           {template.body}
         </div>
-      </div>
-      <button
-        onClick={() => {
-          void confirmDialog({
-            message: `¿Eliminar la plantilla "${template.name}"?`,
-            danger: true,
-          }).then((ok) => ok && onDelete());
-        }}
-        style={{ ...ghostBtn, color: "#e08a8a", borderColor: "#5a2a2a" }}
-      >
-        Eliminar
-      </button>
-    </div>
-  );
-}
 
-function TemplateForm({
-  onClose,
-  onSaved,
-}: {
-  onClose: () => void;
-  onSaved: () => void;
-}) {
-  const [name, setName] = useState("");
-  const [language, setLanguage] = useState("es");
-  const [body, setBody] = useState("");
-  const vars = useMemo(() => extractVars(body), [body]);
-
-  const save = useMutation({
-    mutationFn: () => {
-      const input: CreateTemplateInput = {
-        name,
-        language,
-        body,
-        status: "APPROVED",
-        variables: vars.map((index) => ({ index, label: `Variable ${index}` })),
-      };
-      return createTemplate(input);
-    },
-    onSuccess: onSaved,
-  });
-
-  return (
-    <div style={{ ...box, display: "flex", flexDirection: "column", gap: 12 }}>
-      <div style={{ display: "flex", gap: 12 }}>
-        <div style={{ flex: 1 }}>
-          <div style={label}>Nombre (minúsculas y _)</div>
-          <input
-            style={input}
-            value={name}
-            placeholder="promo_septiembre"
-            onChange={(e) =>
-              setName(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "_"))
-            }
-          />
-        </div>
-        <div style={{ width: 120 }}>
-          <div style={label}>Idioma</div>
-          <input style={input} value={language} onChange={(e) => setLanguage(e.target.value)} />
-        </div>
-      </div>
-      <div>
-        <div style={label}>Cuerpo del mensaje</div>
-        <textarea
-          style={{ ...input, minHeight: 110, resize: "vertical", fontFamily: "inherit" }}
-          value={body}
-          placeholder="Hola {{1}}, tenemos una promo para ti 🎉"
-          onChange={(e) => setBody(e.target.value)}
-        />
-      </div>
-      {vars.length > 0 && (
-        <div style={{ color: "var(--muted)", fontSize: 13 }}>
-          Variables detectadas: {vars.map((v) => `{{${v}}}`).join(", ")}
-        </div>
-      )}
-      <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-        {save.isError && (
-          <span style={{ color: "#ff6b6b", fontSize: 13, alignSelf: "center" }}>
-            {(save.error as Error).message}
-          </span>
+        {open && (
+          <div style={{ maxWidth: 320, marginTop: 12 }}>
+            <TemplatePreview
+              header={template.header}
+              body={template.body}
+              footer={template.footer}
+              buttons={template.buttons}
+            />
+          </div>
         )}
-        <button onClick={onClose} style={ghostBtn}>
-          Cancelar
-        </button>
+
         <button
-          onClick={() => save.mutate()}
-          disabled={save.isPending || !name || !body}
-          style={primaryBtn}
+          onClick={() => setOpen((v) => !v)}
+          style={{ ...ghostBtn, marginTop: 10 }}
         >
-          {save.isPending ? "Guardando…" : "Crear plantilla"}
+          {open ? "Ocultar vista previa" : "Ver vista previa"}
+        </button>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {!template.readOnly && (
+          <button onClick={onEdit} style={ghostBtn}>
+            Editar
+          </button>
+        )}
+        <button
+          onClick={() => {
+            void confirmDialog({
+              message: template.waTemplateId
+                ? `¿Eliminar "${template.name}"? También se borra en Meta.`
+                : `¿Eliminar la plantilla "${template.name}"?`,
+              danger: true,
+            }).then((ok) => ok && onDelete());
+          }}
+          style={{ ...ghostBtn, color: "#e08a8a", borderColor: "#5a2a2a" }}
+        >
+          Eliminar
         </button>
       </div>
     </div>

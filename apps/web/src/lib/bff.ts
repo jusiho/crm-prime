@@ -78,15 +78,51 @@ import type {
   ProductDto,
   CreateProductInput,
   UpdateProductInput,
+  ImportProductsInput,
+  ImportProductsResult,
+  MetaPageDto,
+  MetaPagesAvailableResult,
+  ConnectMetaPagesInput,
+  UpdateMetaPageInput,
+  MetaLeadDto,
+  MetaLeadStatusValue,
   ContactListItem,
   UpdateContactInput,
   CreateContactInput,
   CustomFieldDto,
   CreateCustomFieldInput,
   UpdateCustomFieldInput,
+  QuickReplyDto,
+  CreateQuickReplyInput,
+  UpdateQuickReplyInput,
+  SyncTemplatesResult,
+  SendInteractiveInput,
+  SendTemplateMessageInput,
 } from "@crm/shared";
 
 // Fetchers del lado del cliente: llaman al BFF (mismo origen, cookie httpOnly).
+
+let redirectingToLogin = false;
+
+/**
+ * fetch al BFF que cierra la sesión en el navegador cuando el servidor dice
+ * que terminó: pasa por /auth/expired (borra la cookie) y vuelve aquí tras el
+ * login. Mientras navega, la promesa no se resuelve para no disparar toasts de
+ * error en todas las consultas a la vez.
+ */
+async function bffFetch(input: string, init?: RequestInit): Promise<Response> {
+  const res = await fetch(input, init);
+  if (res.status !== 401) return res;
+  const body = (await res.clone().json().catch(() => null)) as { code?: string } | null;
+  if (body?.code !== "SESSION_EXPIRED") return res;
+
+  if (!redirectingToLogin) {
+    redirectingToLogin = true;
+    const back = window.location.pathname + window.location.search;
+    window.location.assign(`/auth/expired?callbackUrl=${encodeURIComponent(back)}`);
+  }
+  return new Promise<Response>(() => {});
+}
 
 // Extrae el mensaje de error del backend (NestJS responde { message }) para
 // mostrar algo útil en vez de un genérico. Cae al fallback si no hay cuerpo.
@@ -110,7 +146,7 @@ export async function fetchConversations(
   const sp = new URLSearchParams({ filter });
   if (reply !== "all") sp.set("reply", reply);
   if (status) sp.set("status", status);
-  const res = await fetch(`/api/bff/conversations?${sp.toString()}`);
+  const res = await bffFetch(`/api/bff/conversations?${sp.toString()}`);
   if (!res.ok) throw new Error("No se pudieron cargar las conversaciones");
   return res.json();
 }
@@ -119,7 +155,7 @@ export async function assignConversation(
   conversationId: string,
   agentId: string | null,
 ): Promise<ConversationDto> {
-  const res = await fetch(`/api/bff/conversations/${conversationId}/assign`, {
+  const res = await bffFetch(`/api/bff/conversations/${conversationId}/assign`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ agentId }),
@@ -132,7 +168,7 @@ export async function setConversationStatus(
   conversationId: string,
   status: ConversationStatus,
 ): Promise<ConversationDto> {
-  const res = await fetch(`/api/bff/conversations/${conversationId}/status`, {
+  const res = await bffFetch(`/api/bff/conversations/${conversationId}/status`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ status }),
@@ -145,7 +181,7 @@ export async function setAiMode(
   conversationId: string,
   mode: AiMode,
 ): Promise<ConversationDto> {
-  const res = await fetch(`/api/bff/conversations/${conversationId}/ai-mode`, {
+  const res = await bffFetch(`/api/bff/conversations/${conversationId}/ai-mode`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ mode }),
@@ -155,7 +191,7 @@ export async function setAiMode(
 }
 
 export async function fetchNotes(conversationId: string): Promise<NoteDto[]> {
-  const res = await fetch(`/api/bff/conversations/${conversationId}/notes`);
+  const res = await bffFetch(`/api/bff/conversations/${conversationId}/notes`);
   if (!res.ok) throw new Error("No se pudieron cargar las notas");
   return res.json();
 }
@@ -164,7 +200,7 @@ export async function addNote(
   conversationId: string,
   body: string,
 ): Promise<NoteDto> {
-  const res = await fetch(`/api/bff/conversations/${conversationId}/notes`, {
+  const res = await bffFetch(`/api/bff/conversations/${conversationId}/notes`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ body }),
@@ -174,27 +210,27 @@ export async function addNote(
 }
 
 export async function fetchAgents(): Promise<AgentDto[]> {
-  const res = await fetch("/api/bff/agents");
+  const res = await bffFetch("/api/bff/agents");
   if (!res.ok) throw new Error("No se pudieron cargar los agentes");
   return res.json();
 }
 
 // ── Sesiones / dispositivos ──────────────────────────────────
 export async function fetchSessions(): Promise<SessionDto[]> {
-  const res = await fetch("/api/bff/auth/sessions");
+  const res = await bffFetch("/api/bff/auth/sessions");
   if (!res.ok) throw new Error("No se pudieron cargar las sesiones");
   return res.json();
 }
 
 export async function revokeSession(id: string): Promise<void> {
-  const res = await fetch(`/api/bff/auth/sessions/${id}`, { method: "DELETE" });
+  const res = await bffFetch(`/api/bff/auth/sessions/${id}`, { method: "DELETE" });
   if (!res.ok) throw new Error("No se pudo cerrar la sesión");
 }
 
 // ── Configuración del agente IA ──────────────────────────────
 // ── Conexión de WhatsApp ─────────────────────────────────────
 export async function fetchWhatsappChannels(): Promise<WhatsappChannel[]> {
-  const res = await fetch("/api/bff/whatsapp/connection");
+  const res = await bffFetch("/api/bff/whatsapp/connection");
   if (!res.ok) throw new Error("No se pudo obtener el estado de WhatsApp");
   const data = (await res.json()) as { channels: WhatsappChannel[] };
   return data.channels ?? [];
@@ -203,7 +239,7 @@ export async function fetchWhatsappChannels(): Promise<WhatsappChannel[]> {
 export async function connectWhatsapp(
   input: ConnectWhatsappInput,
 ): Promise<WhatsappChannel[]> {
-  const res = await fetch("/api/bff/whatsapp/connection", {
+  const res = await bffFetch("/api/bff/whatsapp/connection", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
@@ -219,7 +255,7 @@ export async function connectWhatsapp(
 export async function disconnectWhatsapp(
   phoneNumberId: string,
 ): Promise<WhatsappChannel[]> {
-  const res = await fetch("/api/bff/whatsapp/connection/disconnect", {
+  const res = await bffFetch("/api/bff/whatsapp/connection/disconnect", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ phoneNumberId }),
@@ -231,13 +267,13 @@ export async function disconnectWhatsapp(
 
 // ── Bots (agentes IA) ────────────────────────────────────────
 export async function fetchBots(): Promise<BotsResponse> {
-  const res = await fetch("/api/bff/bots");
+  const res = await bffFetch("/api/bff/bots");
   if (!res.ok) throw new Error("No se pudieron cargar los bots");
   return res.json();
 }
 
 export async function createBot(input: CreateBotInput): Promise<BotDto> {
-  const res = await fetch("/api/bff/bots", {
+  const res = await bffFetch("/api/bff/bots", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
@@ -253,7 +289,7 @@ export async function updateBot(
   id: string,
   input: UpdateBotInput,
 ): Promise<BotDto> {
-  const res = await fetch(`/api/bff/bots/${id}`, {
+  const res = await bffFetch(`/api/bff/bots/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
@@ -266,7 +302,7 @@ export async function updateBot(
 }
 
 export async function deleteBot(id: string): Promise<void> {
-  const res = await fetch(`/api/bff/bots/${id}`, { method: "DELETE" });
+  const res = await bffFetch(`/api/bff/bots/${id}`, { method: "DELETE" });
   if (!res.ok) {
     const b = (await res.json().catch(() => null)) as { message?: string } | null;
     throw new Error(b?.message ?? "No se pudo eliminar el bot");
@@ -277,7 +313,7 @@ export async function deleteBot(id: string): Promise<void> {
 export async function testAgent(
   input: PlaygroundRequest,
 ): Promise<PlaygroundReply> {
-  const res = await fetch("/api/bff/bots/playground", {
+  const res = await bffFetch("/api/bff/bots/playground", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
@@ -292,7 +328,7 @@ export async function resolveAiActions(
   runId: string,
   approve: boolean,
 ): Promise<ResolveActionsResult> {
-  const res = await fetch(
+  const res = await bffFetch(
     `/api/bff/conversations/${conversationId}/ai/runs/${runId}/actions`,
     {
       method: "POST",
@@ -310,7 +346,7 @@ export async function resolveAiActions(
 export async function testWhatsappChannel(
   phoneNumberId: string,
 ): Promise<ChannelTestResult> {
-  const res = await fetch("/api/bff/whatsapp/test", {
+  const res = await bffFetch("/api/bff/whatsapp/test", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ phoneNumberId }),
@@ -321,7 +357,7 @@ export async function testWhatsappChannel(
 
 // ── Claves de API (integraciones entrantes) ──────────────────
 export async function fetchApiKeys(): Promise<ApiKeyDto[]> {
-  const res = await fetch("/api/bff/api-keys");
+  const res = await bffFetch("/api/bff/api-keys");
   if (!res.ok) throw new Error("No se pudieron cargar las claves de API");
   return res.json();
 }
@@ -330,7 +366,7 @@ export async function fetchApiKeys(): Promise<ApiKeyDto[]> {
 export async function createApiKey(
   input: CreateApiKeyInput,
 ): Promise<CreatedApiKey> {
-  const res = await fetch("/api/bff/api-keys", {
+  const res = await bffFetch("/api/bff/api-keys", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
@@ -343,7 +379,7 @@ export async function updateApiKey(
   id: string,
   input: UpdateApiKeyInput,
 ): Promise<ApiKeyDto> {
-  const res = await fetch(`/api/bff/api-keys/${id}`, {
+  const res = await bffFetch(`/api/bff/api-keys/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
@@ -353,19 +389,19 @@ export async function updateApiKey(
 }
 
 export async function revokeApiKey(id: string): Promise<ApiKeyDto> {
-  const res = await fetch(`/api/bff/api-keys/${id}/revoke`, { method: "POST" });
+  const res = await bffFetch(`/api/bff/api-keys/${id}/revoke`, { method: "POST" });
   if (!res.ok) throw new Error(await errorMessage(res, "No se pudo revocar la clave"));
   return res.json();
 }
 
 export async function deleteApiKey(id: string): Promise<void> {
-  const res = await fetch(`/api/bff/api-keys/${id}`, { method: "DELETE" });
+  const res = await bffFetch(`/api/bff/api-keys/${id}`, { method: "DELETE" });
   if (!res.ok) throw new Error(await errorMessage(res, "No se pudo eliminar la clave"));
 }
 
 // ── Webhooks salientes (el CRM avisa a otros sistemas) ───────
 export async function fetchWebhooksOut(): Promise<WebhookSubscriptionDto[]> {
-  const res = await fetch("/api/bff/webhooks-out");
+  const res = await bffFetch("/api/bff/webhooks-out");
   if (!res.ok) throw new Error("No se pudieron cargar los webhooks");
   return res.json();
 }
@@ -373,7 +409,7 @@ export async function fetchWebhooksOut(): Promise<WebhookSubscriptionDto[]> {
 export async function createWebhookOut(
   input: CreateWebhookInput,
 ): Promise<CreatedWebhook> {
-  const res = await fetch("/api/bff/webhooks-out", {
+  const res = await bffFetch("/api/bff/webhooks-out", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
@@ -386,7 +422,7 @@ export async function updateWebhookOut(
   id: string,
   input: UpdateWebhookInput,
 ): Promise<WebhookSubscriptionDto> {
-  const res = await fetch(`/api/bff/webhooks-out/${id}`, {
+  const res = await bffFetch(`/api/bff/webhooks-out/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
@@ -396,19 +432,19 @@ export async function updateWebhookOut(
 }
 
 export async function deleteWebhookOut(id: string): Promise<void> {
-  const res = await fetch(`/api/bff/webhooks-out/${id}`, { method: "DELETE" });
+  const res = await bffFetch(`/api/bff/webhooks-out/${id}`, { method: "DELETE" });
   if (!res.ok) throw new Error(await errorMessage(res, "No se pudo eliminar"));
 }
 
 export async function testWebhookOut(id: string): Promise<WebhookTestResult> {
-  const res = await fetch(`/api/bff/webhooks-out/${id}/test`, { method: "POST" });
+  const res = await bffFetch(`/api/bff/webhooks-out/${id}/test`, { method: "POST" });
   if (!res.ok) throw new Error(await errorMessage(res, "No se pudo probar"));
   return res.json();
 }
 
 // ── Integraciones (credenciales que consume el CRM) ──────────
 export async function fetchIntegrationSettings(): Promise<IntegrationSettingsDto> {
-  const res = await fetch("/api/bff/integrations");
+  const res = await bffFetch("/api/bff/integrations");
   if (!res.ok) throw new Error("No se pudieron cargar las integraciones");
   return res.json();
 }
@@ -416,7 +452,7 @@ export async function fetchIntegrationSettings(): Promise<IntegrationSettingsDto
 export async function updateIntegrationSettings(
   input: UpdateIntegrationSettingsInput,
 ): Promise<IntegrationSettingsDto> {
-  const res = await fetch("/api/bff/integrations", {
+  const res = await bffFetch("/api/bff/integrations", {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
@@ -428,7 +464,7 @@ export async function updateIntegrationSettings(
 }
 
 export async function testIntegration(): Promise<IntegrationTestResult> {
-  const res = await fetch("/api/bff/integrations/test", { method: "POST" });
+  const res = await bffFetch("/api/bff/integrations/test", { method: "POST" });
   if (!res.ok) throw new Error(await errorMessage(res, "No se pudo probar"));
   return res.json();
 }
@@ -447,7 +483,7 @@ export async function uploadMedia(file: File): Promise<UploadedMedia> {
   const form = new FormData();
   form.append("file", file);
   // Sin Content-Type a mano: el navegador pone el boundary del multipart.
-  const res = await fetch("/api/bff/media", { method: "POST", body: form });
+  const res = await bffFetch("/api/bff/media", { method: "POST", body: form });
   if (!res.ok) throw new Error(await errorMessage(res, "No se pudo subir el archivo"));
   return res.json();
 }
@@ -464,19 +500,19 @@ export function mediaSrc(mediaUrl: string | null): string | null {
 
 // ── Flujos (constructor visual) ──────────────────────────────
 export async function fetchFlows(): Promise<FlowsResponse> {
-  const res = await fetch("/api/bff/flows");
+  const res = await bffFetch("/api/bff/flows");
   if (!res.ok) throw new Error("No se pudieron cargar los flujos");
   return res.json();
 }
 
 export async function fetchFlow(id: string): Promise<FlowDto> {
-  const res = await fetch(`/api/bff/flows/${id}`);
+  const res = await bffFetch(`/api/bff/flows/${id}`);
   if (!res.ok) throw new Error("No se pudo cargar el flujo");
   return res.json();
 }
 
 export async function createFlow(input: CreateFlowInput): Promise<FlowDto> {
-  const res = await fetch("/api/bff/flows", {
+  const res = await bffFetch("/api/bff/flows", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
@@ -492,7 +528,7 @@ export async function updateFlow(
   id: string,
   input: UpdateFlowInput,
 ): Promise<FlowDto> {
-  const res = await fetch(`/api/bff/flows/${id}`, {
+  const res = await bffFetch(`/api/bff/flows/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
@@ -505,7 +541,7 @@ export async function updateFlow(
 }
 
 export async function deleteFlow(id: string): Promise<void> {
-  const res = await fetch(`/api/bff/flows/${id}`, { method: "DELETE" });
+  const res = await bffFetch(`/api/bff/flows/${id}`, { method: "DELETE" });
   if (!res.ok) throw new Error("No se pudo eliminar el flujo");
 }
 
@@ -513,7 +549,7 @@ export async function deleteFlow(id: string): Promise<void> {
 export async function askFlowAssistant(
   input: FlowAssistantRequest,
 ): Promise<FlowAssistantReply> {
-  const res = await fetch("/api/bff/flows/assistant", {
+  const res = await bffFetch("/api/bff/flows/assistant", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
@@ -526,7 +562,7 @@ export async function askFlowAssistant(
 
 // ── Ajustes de IA (proveedor + API key) ──────────────────────
 export async function fetchAiSettings(): Promise<AiSettingsDto> {
-  const res = await fetch("/api/bff/ai-settings");
+  const res = await bffFetch("/api/bff/ai-settings");
   if (!res.ok) throw new Error("No se pudieron cargar los ajustes de IA");
   return res.json();
 }
@@ -534,7 +570,7 @@ export async function fetchAiSettings(): Promise<AiSettingsDto> {
 export async function updateAiSettings(
   input: UpdateAiSettingsInput,
 ): Promise<AiSettingsDto> {
-  const res = await fetch("/api/bff/ai-settings", {
+  const res = await bffFetch("/api/bff/ai-settings", {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
@@ -546,7 +582,7 @@ export async function updateAiSettings(
 }
 
 export async function testAiConnection(): Promise<AiConnectionTest> {
-  const res = await fetch("/api/bff/ai-settings/test", { method: "POST" });
+  const res = await bffFetch("/api/bff/ai-settings/test", { method: "POST" });
   if (!res.ok) {
     throw new Error(await errorMessage(res, "No se pudo probar la conexión"));
   }
@@ -555,7 +591,7 @@ export async function testAiConnection(): Promise<AiConnectionTest> {
 
 // ── Plantillas ───────────────────────────────────────────────
 export async function fetchTemplates(): Promise<TemplateDto[]> {
-  const res = await fetch("/api/bff/templates");
+  const res = await bffFetch("/api/bff/templates");
   if (!res.ok) throw new Error("No se pudieron cargar las plantillas");
   return res.json();
 }
@@ -563,7 +599,7 @@ export async function fetchTemplates(): Promise<TemplateDto[]> {
 export async function createTemplate(
   input: CreateTemplateInput,
 ): Promise<TemplateDto> {
-  const res = await fetch("/api/bff/templates", {
+  const res = await bffFetch("/api/bff/templates", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
@@ -579,7 +615,7 @@ export async function updateTemplate(
   id: string,
   input: UpdateTemplateInput,
 ): Promise<TemplateDto> {
-  const res = await fetch(`/api/bff/templates/${id}`, {
+  const res = await bffFetch(`/api/bff/templates/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
@@ -588,31 +624,201 @@ export async function updateTemplate(
   return res.json();
 }
 
+/** Trae del panel de Meta las plantillas ya creadas y sus estados. */
+export async function syncTemplates(): Promise<SyncTemplatesResult> {
+  const res = await bffFetch("/api/bff/templates/sync", { method: "POST" });
+  if (!res.ok) {
+    throw new Error(await errorMessage(res, "No se pudo sincronizar con Meta"));
+  }
+  return res.json();
+}
+
+// ── Respuestas rápidas del agente ────────────────────────────
+export async function fetchQuickReplies(): Promise<QuickReplyDto[]> {
+  const res = await bffFetch("/api/bff/quick-replies");
+  if (!res.ok) throw new Error("No se pudieron cargar las respuestas rápidas");
+  return res.json();
+}
+
+export async function createQuickReply(
+  input: CreateQuickReplyInput,
+): Promise<QuickReplyDto> {
+  const res = await bffFetch("/api/bff/quick-replies", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo crear"));
+  return res.json();
+}
+
+export async function updateQuickReply(
+  id: string,
+  input: UpdateQuickReplyInput,
+): Promise<QuickReplyDto> {
+  const res = await bffFetch(`/api/bff/quick-replies/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo guardar"));
+  return res.json();
+}
+
+export async function deleteQuickReply(id: string): Promise<void> {
+  const res = await bffFetch(`/api/bff/quick-replies/${id}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo eliminar"));
+}
+
+// ── Formularios de Meta (Lead Ads) ───────────────────────────
+export async function fetchMetaPages(): Promise<MetaPageDto[]> {
+  const res = await bffFetch("/api/bff/meta/pages");
+  if (!res.ok) throw new Error("No se pudieron cargar las páginas");
+  return res.json();
+}
+
+/** Paso 1: qué páginas administra el usuario que acaba de entrar con Facebook. */
+export async function fetchAvailableMetaPages(
+  code: string,
+): Promise<MetaPagesAvailableResult> {
+  const res = await bffFetch("/api/bff/meta/pages/available", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code }),
+  });
+  if (!res.ok) {
+    throw new Error(await errorMessage(res, "No se pudo leer tus páginas"));
+  }
+  return res.json();
+}
+
+/** Paso 2: conectar y suscribir las elegidas. */
+export async function connectMetaPages(
+  input: ConnectMetaPagesInput,
+): Promise<MetaPageDto[]> {
+  const res = await bffFetch("/api/bff/meta/pages/connect", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    throw new Error(await errorMessage(res, "No se pudieron conectar las páginas"));
+  }
+  return res.json();
+}
+
+export async function updateMetaPage(
+  id: string,
+  input: UpdateMetaPageInput,
+): Promise<MetaPageDto[]> {
+  const res = await bffFetch(`/api/bff/meta/pages/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo guardar"));
+  return res.json();
+}
+
+export async function resubscribeMetaPage(id: string): Promise<MetaPageDto[]> {
+  const res = await bffFetch(`/api/bff/meta/pages/${id}/resubscribe`, {
+    method: "POST",
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo suscribir"));
+  return res.json();
+}
+
+export async function disconnectMetaPage(id: string): Promise<MetaPageDto[]> {
+  const res = await bffFetch(`/api/bff/meta/pages/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo desconectar"));
+  return res.json();
+}
+
+export async function fetchMetaLeads(
+  status?: MetaLeadStatusValue,
+): Promise<MetaLeadDto[]> {
+  const qs = status ? `?status=${encodeURIComponent(status)}` : "";
+  const res = await bffFetch(`/api/bff/meta/leads${qs}`);
+  if (!res.ok) throw new Error("No se pudieron cargar los leads");
+  return res.json();
+}
+
+export async function convertMetaLead(
+  id: string,
+  phone: string,
+): Promise<{ contactId: string }> {
+  const res = await bffFetch(`/api/bff/meta/leads/${id}/convert`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ phone }),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo convertir"));
+  return res.json();
+}
+
+export async function discardMetaLead(id: string): Promise<void> {
+  const res = await bffFetch(`/api/bff/meta/leads/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo descartar"));
+}
+
+// ── Envíos especiales desde el chat ──────────────────────────
+/** Mensaje con botones (sin plantilla; solo dentro de las 24h). */
+export async function sendInteractive(
+  input: SendInteractiveInput,
+): Promise<MessageDto> {
+  const res = await bffFetch("/api/bff/messages/interactive", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    throw new Error(await errorMessage(res, "No se pudo enviar el mensaje"));
+  }
+  return res.json();
+}
+
+/** Plantilla aprobada: también funciona fuera de la ventana de 24h. */
+export async function sendTemplateMessage(
+  input: SendTemplateMessageInput,
+): Promise<MessageDto> {
+  const res = await bffFetch("/api/bff/messages/template", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    throw new Error(await errorMessage(res, "No se pudo enviar la plantilla"));
+  }
+  return res.json();
+}
+
 export async function deleteTemplate(id: string): Promise<void> {
-  const res = await fetch(`/api/bff/templates/${id}`, { method: "DELETE" });
+  const res = await bffFetch(`/api/bff/templates/${id}`, { method: "DELETE" });
   if (!res.ok) {
     const b = (await res.json().catch(() => null)) as { message?: string } | null;
     throw new Error(b?.message ?? "No se pudo eliminar la plantilla");
   }
 }
 
-// ── Campañas ─────────────────────────────────────────────────
+// ── Difusiones ───────────────────────────────────────────────
 export async function fetchCampaigns(): Promise<CampaignDto[]> {
-  const res = await fetch("/api/bff/campaigns");
-  if (!res.ok) throw new Error("No se pudieron cargar las campañas");
+  const res = await bffFetch("/api/bff/campaigns");
+  if (!res.ok) throw new Error("No se pudieron cargar las difusiones");
   return res.json();
 }
 
 export async function fetchCampaignMeta(): Promise<CampaignMeta> {
-  const res = await fetch("/api/bff/campaigns/meta");
-  if (!res.ok) throw new Error("No se pudieron cargar los datos de campaña");
+  const res = await bffFetch("/api/bff/campaigns/meta");
+  if (!res.ok) throw new Error("No se pudieron cargar los datos de la difusión");
   return res.json();
 }
 
 export async function fetchAudiencePreview(
   tagIds: string[],
 ): Promise<AudiencePreview> {
-  const res = await fetch(
+  const res = await bffFetch(
     `/api/bff/campaigns/audience?tagIds=${encodeURIComponent(tagIds.join(","))}`,
   );
   if (!res.ok) throw new Error("No se pudo calcular la audiencia");
@@ -622,14 +828,14 @@ export async function fetchAudiencePreview(
 export async function createCampaign(
   input: CreateCampaignInput,
 ): Promise<CampaignDto> {
-  const res = await fetch("/api/bff/campaigns", {
+  const res = await bffFetch("/api/bff/campaigns", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
   });
   if (!res.ok) {
     const b = (await res.json().catch(() => null)) as { message?: string } | null;
-    throw new Error(b?.message ?? "No se pudo crear la campaña");
+    throw new Error(b?.message ?? "No se pudo crear la difusión");
   }
   return res.json();
 }
@@ -638,7 +844,7 @@ export async function updateCampaign(
   id: string,
   input: UpdateCampaignInput,
 ): Promise<CampaignDto> {
-  const res = await fetch(`/api/bff/campaigns/${id}`, {
+  const res = await bffFetch(`/api/bff/campaigns/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
@@ -648,7 +854,7 @@ export async function updateCampaign(
 }
 
 export async function launchCampaign(id: string): Promise<CampaignDto> {
-  const res = await fetch(`/api/bff/campaigns/${id}/launch`, { method: "POST" });
+  const res = await bffFetch(`/api/bff/campaigns/${id}/launch`, { method: "POST" });
   if (!res.ok) {
     const b = (await res.json().catch(() => null)) as { message?: string } | null;
     throw new Error(b?.message ?? "No se pudo lanzar la campaña");
@@ -657,13 +863,13 @@ export async function launchCampaign(id: string): Promise<CampaignDto> {
 }
 
 export async function cancelCampaign(id: string): Promise<CampaignDto> {
-  const res = await fetch(`/api/bff/campaigns/${id}/cancel`, { method: "POST" });
+  const res = await bffFetch(`/api/bff/campaigns/${id}/cancel`, { method: "POST" });
   if (!res.ok) throw new Error("No se pudo cancelar la campaña");
   return res.json();
 }
 
 export async function deleteCampaign(id: string): Promise<void> {
-  const res = await fetch(`/api/bff/campaigns/${id}`, { method: "DELETE" });
+  const res = await bffFetch(`/api/bff/campaigns/${id}`, { method: "DELETE" });
   if (!res.ok) {
     const b = (await res.json().catch(() => null)) as { message?: string } | null;
     throw new Error(b?.message ?? "No se pudo eliminar la campaña");
@@ -672,7 +878,7 @@ export async function deleteCampaign(id: string): Promise<void> {
 
 // ── Base de conocimiento (RAG) ───────────────────────────────
 export async function fetchKnowledge(): Promise<KnowledgeDocDto[]> {
-  const res = await fetch("/api/bff/knowledge");
+  const res = await bffFetch("/api/bff/knowledge");
   if (!res.ok) throw new Error("No se pudo cargar la base de conocimiento");
   return res.json();
 }
@@ -680,7 +886,7 @@ export async function fetchKnowledge(): Promise<KnowledgeDocDto[]> {
 export async function ingestKnowledge(
   input: IngestKnowledgeInput,
 ): Promise<KnowledgeDocDto> {
-  const res = await fetch("/api/bff/knowledge", {
+  const res = await bffFetch("/api/bff/knowledge", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
@@ -693,12 +899,12 @@ export async function ingestKnowledge(
 }
 
 export async function deleteKnowledge(id: string): Promise<void> {
-  const res = await fetch(`/api/bff/knowledge/${id}`, { method: "DELETE" });
+  const res = await bffFetch(`/api/bff/knowledge/${id}`, { method: "DELETE" });
   if (!res.ok) throw new Error("No se pudo eliminar el documento");
 }
 
 export async function searchKnowledge(q: string): Promise<KnowledgeHit[]> {
-  const res = await fetch(`/api/bff/knowledge/search?q=${encodeURIComponent(q)}`);
+  const res = await bffFetch(`/api/bff/knowledge/search?q=${encodeURIComponent(q)}`);
   if (!res.ok) throw new Error("La búsqueda falló");
   return res.json();
 }
@@ -707,7 +913,7 @@ export async function searchKnowledge(q: string): Promise<KnowledgeHit[]> {
 export async function suggestReply(
   conversationId: string,
 ): Promise<AiSuggestion> {
-  const res = await fetch(
+  const res = await bffFetch(
     `/api/bff/conversations/${conversationId}/ai/suggest`,
     { method: "POST" },
   );
@@ -718,13 +924,13 @@ export async function suggestReply(
 export async function fetchMessages(
   conversationId: string,
 ): Promise<MessageDto[]> {
-  const res = await fetch(`/api/bff/conversations/${conversationId}/messages`);
+  const res = await bffFetch(`/api/bff/conversations/${conversationId}/messages`);
   if (!res.ok) throw new Error("No se pudieron cargar los mensajes");
   return res.json();
 }
 
 export async function sendMessage(input: SendMessageInput): Promise<MessageDto> {
-  const res = await fetch("/api/bff/messages", {
+  const res = await bffFetch("/api/bff/messages", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
@@ -745,7 +951,7 @@ export async function reactToMessage(
   messageId: string,
   emoji: string,
 ): Promise<MessageDto> {
-  const res = await fetch("/api/bff/messages/react", {
+  const res = await bffFetch("/api/bff/messages/react", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ messageId, emoji }),
@@ -756,13 +962,13 @@ export async function reactToMessage(
 
 // ── Fuentes y vendedores ─────────────────────────────────────
 export async function fetchSources(): Promise<SourceDto[]> {
-  const res = await fetch("/api/bff/sources");
+  const res = await bffFetch("/api/bff/sources");
   if (!res.ok) throw new Error("No se pudieron cargar las fuentes");
   return res.json();
 }
 
 export async function createSource(input: CreateSourceInput): Promise<SourceDto> {
-  const res = await fetch("/api/bff/sources", {
+  const res = await bffFetch("/api/bff/sources", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
@@ -778,7 +984,7 @@ export async function updateSource(
   id: string,
   input: UpdateSourceInput,
 ): Promise<SourceDto> {
-  const res = await fetch(`/api/bff/sources/${id}`, {
+  const res = await bffFetch(`/api/bff/sources/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
@@ -788,12 +994,12 @@ export async function updateSource(
 }
 
 export async function deleteSource(id: string): Promise<void> {
-  const res = await fetch(`/api/bff/sources/${id}`, { method: "DELETE" });
+  const res = await bffFetch(`/api/bff/sources/${id}`, { method: "DELETE" });
   if (!res.ok) throw new Error("No se pudo eliminar la fuente");
 }
 
 export async function fetchSellers(): Promise<SellersResponse> {
-  const res = await fetch("/api/bff/sellers");
+  const res = await bffFetch("/api/bff/sellers");
   if (!res.ok) throw new Error("No se pudieron cargar los vendedores");
   return res.json();
 }
@@ -802,7 +1008,7 @@ export async function assignSellerSources(
   sellerId: string,
   sourceIds: string[],
 ): Promise<void> {
-  const res = await fetch(`/api/bff/sellers/${sellerId}/sources`, {
+  const res = await bffFetch(`/api/bff/sellers/${sellerId}/sources`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ sourceIds }),
@@ -812,13 +1018,13 @@ export async function assignSellerSources(
 
 // ── Etiquetas ────────────────────────────────────────────────
 export async function fetchTags(): Promise<TagDto[]> {
-  const res = await fetch("/api/bff/tags");
+  const res = await bffFetch("/api/bff/tags");
   if (!res.ok) throw new Error("No se pudieron cargar las etiquetas");
   return res.json();
 }
 
 export async function createTag(input: CreateTagInput): Promise<TagDto> {
-  const res = await fetch("/api/bff/tags", {
+  const res = await bffFetch("/api/bff/tags", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
@@ -831,7 +1037,7 @@ export async function updateTag(
   id: string,
   input: UpdateTagInput,
 ): Promise<TagDto> {
-  const res = await fetch(`/api/bff/tags/${id}`, {
+  const res = await bffFetch(`/api/bff/tags/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
@@ -841,13 +1047,13 @@ export async function updateTag(
 }
 
 export async function deleteTag(id: string): Promise<void> {
-  const res = await fetch(`/api/bff/tags/${id}`, { method: "DELETE" });
+  const res = await bffFetch(`/api/bff/tags/${id}`, { method: "DELETE" });
   if (!res.ok) throw new Error("No se pudo eliminar la etiqueta");
 }
 
 // ── Gestión de usuarios del equipo (admin) ───────────────────
 export async function createUser(input: CreateUserInput): Promise<SellerDto> {
-  const res = await fetch("/api/bff/users", {
+  const res = await bffFetch("/api/bff/users", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
@@ -860,7 +1066,7 @@ export async function updateUser(
   id: string,
   input: UpdateUserInput,
 ): Promise<SellerDto> {
-  const res = await fetch(`/api/bff/users/${id}`, {
+  const res = await bffFetch(`/api/bff/users/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
@@ -871,7 +1077,7 @@ export async function updateUser(
 
 // ── Perfil / cuenta ──────────────────────────────────────────
 export async function fetchMe(): Promise<PublicUser> {
-  const res = await fetch("/api/bff/auth/me");
+  const res = await bffFetch("/api/bff/auth/me");
   if (!res.ok) throw new Error("No se pudo cargar tu perfil");
   return res.json();
 }
@@ -879,7 +1085,7 @@ export async function fetchMe(): Promise<PublicUser> {
 export async function updateProfile(
   input: UpdateProfileInput,
 ): Promise<PublicUser> {
-  const res = await fetch("/api/bff/auth/me", {
+  const res = await bffFetch("/api/bff/auth/me", {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
@@ -891,7 +1097,7 @@ export async function updateProfile(
 export async function changePassword(
   input: ChangePasswordInput,
 ): Promise<void> {
-  const res = await fetch("/api/bff/auth/change-password", {
+  const res = await bffFetch("/api/bff/auth/change-password", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
@@ -901,7 +1107,7 @@ export async function changePassword(
 }
 
 export async function revokeOtherSessions(): Promise<void> {
-  const res = await fetch("/api/bff/auth/sessions", { method: "DELETE" });
+  const res = await bffFetch("/api/bff/auth/sessions", { method: "DELETE" });
   if (!res.ok) throw new Error("No se pudieron cerrar las otras sesiones");
 }
 
@@ -909,7 +1115,7 @@ export async function setContactSource(
   contactId: string,
   sourceId: string | null,
 ): Promise<void> {
-  const res = await fetch("/api/bff/contacts/source", {
+  const res = await bffFetch("/api/bff/contacts/source", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ contactId, sourceId }),
@@ -922,7 +1128,7 @@ export async function fetchContactDirectory(
   search = "",
 ): Promise<ContactListItem[]> {
   const qs = search ? `?search=${encodeURIComponent(search)}` : "";
-  const res = await fetch(`/api/bff/contacts/directory${qs}`);
+  const res = await bffFetch(`/api/bff/contacts/directory${qs}`);
   if (!res.ok) throw new Error("No se pudieron cargar los contactos");
   return res.json();
 }
@@ -931,7 +1137,7 @@ export async function updateContact(
   id: string,
   input: UpdateContactInput,
 ): Promise<void> {
-  const res = await fetch(`/api/bff/contacts/${id}`, {
+  const res = await bffFetch(`/api/bff/contacts/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
@@ -942,7 +1148,7 @@ export async function updateContact(
 export async function createContact(
   input: CreateContactInput,
 ): Promise<{ id: string }> {
-  const res = await fetch("/api/bff/contacts", {
+  const res = await bffFetch("/api/bff/contacts", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
@@ -956,7 +1162,7 @@ export async function createContact(
 
 // ── Campos personalizados ────────────────────────────────────
 export async function fetchCustomFields(): Promise<CustomFieldDto[]> {
-  const res = await fetch("/api/bff/custom-fields");
+  const res = await bffFetch("/api/bff/custom-fields");
   if (!res.ok) throw new Error("No se pudieron cargar los campos");
   return res.json();
 }
@@ -964,7 +1170,7 @@ export async function fetchCustomFields(): Promise<CustomFieldDto[]> {
 export async function createCustomField(
   input: CreateCustomFieldInput,
 ): Promise<CustomFieldDto> {
-  const res = await fetch("/api/bff/custom-fields", {
+  const res = await bffFetch("/api/bff/custom-fields", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
@@ -977,7 +1183,7 @@ export async function updateCustomField(
   id: string,
   input: UpdateCustomFieldInput,
 ): Promise<CustomFieldDto> {
-  const res = await fetch(`/api/bff/custom-fields/${id}`, {
+  const res = await bffFetch(`/api/bff/custom-fields/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
@@ -987,14 +1193,14 @@ export async function updateCustomField(
 }
 
 export async function deleteCustomField(id: string): Promise<void> {
-  const res = await fetch(`/api/bff/custom-fields/${id}`, { method: "DELETE" });
+  const res = await bffFetch(`/api/bff/custom-fields/${id}`, { method: "DELETE" });
   if (!res.ok) throw new Error("No se pudo eliminar el campo");
 }
 
 // ── Productos ────────────────────────────────────────────────
 export async function fetchProducts(search = ""): Promise<ProductDto[]> {
   const qs = search ? `?search=${encodeURIComponent(search)}` : "";
-  const res = await fetch(`/api/bff/products${qs}`);
+  const res = await bffFetch(`/api/bff/products${qs}`);
   if (!res.ok) throw new Error("No se pudieron cargar los productos");
   return res.json();
 }
@@ -1002,7 +1208,7 @@ export async function fetchProducts(search = ""): Promise<ProductDto[]> {
 export async function createProduct(
   input: CreateProductInput,
 ): Promise<ProductDto> {
-  const res = await fetch("/api/bff/products", {
+  const res = await bffFetch("/api/bff/products", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
@@ -1018,7 +1224,7 @@ export async function updateProduct(
   id: string,
   input: UpdateProductInput,
 ): Promise<ProductDto> {
-  const res = await fetch(`/api/bff/products/${id}`, {
+  const res = await bffFetch(`/api/bff/products/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
@@ -1027,20 +1233,35 @@ export async function updateProduct(
   return res.json();
 }
 
+/** Importación masiva: las filas ya vienen leídas y normalizadas del CSV. */
+export async function importProducts(
+  input: ImportProductsInput,
+): Promise<ImportProductsResult> {
+  const res = await bffFetch("/api/bff/products/import", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    throw new Error(await errorMessage(res, "No se pudo importar el archivo"));
+  }
+  return res.json();
+}
+
 export async function deleteProduct(id: string): Promise<void> {
-  const res = await fetch(`/api/bff/products/${id}`, { method: "DELETE" });
+  const res = await bffFetch(`/api/bff/products/${id}`, { method: "DELETE" });
   if (!res.ok) throw new Error("No se pudo eliminar el producto");
 }
 
 // ── Pipeline ─────────────────────────────────────────────────
 export async function fetchPipeline(): Promise<PipelineDto> {
-  const res = await fetch("/api/bff/pipeline");
+  const res = await bffFetch("/api/bff/pipeline");
   if (!res.ok) throw new Error("No se pudo cargar el pipeline");
   return res.json();
 }
 
 export async function createDeal(input: CreateDealInput): Promise<DealDto> {
-  const res = await fetch("/api/bff/deals", {
+  const res = await bffFetch("/api/bff/deals", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
@@ -1053,7 +1274,7 @@ export async function moveDeal(
   dealId: string,
   stageId: string,
 ): Promise<DealDto> {
-  const res = await fetch(`/api/bff/deals/${dealId}/stage`, {
+  const res = await bffFetch(`/api/bff/deals/${dealId}/stage`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ stageId }),
@@ -1066,7 +1287,7 @@ export async function updateDeal(
   dealId: string,
   input: UpdateDealInput,
 ): Promise<DealDto> {
-  const res = await fetch(`/api/bff/deals/${dealId}`, {
+  const res = await bffFetch(`/api/bff/deals/${dealId}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
@@ -1076,13 +1297,13 @@ export async function updateDeal(
 }
 
 export async function deleteDeal(dealId: string): Promise<void> {
-  const res = await fetch(`/api/bff/deals/${dealId}`, { method: "DELETE" });
+  const res = await bffFetch(`/api/bff/deals/${dealId}`, { method: "DELETE" });
   if (!res.ok) throw new Error("No se pudo eliminar el deal");
 }
 
 // ── Etapas del pipeline ──────────────────────────────────────
 export async function createStage(input: CreateStageInput): Promise<StageDto> {
-  const res = await fetch("/api/bff/stages", {
+  const res = await bffFetch("/api/bff/stages", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
@@ -1095,7 +1316,7 @@ export async function updateStage(
   id: string,
   input: UpdateStageInput,
 ): Promise<StageDto> {
-  const res = await fetch(`/api/bff/stages/${id}`, {
+  const res = await bffFetch(`/api/bff/stages/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
@@ -1105,7 +1326,7 @@ export async function updateStage(
 }
 
 export async function deleteStage(id: string): Promise<void> {
-  const res = await fetch(`/api/bff/stages/${id}`, { method: "DELETE" });
+  const res = await bffFetch(`/api/bff/stages/${id}`, { method: "DELETE" });
   if (!res.ok) {
     const b = (await res.json().catch(() => null)) as { message?: string } | null;
     throw new Error(b?.message ?? "No se pudo eliminar la etapa");
@@ -1113,7 +1334,7 @@ export async function deleteStage(id: string): Promise<void> {
 }
 
 export async function reorderStages(ids: string[]): Promise<void> {
-  const res = await fetch("/api/bff/stages/reorder", {
+  const res = await bffFetch("/api/bff/stages/reorder", {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ ids }),
@@ -1123,13 +1344,13 @@ export async function reorderStages(ids: string[]): Promise<void> {
 
 export async function fetchContacts(search = ""): Promise<ContactDto[]> {
   const qs = search ? `?search=${encodeURIComponent(search)}` : "";
-  const res = await fetch(`/api/bff/contacts${qs}`);
+  const res = await bffFetch(`/api/bff/contacts${qs}`);
   if (!res.ok) throw new Error("No se pudieron cargar los contactos");
   return res.json();
 }
 
 export async function fetchRealtimeToken(): Promise<string> {
-  const res = await fetch("/api/bff/realtime-token");
+  const res = await bffFetch("/api/bff/realtime-token");
   if (!res.ok) throw new Error("No se pudo obtener el token de realtime");
   const data = (await res.json()) as { token: string };
   return data.token;

@@ -13,7 +13,9 @@ import {
   conversationsQuerySchema,
   createNoteSchema,
   reactMessageSchema,
+  sendInteractiveSchema,
   sendMessageSchema,
+  sendTemplateMessageSchema,
   setAiModeSchema,
   setStatusSchema,
   MessageAuthor,
@@ -21,7 +23,9 @@ import {
   type AccessTokenClaims,
   type CreateNoteInput,
   type ReactMessageInput,
+  type SendInteractiveInput,
   type SendMessageInput,
+  type SendTemplateMessageInput,
   type SetAiModeInput,
   type SetStatusInput,
 } from "@crm/shared";
@@ -54,6 +58,24 @@ export class MessagingController {
   @Post("messages")
   send(@Body(new ZodValidationPipe(sendMessageSchema)) body: SendMessageInput) {
     return this.messaging.queueOutbound(body, MessageAuthor.HUMAN);
+  }
+
+  // Mensaje con botones de respuesta rápida (solo dentro de las 24h).
+  @Post("messages/interactive")
+  sendInteractive(
+    @Body(new ZodValidationPipe(sendInteractiveSchema))
+    body: SendInteractiveInput,
+  ) {
+    return this.messaging.queueInteractive(body, MessageAuthor.HUMAN);
+  }
+
+  // Plantilla aprobada: sirve también fuera de la ventana de 24h.
+  @Post("messages/template")
+  sendTemplate(
+    @Body(new ZodValidationPipe(sendTemplateMessageSchema))
+    body: SendTemplateMessageInput,
+  ) {
+    return this.messaging.sendTemplateMessage(body, MessageAuthor.HUMAN);
   }
 
   @Post("messages/react")

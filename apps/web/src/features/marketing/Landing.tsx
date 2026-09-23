@@ -120,7 +120,7 @@ export function Landing() {
           <span><b>Tiempo real</b></span>
           <span><b>Multi-número</b></span>
           <span><b>Agentes con IA</b></span>
-          <span><b>Campañas masivas</b></span>
+          <span><b>Difusiones masivas</b></span>
           <span><b>Sin código</b></span>
         </div>
       </div>
@@ -172,8 +172,8 @@ export function Landing() {
 
             <article className="lp-card lp-card--third lp-reveal">
               <span className="lp-card__ic"><IconMega /></span>
-              <h3>Campañas y plantillas</h3>
-              <p>Envía broadcasts con plantillas aprobadas por Meta a tu audiencia.</p>
+              <h3>Difusiones y plantillas</h3>
+              <p>Envía difusiones con plantillas aprobadas por Meta a tu audiencia.</p>
             </article>
 
             <article className="lp-card lp-card--third lp-reveal">

@@ -39,7 +39,7 @@ export function BotsManager() {
       {/* Lista */}
       <aside style={listCol}>
         <div style={listHeader}>
-          <strong>Bots</strong>
+          <strong>Agentes</strong>
           <button onClick={() => setSel({ kind: "new" })} style={primaryBtn}>
             + Nuevo
           </button>
@@ -58,7 +58,7 @@ export function BotsManager() {
             />
           ))}
           {!isPending && bots.length === 0 && (
-            <p style={muted}>No hay bots. Crea el primero con “+ Nuevo”.</p>
+            <p style={muted}>No hay agentes. Crea el primero con “+ Nuevo”.</p>
           )}
         </div>
       </aside>
@@ -80,7 +80,7 @@ export function BotsManager() {
 
         {sel.kind === "new" && data && (
           <>
-            <h2 style={detailTitle}>Nuevo bot</h2>
+            <h2 style={detailTitle}>Nuevo agente</h2>
             <BotEditor
               bot={null}
               availableTools={data.availableTools}
@@ -115,7 +115,7 @@ export function BotsManager() {
               onCancel={() => setSel({ kind: "none" })}
               onDeleted={() => {
                 void confirmDialog({
-                  message: `¿Eliminar el bot "${selectedBot.name}"?`,
+                  message: `¿Eliminar el agente "${selectedBot.name}"?`,
                   danger: true,
                 }).then((ok) => ok && remove.mutate(selectedBot.id));
               }}
