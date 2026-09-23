@@ -22,11 +22,15 @@ import type { Prisma } from "@prisma/client";
 import { ZodValidationPipe } from "../../common/pipes/zod-validation.pipe";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { PrismaService } from "../../infra/prisma/prisma.service";
+import { TenantService } from "../../infra/tenant/tenant.service";
 
 @Controller("products")
 @UseGuards(JwtAuthGuard)
 export class ProductsController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly tenant: TenantService,
+  ) {}
 
   @Get()
   async list(@Query("search") search?: string): Promise<ProductDto[]> {
@@ -54,6 +58,7 @@ export class ProductsController {
     await this.assertSkuFree(body.sku, null);
     const p = await this.prisma.product.create({
       data: {
+        orgId: this.tenant.orgId(),
         name: body.name,
         sku: body.sku,
         description: body.description,
@@ -104,7 +109,7 @@ export class ProductsController {
     ignoreId: string | null,
   ): Promise<void> {
     if (!sku) return;
-    const dup = await this.prisma.product.findUnique({ where: { sku } });
+    const dup = await this.prisma.product.findFirst({ where: { sku } });
     if (dup && dup.id !== ignoreId) {
       throw new ConflictException(`Ya existe un producto con el SKU "${sku}"`);
     }

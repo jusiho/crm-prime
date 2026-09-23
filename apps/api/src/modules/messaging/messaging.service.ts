@@ -29,6 +29,7 @@ import {
 } from "@crm/shared";
 import type { Prisma } from "@prisma/client";
 import { PrismaService } from "../../infra/prisma/prisma.service";
+import { TenantService } from "../../infra/tenant/tenant.service";
 import { QUEUE_OUTBOUND } from "../../infra/queue/queue.constants";
 import {
   WHATSAPP_PROVIDER,
@@ -84,6 +85,7 @@ export class MessagingService {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly tenant: TenantService,
     @InjectQueue(QUEUE_OUTBOUND) private readonly outbound: Queue,
     @Inject(WHATSAPP_PROVIDER) private readonly wa: WhatsAppProvider,
     private readonly connection: WhatsappConnectionService,
@@ -135,6 +137,14 @@ export class MessagingService {
       return;
     }
 
+    // Primero el canal: el `phone_number_id` que trae Meta es lo único que
+    // dice de qué organización es este mensaje. De él cuelga todo lo demás.
+    const channel = msg.channelPhoneNumberId
+      ? await this.connection.resolveChannel(msg.channelPhoneNumberId)
+      : null;
+    const channelId = channel?.id ?? null;
+    const orgId = channel?.orgId ?? this.tenant.orgId();
+
     const now = new Date();
 
     // ── Atribución de marketing ────────────────────────────────
@@ -152,8 +162,9 @@ export class MessagingService {
       !!text && OPT_OUT_KEYWORDS.includes(text.trim().toUpperCase());
 
     const contact = await this.prisma.contact.upsert({
-      where: { phone: msg.from },
+      where: { orgId_phone: { orgId, phone: msg.from } },
       create: {
+        orgId,
         phone: msg.from,
         name: msg.name,
         lastMessageAt: now,
@@ -177,11 +188,6 @@ export class MessagingService {
     // (interesa la PRIMERA campaña que lo trajo, no la última).
     if (hasUtms) await this.mergeUtms(contact.id, utms);
 
-    // Canal (número) por el que entró el mensaje, para responder por el mismo.
-    const channelId = msg.channelPhoneNumberId
-      ? await this.connection.resolveChannelId(msg.channelPhoneNumberId)
-      : null;
-
     // Reusar conversación abierta o crear una nueva. La ventana de 24h se
     // renueva con cada mensaje entrante del contacto.
     const open = await this.prisma.conversation.findFirst({
@@ -204,6 +210,7 @@ export class MessagingService {
         })
       : await this.prisma.conversation.create({
           data: {
+            orgId,
             contactId: contact.id,
             channelId,
             status: "OPEN",
@@ -227,6 +234,7 @@ export class MessagingService {
 
     await this.prisma.message.create({
       data: {
+        orgId,
         conversationId: conversation.id,
         waMessageId: msg.waMessageId,
         replyToId: quoted?.id ?? null,
@@ -280,10 +288,19 @@ export class MessagingService {
     });
     if (existing) return; // idempotencia
 
+    // Primero el canal: el `phone_number_id` que trae Meta es lo único que
+    // dice de qué organización es este mensaje. De él cuelga todo lo demás.
+    const channel = echo.channelPhoneNumberId
+      ? await this.connection.resolveChannel(echo.channelPhoneNumberId)
+      : null;
+    const channelId = channel?.id ?? null;
+    const orgId = channel?.orgId ?? this.tenant.orgId();
+
     const now = new Date();
     const contact = await this.prisma.contact.upsert({
-      where: { phone: echo.to },
+      where: { orgId_phone: { orgId, phone: echo.to } },
       create: {
+        orgId,
         phone: echo.to,
         lastMessageAt: now,
         origin: "whatsapp",
@@ -291,10 +308,6 @@ export class MessagingService {
       },
       update: { lastMessageAt: now },
     });
-
-    const channelId = echo.channelPhoneNumberId
-      ? await this.connection.resolveChannelId(echo.channelPhoneNumberId)
-      : null;
 
     const open = await this.prisma.conversation.findFirst({
       where: { contactId: contact.id, status: { not: "CLOSED" } },
@@ -313,6 +326,7 @@ export class MessagingService {
         })
       : await this.prisma.conversation.create({
           data: {
+            orgId,
             contactId: contact.id,
             channelId,
             status: "OPEN",
@@ -324,6 +338,7 @@ export class MessagingService {
 
     await this.prisma.message.create({
       data: {
+        orgId,
         conversationId: conversation.id,
         waMessageId: echo.waMessageId,
         direction: MessageDirection.OUTBOUND,
@@ -391,10 +406,19 @@ export class MessagingService {
     });
     if (existing) return; // idempotencia
 
+    // Primero el canal: el `phone_number_id` que trae Meta es lo único que
+    // dice de qué organización es este mensaje. De él cuelga todo lo demás.
+    const channel = job.channelPhoneNumberId
+      ? await this.connection.resolveChannel(job.channelPhoneNumberId)
+      : null;
+    const channelId = channel?.id ?? null;
+    const orgId = channel?.orgId ?? this.tenant.orgId();
+
     const when = new Date(job.timestampMs);
     const contact = await this.prisma.contact.upsert({
-      where: { phone: job.customerWaId },
+      where: { orgId_phone: { orgId, phone: job.customerWaId } },
       create: {
+        orgId,
         phone: job.customerWaId,
         lastMessageAt: when,
         origin: "whatsapp",
@@ -403,10 +427,6 @@ export class MessagingService {
       update: {},
     });
 
-    const channelId = job.channelPhoneNumberId
-      ? await this.connection.resolveChannelId(job.channelPhoneNumberId)
-      : null;
-
     let conversation = await this.prisma.conversation.findFirst({
       where: { contactId: contact.id },
       orderBy: { createdAt: "desc" },
@@ -414,6 +434,7 @@ export class MessagingService {
     if (!conversation) {
       conversation = await this.prisma.conversation.create({
         data: {
+          orgId,
           contactId: contact.id,
           channelId,
           status: "CLOSED", // historial: no abre una conversación activa
@@ -424,6 +445,7 @@ export class MessagingService {
 
     await this.prisma.message.create({
       data: {
+        orgId,
         conversationId: conversation.id,
         waMessageId: job.waMessageId,
         direction: job.fromCustomer
@@ -451,12 +473,14 @@ export class MessagingService {
       labelColor?: string;
     }[],
   ): Promise<void> {
+    const orgId = this.tenant.orgId();
     for (const it of items) {
       try {
         if (it.kind === "contact" && it.phone) {
           await this.prisma.contact.upsert({
-            where: { phone: it.phone },
+            where: { orgId_phone: { orgId, phone: it.phone } },
             create: {
+              orgId,
               phone: it.phone,
               name: it.name,
               origin: "import",
@@ -466,8 +490,9 @@ export class MessagingService {
           });
         } else if (it.kind === "label" && it.labelId) {
           await this.prisma.tag.upsert({
-            where: { waLabelId: it.labelId },
+            where: { orgId_waLabelId: { orgId, waLabelId: it.labelId } },
             create: {
+              orgId,
               waLabelId: it.labelId,
               name: it.labelName ?? it.labelId,
               color: it.labelColor,
@@ -476,8 +501,8 @@ export class MessagingService {
           });
         } else if (it.kind === "association" && it.phone && it.labelId) {
           const [contact, tag] = await Promise.all([
-            this.prisma.contact.findUnique({ where: { phone: it.phone } }),
-            this.prisma.tag.findUnique({ where: { waLabelId: it.labelId } }),
+            this.prisma.contact.findFirst({ where: { phone: it.phone } }),
+            this.prisma.tag.findFirst({ where: { waLabelId: it.labelId } }),
           ]);
           if (contact && tag) {
             if (it.action === "remove") {
@@ -553,6 +578,7 @@ export class MessagingService {
 
     const message = await this.prisma.message.create({
       data: {
+        orgId: conversation.orgId,
         conversationId: conversation.id,
         direction: MessageDirection.OUTBOUND,
         type: input.type,

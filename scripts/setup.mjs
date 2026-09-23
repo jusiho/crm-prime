@@ -188,7 +188,7 @@ function seed() {
 }
 
 // ── Main ──────────────────────────────────────────────────────
-console.log(c.bold("\nCRM Prime · instalación"));
+console.log(c.bold("\nTrimmo · instalación"));
 
 setupEnv();
 startDocker();

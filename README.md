@@ -1,4 +1,4 @@
-# CRM Prime
+# Trimmo
 
 **CRM para WhatsApp con agentes de IA.** Centraliza las conversaciones de varios
 números en una bandeja en tiempo real, automatiza la atención con bots y flujos
@@ -85,8 +85,8 @@ sintéticas.
 Necesitas **Node.js ≥ 20** y **Docker**.
 
 ```bash
-git clone https://github.com/jusiho/crm-prime.git
-cd crm-prime
+git clone https://github.com/jusiho/trimmo.git
+cd trimmo
 npm install
 npm run setup     # crea el .env, levanta Docker, migra y siembra
 npm run dev

@@ -11,6 +11,7 @@ import type {
   WebhookTestResult,
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
+import { TenantService } from "../../infra/tenant/tenant.service";
 import { QUEUE_WEBHOOK } from "../../infra/queue/queue.constants";
 
 /** Lo que se encola por cada suscripción interesada en un evento. */
@@ -27,6 +28,7 @@ export class WebhookOutService {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly tenant: TenantService,
     @InjectQueue(QUEUE_WEBHOOK) private readonly queue: Queue,
   ) {}
 
@@ -42,6 +44,7 @@ export class WebhookOutService {
     const secret = `whsec_${randomBytes(24).toString("hex")}`;
     const row = await this.prisma.webhookSubscription.create({
       data: {
+        orgId: this.tenant.orgId(),
         name: input.name.trim(),
         url: input.url.trim(),
         events: input.events,
@@ -161,7 +164,7 @@ export class WebhookOutService {
           "Content-Type": "application/json",
           "X-CRM-Event": job.event,
           "X-CRM-Signature": signature,
-          "User-Agent": "crm-prime-webhooks/1",
+          "User-Agent": "trimmo-webhooks/1",
         },
         body,
         signal: controller.signal,

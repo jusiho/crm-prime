@@ -2,6 +2,7 @@ import { Global, Logger, Module, type OnModuleInit } from "@nestjs/common";
 import { WHATSAPP_PROVIDER } from "./whatsapp-provider.interface";
 import { MetaWhatsAppProvider } from "./providers/meta-whatsapp.provider";
 import { WhatsappConnectionService } from "./whatsapp-connection.service";
+import { runUnscoped } from "../../infra/tenant/tenant.context";
 
 /**
  * Expone WHATSAPP_PROVIDER (siempre el adaptador de Meta) y el servicio de
@@ -22,7 +23,11 @@ export class WhatsappProviderModule implements OnModuleInit {
   constructor(private readonly connection: WhatsappConnectionService) {}
 
   async onModuleInit(): Promise<void> {
-    const channels = await this.connection.listChannels().catch(() => []);
+    // Recuento de arranque, a propósito por encima de todas las empresas: es
+    // un log de infraestructura, no datos de nadie.
+    const channels = await runUnscoped("arranque: contar números conectados", () =>
+      this.connection.listChannels(),
+    ).catch(() => []);
     const log = new Logger("WhatsApp");
     if (channels.length === 0) {
       log.log("Sin números de WhatsApp (modo simulado — conéctalos desde el panel)");

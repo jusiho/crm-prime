@@ -4,6 +4,16 @@ import * as bcrypt from "bcryptjs";
 const prisma = new PrismaClient();
 
 async function main() {
+  // ── Organización ───────────────────────────────────────────
+  // Todo cuelga de aquí. En la versión open source hay una sola y el CRM se
+  // usa igual que siempre; en modo SaaS habría una por empresa.
+  const org = await prisma.organization.upsert({
+    where: { slug: "default" },
+    update: {},
+    create: { slug: "default", name: "Mi empresa" },
+  });
+  console.log(`✔ Organización: ${org.name} (${org.slug})`);
+
   // ── Usuario admin ──────────────────────────────────────────
   const email = process.env.SEED_ADMIN_EMAIL ?? "admin@crm.local";
   const password = process.env.SEED_ADMIN_PASSWORD ?? "admin1234";
@@ -12,7 +22,13 @@ async function main() {
   const admin = await prisma.user.upsert({
     where: { email },
     update: {},
-    create: { email, passwordHash, name: "Admin", role: "ADMIN" },
+    create: {
+      orgId: org.id,
+      email,
+      passwordHash,
+      name: "Admin",
+      role: "ADMIN",
+    },
   });
   console.log(`✔ Admin: ${admin.email} (password: ${password})`);
 
@@ -27,20 +43,21 @@ async function main() {
   ];
   for (const s of stages) {
     await prisma.pipelineStage.upsert({
-      where: { order: s.order },
+      where: { orgId_order: { orgId: org.id, order: s.order } },
       update: { name: s.name },
-      create: s,
+      create: { ...s, orgId: org.id },
     });
   }
   console.log(`✔ ${stages.length} etapas de pipeline`);
 
   // ── Configuración de agente IA por defecto ─────────────────
   const existing = await prisma.agentConfig.findFirst({
-    where: { isDefault: true },
+    where: { orgId: org.id, isDefault: true },
   });
   if (!existing) {
     await prisma.agentConfig.create({
       data: {
+        orgId: org.id,
         name: "Agente por defecto",
         model: "claude-opus-4-8",
         effort: "medium",

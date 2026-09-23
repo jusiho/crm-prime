@@ -35,6 +35,15 @@ services:
     environment:
       DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}?schema=public
       API_PORT: 3001
+      # ── Multi-empresa ──────────────────────────────────────
+      # "single" (por defecto) = una sola empresa, como siempre.
+      # "multi" = SaaS: cada empresa en su subdominio de SAAS_BASE_DOMAIN.
+      TENANCY_MODE: ${TENANCY_MODE:-single}
+      SAAS_BASE_DOMAIN: ${SAAS_BASE_DOMAIN:-}
+      RESERVED_SUBDOMAINS_EXTRA: ${RESERVED_SUBDOMAINS_EXTRA:-}
+      # Row-Level Security. Solo sirve si DATABASE_URL apunta a un rol que NO
+      # sea dueño de las tablas (ver scripts/create-app-role.sql).
+      DB_RLS: ${DB_RLS:-}
       WEB_ORIGIN: ${WEB_ORIGIN}
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
       JWT_ACCESS_TTL: ${JWT_ACCESS_TTL:-15m}
@@ -69,7 +78,7 @@ services:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
         NEXT_PUBLIC_WHATSAPP_APP_ID: ${NEXT_PUBLIC_WHATSAPP_APP_ID}
         NEXT_PUBLIC_WHATSAPP_CONFIG_ID: ${NEXT_PUBLIC_WHATSAPP_CONFIG_ID}
-        NEXT_PUBLIC_COMPANY_NAME: ${NEXT_PUBLIC_COMPANY_NAME:-CRM Prime}
+        NEXT_PUBLIC_COMPANY_NAME: ${NEXT_PUBLIC_COMPANY_NAME:-Trimmo}
         NEXT_PUBLIC_CONTACT_EMAIL: ${NEXT_PUBLIC_CONTACT_EMAIL}
     container_name: crm-web
     restart: unless-stopped
@@ -81,6 +90,10 @@ services:
       API_URL: http://api:3001
       AUTH_SECRET: ${AUTH_SECRET}
       AUTH_URL: ${AUTH_URL}
+      # El middleware lo lee en cada petición para sacar el subdominio. Es de
+      # ejecución y no de build a propósito: cambiar de dominio es reiniciar,
+      # no reconstruir la imagen.
+      SAAS_BASE_DOMAIN: ${SAAS_BASE_DOMAIN:-}
       HOSTNAME: "0.0.0.0"
     # Sin "ports": NPM lo alcanza por la red "proxy" como crm-web:3000.
     expose:

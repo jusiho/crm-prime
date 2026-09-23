@@ -1,16 +1,16 @@
 {
-  "name": "crm-prime",
+  "name": "trimmo",
   "version": "0.0.0",
   "description": "CRM para WhatsApp con agentes de IA: bandeja multi-numero en tiempo real, bots copilot/autopilot, flujos visuales, pipeline y campanas.",
   "license": "AGPL-3.0-only",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/jusiho/crm-prime.git"
+    "url": "git+https://github.com/jusiho/trimmo.git"
   },
   "bugs": {
-    "url": "https://github.com/jusiho/crm-prime/issues"
+    "url": "https://github.com/jusiho/trimmo/issues"
   },
-  "homepage": "https://github.com/jusiho/crm-prime#readme",
+  "homepage": "https://github.com/jusiho/trimmo#readme",
   "private": true,
   "workspaces": [
     "apps/*",

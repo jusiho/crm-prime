@@ -1,6 +1,6 @@
 export default function PrivacyPage() {
-  const company = process.env.NEXT_PUBLIC_COMPANY_NAME ?? "CRM Prime";
-  const email = process.env.NEXT_PUBLIC_CONTACT_EMAIL ?? "contacto@crmprime.com";
+  const company = process.env.NEXT_PUBLIC_COMPANY_NAME ?? "Trimmo";
+  const email = process.env.NEXT_PUBLIC_CONTACT_EMAIL ?? "contacto@trimmo.lat";
 
   return (
     <main

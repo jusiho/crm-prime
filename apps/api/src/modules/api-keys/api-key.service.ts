@@ -8,6 +8,8 @@ import type {
   UpdateApiKeyInput,
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
+import { TenantService } from "../../infra/tenant/tenant.service";
+import { runInOrg, runUnscoped } from "../../infra/tenant/tenant.context";
 
 // Formato: crm_<8 hex de prefijo>_<48 hex de secreto>
 const PREFIX_BYTES = 4;
@@ -18,6 +20,8 @@ export interface AuthenticatedApiKey {
   id: string;
   name: string;
   scopes: ApiScope[];
+  /** Empresa dueña de la clave. De aquí sale el contexto de la petición. */
+  orgId: string;
 }
 
 /**
@@ -36,7 +40,13 @@ export interface AuthenticatedApiKey {
 export class ApiKeyService {
   private readonly logger = new Logger("ApiKeys");
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+
+    private readonly prisma: PrismaService,
+
+    private readonly tenant: TenantService,
+
+  ) {}
 
   async list(): Promise<ApiKeyDto[]> {
     const rows = await this.prisma.apiKey.findMany({
@@ -56,6 +66,7 @@ export class ApiKeyService {
 
     const row = await this.prisma.apiKey.create({
       data: {
+        orgId: this.tenant.orgId(),
         name: input.name.trim(),
         prefix,
         secretHash: this.hash(secret),
@@ -114,7 +125,11 @@ export class ApiKeyService {
     if (parts.length !== 3 || parts[0] !== "crm") return null;
     const prefix = `${parts[0]}_${parts[1]}`;
 
-    const row = await this.prisma.apiKey.findUnique({ where: { prefix } });
+    // Agujero 3/4: igual que el webhook, la clave identifica a la empresa;
+    // no se puede filtrar por una empresa que aún no se conoce.
+    const row = await runUnscoped("auth: resolver clave de API por prefijo", () =>
+      this.prisma.apiKey.findUnique({ where: { prefix } }),
+    );
     if (!row || row.revokedAt) return null;
 
     const a = Buffer.from(this.hash(raw), "hex");
@@ -122,11 +137,12 @@ export class ApiKeyService {
     if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
 
     // El contador es informativo: si falla, no debe tumbar la petición.
-    void this.prisma.apiKey
-      .update({
+    void runInOrg(row.orgId, () =>
+      this.prisma.apiKey.update({
         where: { id: row.id },
         data: { lastUsedAt: new Date(), useCount: { increment: 1 } },
-      })
+      }),
+    )
       .catch((e: Error) =>
         this.logger.warn(`No se pudo registrar el uso de ${prefix}: ${e.message}`),
       );
@@ -134,6 +150,7 @@ export class ApiKeyService {
     return {
       id: row.id,
       name: row.name,
+      orgId: row.orgId,
       scopes: row.scopes as ApiScope[],
     };
   }

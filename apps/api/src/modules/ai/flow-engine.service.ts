@@ -11,6 +11,7 @@ import {
 } from "@crm/shared";
 import type { Prisma } from "@prisma/client";
 import { PrismaService } from "../../infra/prisma/prisma.service";
+import { TenantService } from "../../infra/tenant/tenant.service";
 import { QUEUE_FLOW } from "../../infra/queue/queue.constants";
 import { MessagingService } from "../messaging/messaging.service";
 import { AutopilotService } from "./autopilot.service";
@@ -32,6 +33,7 @@ export class FlowEngineService {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly tenant: TenantService,
     private readonly messaging: MessagingService,
     private readonly autopilot: AutopilotService,
     @InjectQueue(QUEUE_FLOW) private readonly flowQueue: Queue,
@@ -327,12 +329,12 @@ export class FlowEngineService {
   private async applyTag(conversationId: string, name: string): Promise<void> {
     const convo = await this.prisma.conversation.findUnique({
       where: { id: conversationId },
-      select: { contactId: true },
+      select: { orgId: true, contactId: true },
     });
     if (!convo) return;
     const tag = await this.prisma.tag.upsert({
-      where: { name },
-      create: { name },
+      where: { orgId_name: { orgId: convo.orgId, name } },
+      create: { orgId: convo.orgId, name },
       update: {},
     });
     await this.prisma.contactTag

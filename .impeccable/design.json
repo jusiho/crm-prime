@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "generatedAt": "2026-06-18T00:00:00Z",
-  "title": "Design System: CRM Prime",
+  "title": "Design System: Trimmo",
   "extensions": {
     "colorMeta": {
       "accent": {
@@ -115,7 +115,7 @@
   ],
   "narrative": {
     "northStar": "La Sala de Control",
-    "overview": "CRM Prime es el puesto de mando del vendedor: una superficie oscura y enfocada donde toda la operación —conversaciones en vivo, oportunidades, campañas— está a la vista y bajo control. El fondo casi negro azulado es la sala con las luces bajas para que lo que importa brille. Y lo que brilla es el Verde Señal: el pulso del producto, reservado para la acción y el estado vivo. El sistema es denso pero legible; la energía se expresa con microinteracciones táctiles y la presencia rítmica del verde, no con saturación.",
+    "overview": "Trimmo es el puesto de mando del vendedor: una superficie oscura y enfocada donde toda la operación —conversaciones en vivo, oportunidades, campañas— está a la vista y bajo control. El fondo casi negro azulado es la sala con las luces bajas para que lo que importa brille. Y lo que brilla es el Verde Señal: el pulso del producto, reservado para la acción y el estado vivo. El sistema es denso pero legible; la energía se expresa con microinteracciones táctiles y la presencia rítmica del verde, no con saturación.",
     "keyCharacteristics": [
       "Sala oscura azulada; el contenido es la luz.",
       "Un solo acento con significado: Verde Señal = acción y vida.",

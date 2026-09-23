@@ -6,6 +6,7 @@ import {
   type ResolveActionsResult,
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
+import { TenantService } from "../../infra/tenant/tenant.service";
 import { MessagingService } from "../messaging/messaging.service";
 import { isActionTool, type ToolContext } from "./tools.registry";
 
@@ -28,6 +29,7 @@ export class AgentActionsService {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly tenant: TenantService,
     private readonly messaging: MessagingService,
   ) {}
 
@@ -125,7 +127,7 @@ export class AgentActionsService {
   }
 
   private async addTag(contactId: string, tagName: string): Promise<string> {
-    const tag = await this.prisma.tag.findUnique({ where: { name: tagName } });
+    const tag = await this.prisma.tag.findFirst({ where: { name: tagName } });
     if (!tag) throw new Error(`La etiqueta "${tagName}" no existe`);
     // Idempotente: si ya la tiene, no es un error.
     await this.prisma.contactTag.upsert({
@@ -137,7 +139,7 @@ export class AgentActionsService {
   }
 
   private async removeTag(contactId: string, tagName: string): Promise<string> {
-    const tag = await this.prisma.tag.findUnique({ where: { name: tagName } });
+    const tag = await this.prisma.tag.findFirst({ where: { name: tagName } });
     if (!tag) throw new Error(`La etiqueta "${tagName}" no existe`);
     await this.prisma.contactTag.deleteMany({
       where: { contactId, tagId: tag.id },
@@ -163,16 +165,19 @@ export class AgentActionsService {
       return `Oportunidad movida a "${stageName}".`;
     }
 
-    // Sin oportunidad previa: se crea en la etapa pedida.
+    // Sin oportunidad previa: se crea en la etapa pedida. La organización
+    // sale del contacto, que es de donde cuelga la oportunidad.
     const contact = await this.prisma.contact.findUnique({
       where: { id: contactId },
-      select: { name: true, phone: true },
+      select: { orgId: true, name: true, phone: true },
     });
+    if (!contact) throw new Error("El contacto ya no existe");
     await this.prisma.deal.create({
       data: {
+        orgId: contact.orgId,
         contactId,
         stageId: stage.id,
-        title: contact?.name ?? contact?.phone ?? "Oportunidad",
+        title: contact.name ?? contact.phone,
       },
     });
     return `Oportunidad creada en "${stageName}".`;

@@ -25,7 +25,7 @@ async function bootstrap() {
   // Documentación interactiva SOLO de la API pública: lo interno cambia con
   // el producto y no es un contrato con nadie de fuera.
   const doc = new DocumentBuilder()
-    .setTitle("CRM Prime · API pública")
+    .setTitle("Trimmo · API pública")
     .setDescription(
       "API para integrar sistemas externos (n8n, Zapier, un ERP) con el CRM. " +
         "Autentícate con una clave creada en **Ajustes › Claves de API** y " +
@@ -42,7 +42,7 @@ async function bootstrap() {
     include: [PublicApiModule],
   });
   SwaggerModule.setup("api/docs", app, document, {
-    customSiteTitle: "CRM Prime · API",
+    customSiteTitle: "Trimmo · API",
     swaggerOptions: { persistAuthorization: true },
   });
 

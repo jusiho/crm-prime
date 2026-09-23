@@ -23,11 +23,15 @@ import { Prisma } from "@prisma/client";
 import { ZodValidationPipe } from "../../common/pipes/zod-validation.pipe";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { PrismaService } from "../../infra/prisma/prisma.service";
+import { TenantService } from "../../infra/tenant/tenant.service";
 
 @Controller("contacts")
 @UseGuards(JwtAuthGuard)
 export class ContactsController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly tenant: TenantService,
+  ) {}
 
   // Autocompletar (id/name/phone) — lo usa el pipeline.
   @Get()
@@ -121,12 +125,13 @@ export class ContactsController {
   ): Promise<{ id: string }> {
     // Ya viene normalizado a E.164 por el esquema (phoneField).
     const phone = body.phone;
-    const existing = await this.prisma.contact.findUnique({ where: { phone } });
+    const existing = await this.prisma.contact.findFirst({ where: { phone } });
     if (existing) {
       throw new ConflictException("Ya existe un contacto con ese teléfono");
     }
     const c = await this.prisma.contact.create({
       data: {
+        orgId: this.tenant.orgId(),
         phone,
         name: body.name,
         sourceId: body.sourceId,

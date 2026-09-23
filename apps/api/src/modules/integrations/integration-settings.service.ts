@@ -6,6 +6,7 @@ import type {
   UpdateIntegrationSettingsInput,
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
+import { TenantService } from "../../infra/tenant/tenant.service";
 import { env } from "../../common/utils/env";
 import {
   decryptSecret,
@@ -13,7 +14,6 @@ import {
   maskSecret,
 } from "../../common/utils/secret-box";
 
-const SINGLETON = "singleton";
 
 interface SecretSource {
   value: string | null;
@@ -31,10 +31,18 @@ interface SecretSource {
 @Injectable()
 export class IntegrationSettingsService {
   private readonly logger = new Logger("Integrations");
-  private cache: { row: SettingsRow; at: number } | null = null;
+  // Caché por organización. Una sola entrada global serviría la configuración
+  // de una empresa a otra en cuanto haya más de una.
+  private cache = new Map<string, { row: SettingsRow; at: number }>();
   private static readonly TTL_MS = 15_000;
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+
+    private readonly prisma: PrismaService,
+
+    private readonly tenant: TenantService,
+
+  ) {}
 
   async getSettings(): Promise<IntegrationSettingsDto> {
     const row = await this.load();
@@ -84,11 +92,9 @@ export class IntegrationSettingsService {
       data.whatsappVerifyTokenEnc = this.encodeOrNull(input.whatsappVerifyToken);
     }
 
-    await this.prisma.integrationSetting.update({
-      where: { id: SINGLETON },
-      data,
-    });
-    this.cache = null;
+    const orgId = this.tenant.orgId();
+    await this.prisma.integrationSetting.update({ where: { orgId }, data });
+    this.cache.delete(orgId);
     return this.getSettings();
   }
 
@@ -173,7 +179,7 @@ export class IntegrationSettingsService {
   }
 
   invalidate(): void {
-    this.cache = null;
+    this.cache.delete(this.tenant.orgId());
   }
 
   // ── Internos ────────────────────────────────────────────────
@@ -203,16 +209,18 @@ export class IntegrationSettingsService {
   }
 
   private async load(): Promise<SettingsRow> {
+    const orgId = this.tenant.orgId();
     const now = Date.now();
-    if (this.cache && now - this.cache.at < IntegrationSettingsService.TTL_MS) {
-      return this.cache.row;
+    const hit = this.cache.get(orgId);
+    if (hit && now - hit.at < IntegrationSettingsService.TTL_MS) {
+      return hit.row;
     }
     const row = await this.prisma.integrationSetting.upsert({
-      where: { id: SINGLETON },
-      create: { id: SINGLETON },
+      where: { orgId },
+      create: { orgId },
       update: {},
     });
-    this.cache = { row, at: now };
+    this.cache.set(orgId, { row, at: now });
     return row;
   }
 }

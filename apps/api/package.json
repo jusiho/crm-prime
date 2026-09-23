@@ -10,7 +10,12 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "test:tenancy": "tsx --test test/tenancy.test.ts",
+    "test:rls": "tsx --test test/rls.test.ts",
+    "pretest:rls": "node ../../scripts/setup-rls-test-db.mjs",
+    "test:slug": "tsx --test test/org-slug.test.ts",
+    "pretest:tenancy": "node ../../scripts/ensure-test-db.mjs crm_tenancy_test"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

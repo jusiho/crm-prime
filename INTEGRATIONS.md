@@ -1,4 +1,4 @@
-# Integrar con CRM Prime
+# Integrar con Trimmo
 
 Dos caminos, y normalmente se usan los dos a la vez:
 

@@ -45,7 +45,7 @@ export function Landing() {
         <div className="lp-wrap lp-nav__inner">
           <span className="lp-brand">
             <span className="lp-brand__mark"><Logo /></span>
-            CRM Prime
+            Trimmo
           </span>
           <nav className="lp-nav__links">
             <a href="#capacidades">Producto</a>
@@ -132,7 +132,7 @@ export function Landing() {
             <h2>Toda tu operación de ventas, en una sola pantalla.</h2>
             <p className="lp-lede">
               Deja de saltar entre el celular, hojas de cálculo y notas sueltas.
-              CRM Prime junta tus conversaciones, tu embudo y tu IA en un mismo
+              Trimmo junta tus conversaciones, tu embudo y tu IA en un mismo
               lugar.
             </p>
           </div>
@@ -237,7 +237,7 @@ export function Landing() {
               ))}
             </div>
             <div className="lp-col lp-col--good">
-              <div className="lp-col__label">Con CRM Prime</div>
+              <div className="lp-col__label">Con Trimmo</div>
               {[
                 "Respuesta en segundos, las 24 horas",
                 "Todo en una bandeja, con dueño claro",
@@ -281,7 +281,7 @@ export function Landing() {
             <span className="lp-brand__mark" style={{ width: 26, height: 26 }}>
               <Logo />
             </span>
-            CRM Prime
+            Trimmo
           </span>
           <nav className="lp-foot__links">
             <a href="#capacidades">Producto</a>
@@ -289,7 +289,7 @@ export function Landing() {
             <Link href="/login">Iniciar sesión</Link>
             <Link href="/privacy">Privacidad</Link>
           </nav>
-          <span>© 2026 CRM Prime</span>
+          <span>© 2026 Trimmo</span>
         </div>
       </footer>
     </div>

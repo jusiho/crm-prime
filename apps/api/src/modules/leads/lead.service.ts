@@ -8,10 +8,14 @@ import type {
   UpdateCustomFieldInput,
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
+import { TenantService } from "../../infra/tenant/tenant.service";
 
 @Injectable()
 export class LeadService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly tenant: TenantService,
+  ) {}
 
   // ── Campos personalizados (definiciones) ─────────────────────
   async listFields(): Promise<CustomFieldDto[]> {
@@ -26,6 +30,7 @@ export class LeadService {
     const count = await this.prisma.customField.count();
     const f = await this.prisma.customField.create({
       data: {
+        orgId: this.tenant.orgId(),
         key,
         label: input.label,
         type: input.type,
@@ -69,14 +74,15 @@ export class LeadService {
   ): Promise<{ id: string; created: boolean }> {
     // Ya viene normalizado a E.164 por el esquema (phoneField).
     const phone = input.phone;
-    const existing = await this.prisma.contact.findUnique({ where: { phone } });
+    const orgId = this.tenant.orgId();
+    const existing = await this.prisma.contact.findFirst({ where: { phone } });
 
     // Fuente: se crea si no existe.
     let sourceId: string | undefined;
     if (input.source?.trim()) {
       const source = await this.prisma.source.upsert({
-        where: { name: input.source.trim() },
-        create: { name: input.source.trim() },
+        where: { orgId_name: { orgId, name: input.source.trim() } },
+        create: { orgId, name: input.source.trim() },
         update: {},
       });
       sourceId = source.id;
@@ -89,8 +95,9 @@ export class LeadService {
     } as Prisma.InputJsonValue;
 
     const contact = await this.prisma.contact.upsert({
-      where: { phone },
+      where: { orgId_phone: { orgId, phone } },
       create: {
+        orgId,
         phone,
         name: input.name ?? null,
         optIn: input.optIn ?? true,
@@ -112,8 +119,8 @@ export class LeadService {
     // Etiquetas: crear y asociar.
     for (const tagName of input.tags ?? []) {
       const tag = await this.prisma.tag.upsert({
-        where: { name: tagName },
-        create: { name: tagName },
+        where: { orgId_name: { orgId, name: tagName } },
+        create: { orgId, name: tagName },
         update: {},
       });
       await this.prisma.contactTag
@@ -140,7 +147,7 @@ export class LeadService {
   private async uniqueKey(base: string): Promise<string> {
     let key = base;
     let i = 1;
-    while (await this.prisma.customField.findUnique({ where: { key } })) {
+    while (await this.prisma.customField.findFirst({ where: { key } })) {
       key = `${base}_${i++}`;
     }
     return key;

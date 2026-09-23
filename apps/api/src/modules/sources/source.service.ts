@@ -14,10 +14,14 @@ import type {
   UpdateUserInput,
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
+import { TenantService } from "../../infra/tenant/tenant.service";
 
 @Injectable()
 export class SourceService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly tenant: TenantService,
+  ) {}
 
   // ── Fuentes ──────────────────────────────────────────────────
   async list(): Promise<SourceDto[]> {
@@ -30,7 +34,7 @@ export class SourceService {
 
   async create(input: CreateSourceInput): Promise<SourceDto> {
     const s = await this.prisma.source.create({
-      data: { name: input.name, color: input.color },
+      data: { orgId: this.tenant.orgId(), name: input.name, color: input.color },
       include: { _count: { select: { contacts: true } } },
     });
     return this.toDto(s);
@@ -90,12 +94,20 @@ export class SourceService {
   // Crea un usuario del equipo (solo admin).
   async createUser(input: CreateUserInput): Promise<SellerDto> {
     const email = input.email.toLowerCase().trim();
-    const existing = await this.prisma.user.findUnique({ where: { email } });
+    // findFirst y no findUnique: el correo ya solo es único dentro de la
+    // empresa, y la extensión acota la consulta a la organización en curso.
+    const existing = await this.prisma.user.findFirst({ where: { email } });
     if (existing) throw new ConflictException("Ese correo ya está registrado");
 
     const passwordHash = await bcrypt.hash(input.password, 10);
     const user = await this.prisma.user.create({
-      data: { name: input.name.trim(), email, passwordHash, role: input.role },
+      data: {
+        orgId: this.tenant.orgId(),
+        name: input.name.trim(),
+        email,
+        passwordHash,
+        role: input.role,
+      },
     });
     return {
       id: user.id,

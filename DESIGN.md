@@ -1,5 +1,5 @@
 ---
-name: CRM Prime
+name: Trimmo
 description: CRM para WhatsApp con agentes IA — la sala de control del vendedor
 colors:
   accent: "#25d366"
@@ -90,13 +90,13 @@ components:
     padding: "9px 12px"
 ---
 
-# Design System: CRM Prime
+# Design System: Trimmo
 
 ## 1. Overview
 
 **Creative North Star: "La Sala de Control"**
 
-CRM Prime es el puesto de mando del vendedor: una superficie oscura y enfocada
+Trimmo es el puesto de mando del vendedor: una superficie oscura y enfocada
 donde toda la operación —conversaciones en vivo, oportunidades, campañas— está a
 la vista y bajo control. El fondo casi negro azulado (#0b0f17) no es "dark mode
 porque queda cool": es la sala con las luces bajas para que **lo que importa

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AuthError } from "next-auth";
 import { auth, signIn } from "@/auth";
+import { currentOrg, currentOrgSlug } from "@/lib/org";
 
 export default async function LoginPage({
   searchParams,
@@ -12,12 +13,20 @@ export default async function LoginPage({
   if (session) redirect("/");
   const { error } = await searchParams;
 
+  // Empresa del subdominio. Null en una instalación de una sola empresa, o si
+  // alguien entra por el dominio principal.
+  const org = await currentOrg();
+
   async function login(formData: FormData) {
     "use server";
     try {
+      // El subdominio se lee del servidor, no del formulario: así no depende de
+      // un campo oculto que cualquiera puede cambiar en el navegador.
+      const orgSlug = await currentOrgSlug();
       await signIn("credentials", {
         email: formData.get("email"),
         password: formData.get("password"),
+        ...(orgSlug ? { orgSlug } : {}),
         redirectTo: "/",
       });
     } catch (e) {
@@ -40,8 +49,10 @@ export default async function LoginPage({
       }}
     >
       <form action={login} style={card}>
-        <h1 style={{ marginTop: 0 }}>CRM Prime</h1>
-        <p style={{ color: "var(--muted)", marginTop: -8 }}>Inicia sesión</p>
+        <h1 style={{ marginTop: 0 }}>{org?.name ?? "Trimmo"}</h1>
+        <p style={{ color: "var(--muted)", marginTop: -8 }}>
+          {org ? `Acceso de ${org.name}` : "Inicia sesión"}
+        </p>
 
         {error && (
           <p style={{ color: "#ff6b6b" }}>Credenciales inválidas.</p>

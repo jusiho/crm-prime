@@ -22,6 +22,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
+        // Subdominio de la empresa. No lo escribe nadie: lo pone la página de
+        // acceso a partir de la cabecera que dejó el middleware, que a su vez
+        // salió del Host real del navegador.
+        orgSlug: { label: "Organización", type: "hidden" },
       },
       async authorize(credentials) {
         const res = await fetch(`${API_URL}/api/v1/auth/login`, {
@@ -30,6 +34,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           body: JSON.stringify({
             email: credentials?.email,
             password: credentials?.password,
+            // Va explícito porque esta llamada sale del servidor de Next: el
+            // Host que vería la API sería el suyo, no el del navegador.
+            ...(credentials?.orgSlug ? { orgSlug: credentials.orgSlug } : {}),
             platform: "WEB",
             deviceName: "Web",
           }),

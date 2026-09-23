@@ -6,6 +6,8 @@ import type {
   WhatsappConnectionStatus,
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
+import { TenantService } from "../../infra/tenant/tenant.service";
+import { runUnscoped } from "../../infra/tenant/tenant.context";
 import { IntegrationSettingsService } from "../integrations/integration-settings.service";
 
 export interface WhatsappCreds {
@@ -21,6 +23,7 @@ export class WhatsappConnectionService {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly tenant: TenantService,
     private readonly settings: IntegrationSettingsService,
   ) {}
 
@@ -81,12 +84,27 @@ export class WhatsappConnectionService {
    * Resuelve el id de la conexión (canal) a partir del phone_number_id que
    * Meta envía en el webhook. Devuelve null si es el del .env o no se conoce.
    */
-  async resolveChannelId(phoneNumberId: string): Promise<string | null> {
-    const conn = await this.prisma.whatsappConnection.findUnique({
-      where: { phoneNumberId },
-      select: { id: true },
-    });
-    return conn?.id ?? null;
+  /**
+   * De qué canal —y de qué organización— es un `phone_number_id` de Meta.
+   *
+   * El webhook de WhatsApp es el único punto de entrada que no trae un JWT:
+   * Meta no sabe nada de nuestras organizaciones. El número que recibió el
+   * mensaje es lo único que permite saber de quién es, y por eso
+   * `phoneNumberId` sigue siendo único de forma global y no por organización.
+   *
+   * La consulta es deliberadamente sin filtrar por organización: es el único
+   * sitio del CRM donde eso es correcto.
+   */
+  async resolveChannel(
+    phoneNumberId: string,
+  ): Promise<{ id: string; orgId: string } | null> {
+    // Agujero 2/4: esta consulta produce el orgId, así que no puede usarlo.
+    return runUnscoped("webhook: resolver empresa por phone_number_id", () =>
+      this.prisma.whatsappConnection.findUnique({
+        where: { phoneNumberId },
+        select: { id: true, orgId: true },
+      }),
+    );
   }
 
   // ── Listado de canales (multi-número) ────────────────────────
@@ -182,6 +200,7 @@ export class WhatsappConnectionService {
     await this.prisma.whatsappConnection.upsert({
       where: { phoneNumberId: input.phoneNumberId },
       create: {
+        orgId: this.tenant.orgId(),
         wabaId: input.wabaId ?? null,
         phoneNumberId: input.phoneNumberId,
         displayPhoneNumber: input.displayPhoneNumber ?? null,

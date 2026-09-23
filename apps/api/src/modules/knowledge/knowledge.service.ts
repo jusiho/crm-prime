@@ -11,6 +11,7 @@ import type {
   KnowledgeHit,
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
+import { TenantService } from "../../infra/tenant/tenant.service";
 import {
   EMBEDDING_PROVIDER,
   type EmbeddingProvider,
@@ -24,6 +25,7 @@ export class KnowledgeService implements OnModuleInit {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly tenant: TenantService,
     @Inject(EMBEDDING_PROVIDER) private readonly embedder: EmbeddingProvider,
   ) {}
 
@@ -43,6 +45,7 @@ export class KnowledgeService implements OnModuleInit {
   async ingest(input: IngestKnowledgeInput): Promise<KnowledgeDocDto> {
     const doc = await this.prisma.knowledgeDoc.create({
       data: {
+        orgId: this.tenant.orgId(),
         title: input.title,
         source: input.source ?? null,
         content: input.content,
@@ -75,6 +78,12 @@ export class KnowledgeService implements OnModuleInit {
     if (!query.trim()) return [];
     const [vec] = await this.embedder.embed([query]);
     const lit = this.toVector(vec!);
+    // El filtro por empresa va explícito aunque RLS también lo imponga. Son
+    // dos defensas distintas: RLS solo actúa si la aplicación se conecta con el
+    // rol restringido, y esta consulta tiene que ser correcta también sin él.
+    // Sin esto, el agente de una empresa citaría los documentos internos de
+    // otra en una respuesta a un cliente.
+    const orgId = this.tenant.orgId();
     const rows = await this.prisma.$queryRawUnsafe<
       { content: string; docTitle: string; score: number }[]
     >(
@@ -82,9 +91,12 @@ export class KnowledgeService implements OnModuleInit {
               1 - (kc.embedding <=> '${lit}'::vector) AS score
        FROM knowledge_chunks kc
        JOIN knowledge_docs kd ON kd.id = kc."docId"
-       WHERE kc.embedding IS NOT NULL AND kd."isActive" = true
+       WHERE kc.embedding IS NOT NULL
+         AND kd."isActive" = true
+         AND kd."orgId" = $1
        ORDER BY kc.embedding <=> '${lit}'::vector
        LIMIT ${topK}`,
+      orgId,
     );
     return rows.map((r) => ({
       content: r.content,

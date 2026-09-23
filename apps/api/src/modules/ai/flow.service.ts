@@ -11,10 +11,14 @@ import type {
   UpdateFlowInput,
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
+import { TenantService } from "../../infra/tenant/tenant.service";
 
 @Injectable()
 export class FlowService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly tenant: TenantService,
+  ) {}
 
   async list(): Promise<{
     flows: FlowSummary[];
@@ -80,6 +84,7 @@ export class FlowService {
   async create(input: CreateFlowInput): Promise<FlowDto> {
     const f = await this.prisma.flow.create({
       data: {
+        orgId: this.tenant.orgId(),
         name: input.name,
         isActive: input.isActive,
         channelId: input.channelId,

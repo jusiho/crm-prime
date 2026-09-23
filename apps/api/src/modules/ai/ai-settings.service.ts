@@ -6,6 +6,7 @@ import type {
   UpdateAiSettingsInput,
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
+import { TenantService } from "../../infra/tenant/tenant.service";
 import { env } from "../../common/utils/env";
 import {
   decryptSecret,
@@ -13,7 +14,6 @@ import {
   maskSecret,
 } from "../../common/utils/secret-box";
 
-const SINGLETON = "singleton";
 
 // Credenciales ya resueltas (BD con respaldo del entorno) para una llamada.
 export interface ResolvedCredentials {
@@ -39,10 +39,18 @@ interface KeySource {
 @Injectable()
 export class AiSettingsService {
   private readonly logger = new Logger("AiSettings");
-  private cache: { row: SettingsRow; at: number } | null = null;
+  // Caché por organización. Una sola entrada global serviría la configuración
+  // de una empresa a otra en cuanto haya más de una.
+  private cache = new Map<string, { row: SettingsRow; at: number }>();
   private static readonly TTL_MS = 15_000;
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+
+    private readonly prisma: PrismaService,
+
+    private readonly tenant: TenantService,
+
+  ) {}
 
   // ── Lectura para la UI (nunca devuelve keys en claro) ───────
   async getSettings(): Promise<AiSettingsDto> {
@@ -87,8 +95,9 @@ export class AiSettingsService {
         : null;
     }
 
-    await this.prisma.aiSetting.update({ where: { id: SINGLETON }, data });
-    this.cache = null;
+    const orgId = this.tenant.orgId();
+    await this.prisma.aiSetting.update({ where: { orgId }, data });
+    this.cache.delete(orgId);
     return this.getSettings();
   }
 
@@ -127,7 +136,7 @@ export class AiSettingsService {
   }
 
   invalidate(): void {
-    this.cache = null;
+    this.cache.delete(this.tenant.orgId());
   }
 
   // ── Internos ────────────────────────────────────────────────
@@ -202,16 +211,18 @@ export class AiSettingsService {
   }
 
   private async load(): Promise<SettingsRow> {
+    const orgId = this.tenant.orgId();
     const now = Date.now();
-    if (this.cache && now - this.cache.at < AiSettingsService.TTL_MS) {
-      return this.cache.row;
+    const hit = this.cache.get(orgId);
+    if (hit && now - hit.at < AiSettingsService.TTL_MS) {
+      return hit.row;
     }
     const row = await this.prisma.aiSetting.upsert({
-      where: { id: SINGLETON },
-      create: { id: SINGLETON },
+      where: { orgId },
+      create: { orgId },
       update: {},
     });
-    this.cache = { row, at: now };
+    this.cache.set(orgId, { row, at: now });
     return row;
   }
 }

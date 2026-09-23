@@ -21,6 +21,7 @@ import {
   type UpdatePublicContactInput,
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
+import { TenantService } from "../../infra/tenant/tenant.service";
 import { MessagingService } from "../messaging/messaging.service";
 import { WebhookOutService } from "../webhooks-out/webhook-out.service";
 
@@ -39,6 +40,7 @@ interface Page<T> {
 export class PublicApiService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly tenant: TenantService,
     private readonly messaging: MessagingService,
     private readonly webhooks: WebhookOutService,
   ) {}
@@ -86,7 +88,8 @@ export class PublicApiService {
     input: CreatePublicContactInput,
     viaApiKey: string | null,
   ): Promise<PublicContact> {
-    const existing = await this.prisma.contact.findUnique({
+    const orgId = this.tenant.orgId();
+    const existing = await this.prisma.contact.findFirst({
       where: { phone: input.phone },
     });
     if (existing) {
@@ -98,8 +101,8 @@ export class PublicApiService {
     const sourceId = input.source
       ? (
           await this.prisma.source.upsert({
-            where: { name: input.source },
-            create: { name: input.source },
+            where: { orgId_name: { orgId, name: input.source } },
+            create: { orgId, name: input.source },
             update: {},
           })
         ).id
@@ -107,6 +110,7 @@ export class PublicApiService {
 
     const c = await this.prisma.contact.create({
       data: {
+        orgId,
         phone: input.phone,
         name: input.name ?? null,
         optIn: input.optIn ?? true,
@@ -152,10 +156,15 @@ export class PublicApiService {
 
   // Reemplaza el juego de etiquetas, creando las que no existan.
   private async setTags(contactId: string, names: string[]): Promise<void> {
+    const orgId = this.tenant.orgId();
     const clean = [...new Set(names.map((t) => t.trim()).filter(Boolean))];
     const tags = await Promise.all(
       clean.map((name) =>
-        this.prisma.tag.upsert({ where: { name }, create: { name }, update: {} }),
+        this.prisma.tag.upsert({
+          where: { orgId_name: { orgId, name } },
+          create: { orgId, name },
+          update: {},
+        }),
       ),
     );
     await this.prisma.contactTag.deleteMany({ where: { contactId } });
@@ -169,9 +178,10 @@ export class PublicApiService {
 
   // ── Oportunidades ───────────────────────────────────────────
   async createDeal(input: CreatePublicDealInput): Promise<PublicDeal> {
+    const orgId = this.tenant.orgId();
     const contact = await this.prisma.contact.upsert({
-      where: { phone: input.phone },
-      create: { phone: input.phone, origin: "webhook" },
+      where: { orgId_phone: { orgId, phone: input.phone } },
+      create: { orgId, phone: input.phone, origin: "webhook" },
       update: {},
     });
 
@@ -186,6 +196,7 @@ export class PublicApiService {
 
     const deal = await this.prisma.deal.create({
       data: {
+        orgId,
         contactId: contact.id,
         stageId: stage.id,
         title: input.title,
@@ -238,7 +249,7 @@ export class PublicApiService {
   async sendMessage(
     input: SendPublicMessageInput,
   ): Promise<SendPublicMessageResult> {
-    const contact = await this.prisma.contact.findUnique({
+    const contact = await this.prisma.contact.findFirst({
       where: { phone: input.phone },
     });
     if (!contact) {

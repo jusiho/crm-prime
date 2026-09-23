@@ -12,6 +12,7 @@ import type {
   UpdateStageInput,
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
+import { TenantService } from "../../infra/tenant/tenant.service";
 
 const DEAL_INCLUDE = { contact: true, owner: true } as const;
 
@@ -19,6 +20,7 @@ const DEAL_INCLUDE = { contact: true, owner: true } as const;
 export class PipelineService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly tenant: TenantService,
     private readonly events: EventEmitter2,
   ) {}
 
@@ -56,6 +58,7 @@ export class PipelineService {
 
     const deal = await this.prisma.deal.create({
       data: {
+        orgId: this.tenant.orgId(),
         contactId: input.contactId,
         stageId,
         title: input.title,
@@ -120,6 +123,7 @@ export class PipelineService {
     });
     const s = await this.prisma.pipelineStage.create({
       data: {
+        orgId: this.tenant.orgId(),
         name: input.name,
         isWon: input.isWon,
         isLost: input.isLost,

@@ -13,6 +13,14 @@ import { env } from "./env";
  */
 
 const PREFIX = "v1";
+// NO TOCAR aunque el producto cambie de nombre.
+//
+// Esta cadena entra en la derivación de la clave (HKDF). Si cambia, la clave
+// que sale es otra y TODO lo cifrado con la anterior —tokens de WhatsApp,
+// claves de OpenAI y Anthropic— deja de poder descifrarse, en silencio y sin
+// error hasta que alguien intente usarlo.
+//
+// Sobrevive al renombrado a Trimmo por eso, no por descuido.
 const SALT = "crm-prime.ai-secrets";
 
 function masterKey(): Buffer {

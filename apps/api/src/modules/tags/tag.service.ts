@@ -5,10 +5,14 @@ import {
 } from "@nestjs/common";
 import type { CreateTagInput, TagDto, UpdateTagInput } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
+import { TenantService } from "../../infra/tenant/tenant.service";
 
 @Injectable()
 export class TagService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly tenant: TenantService,
+  ) {}
 
   async list(): Promise<TagDto[]> {
     const rows = await this.prisma.tag.findMany({
@@ -19,11 +23,12 @@ export class TagService {
   }
 
   async create(input: CreateTagInput): Promise<TagDto> {
+    const orgId = this.tenant.orgId();
     const name = input.name.trim();
-    const existing = await this.prisma.tag.findUnique({ where: { name } });
+    const existing = await this.prisma.tag.findFirst({ where: { name } });
     if (existing) throw new ConflictException("Ya existe una etiqueta con ese nombre");
     const t = await this.prisma.tag.create({
-      data: { name, color: input.color },
+      data: { orgId, name, color: input.color },
       include: { _count: { select: { contacts: true } } },
     });
     return this.toDto(t);
@@ -34,7 +39,7 @@ export class TagService {
     if (!existing) throw new NotFoundException("Etiqueta no encontrada");
 
     if (input.name && input.name.trim() !== existing.name) {
-      const dup = await this.prisma.tag.findUnique({
+      const dup = await this.prisma.tag.findFirst({
         where: { name: input.name.trim() },
       });
       if (dup) throw new ConflictException("Ya existe una etiqueta con ese nombre");

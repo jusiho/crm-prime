@@ -14,6 +14,7 @@ import type {
   UpdateBotInput,
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
+import { TenantService } from "../../infra/tenant/tenant.service";
 import { AgentActionsService } from "./agent-actions.service";
 import { availableTools } from "./tools.registry";
 
@@ -21,6 +22,7 @@ import { availableTools } from "./tools.registry";
 export class BotService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly tenant: TenantService,
     private readonly actions: AgentActionsService,
   ) {}
 
@@ -101,6 +103,7 @@ export class BotService {
     await this.assertChannelFree(input.channelId ?? null, null);
     const bot = await this.prisma.agentConfig.create({
       data: {
+        orgId: this.tenant.orgId(),
         name: input.name,
         model: input.model,
         effort: input.effort,

@@ -1,4 +1,4 @@
-# Contribuir a CRM Prime
+# Contribuir a Trimmo
 
 Gracias por el interés. Este documento explica cómo está montado el repo y qué
 se espera de un cambio para que entre.

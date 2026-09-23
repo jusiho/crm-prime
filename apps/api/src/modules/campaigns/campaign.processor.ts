@@ -10,6 +10,7 @@ import {
 } from "@crm/shared";
 import { QUEUE_CAMPAIGN } from "../../infra/queue/queue.constants";
 import { PrismaService } from "../../infra/prisma/prisma.service";
+import { TenantService } from "../../infra/tenant/tenant.service";
 import {
   WHATSAPP_PROVIDER,
   type WhatsAppProvider,
@@ -32,6 +33,7 @@ export class CampaignProcessor extends WorkerHost {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly tenant: TenantService,
     private readonly campaigns: CampaignService,
     @Inject(WHATSAPP_PROVIDER) private readonly wa: WhatsAppProvider,
   ) {
@@ -63,13 +65,18 @@ export class CampaignProcessor extends WorkerHost {
       contact,
     );
     const preview = this.render(campaign.template.body, variables);
+    // Esto corre en un worker, sin petición HTTP detrás: la organización sale
+    // del propio contacto, no del contexto.
+    const orgId = contact.orgId;
     const conversationId = await this.ensureConversation(
+      orgId,
       contactId,
       campaign.channelId,
     );
 
     const message = await this.prisma.message.create({
       data: {
+        orgId,
         conversationId,
         campaignId,
         templateId: campaign.templateId,
@@ -140,6 +147,7 @@ export class CampaignProcessor extends WorkerHost {
 
   // Reusa la conversación abierta del contacto o crea una nueva.
   private async ensureConversation(
+    orgId: string,
     contactId: string,
     channelId: string | null,
   ): Promise<string> {
@@ -150,6 +158,7 @@ export class CampaignProcessor extends WorkerHost {
     if (open) return open.id;
     const created = await this.prisma.conversation.create({
       data: {
+        orgId,
         contactId,
         channelId,
         status: "OPEN",

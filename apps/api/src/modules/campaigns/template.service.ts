@@ -8,10 +8,14 @@ import type {
   UpdateTemplateInput,
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
+import { TenantService } from "../../infra/tenant/tenant.service";
 
 @Injectable()
 export class TemplateService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly tenant: TenantService,
+  ) {}
 
   async list(): Promise<TemplateDto[]> {
     const rows = await this.prisma.template.findMany({
@@ -23,6 +27,7 @@ export class TemplateService {
   async create(input: CreateTemplateInput): Promise<TemplateDto> {
     const t = await this.prisma.template.create({
       data: {
+        orgId: this.tenant.orgId(),
         name: input.name,
         language: input.language,
         body: input.body,

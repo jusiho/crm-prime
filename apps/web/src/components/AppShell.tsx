@@ -111,7 +111,7 @@ export function AppShell({
       <aside style={sidebar}>
         <div style={brand}>
           <span style={brandMark}>P</span>
-          <span style={{ fontWeight: 700, fontSize: 16 }}>CRM Prime</span>
+          <span style={{ fontWeight: 700, fontSize: 16 }}>Trimmo</span>
         </div>
 
         <nav style={{ padding: "4px 10px", overflowY: "auto", flex: 1 }}>

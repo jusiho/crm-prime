@@ -3,6 +3,7 @@ import { ConfigModule } from "@nestjs/config";
 import { EventEmitterModule } from "@nestjs/event-emitter";
 import { StorageModule } from "./infra/storage/storage.module";
 import { PrismaModule } from "./infra/prisma/prisma.module";
+import { TenantModule } from "./infra/tenant/tenant.module";
 import { QueueModule } from "./infra/queue/queue.module";
 import { AuthModule } from "./modules/auth/auth.module";
 import { MessagingModule } from "./modules/messaging/messaging.module";
@@ -22,6 +23,7 @@ import { ApiKeysModule } from "./modules/api-keys/api-keys.module";
 import { PublicApiModule } from "./modules/public-api/public-api.module";
 import { WebhooksOutModule } from "./modules/webhooks-out/webhooks-out.module";
 import { IntegrationsModule } from "./modules/integrations/integrations.module";
+import { OrganizationsModule } from "./modules/organizations/organizations.module";
 import { HealthController } from "./health.controller";
 
 @Module({
@@ -33,6 +35,7 @@ import { HealthController } from "./health.controller";
     }),
     EventEmitterModule.forRoot(),
     PrismaModule,
+    TenantModule,
     StorageModule,
     QueueModule,
     AuthModule,
@@ -53,6 +56,7 @@ import { HealthController } from "./health.controller";
     PublicApiModule,
     WebhooksOutModule,
     IntegrationsModule,
+    OrganizationsModule,
   ],
   controllers: [HealthController],
 })

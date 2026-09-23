@@ -22,6 +22,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     if (!session || session.revokedAt || session.expiresAt < new Date()) {
       throw new UnauthorizedException("Sesión no válida");
     }
-    return { sub: payload.sub, sid: payload.sid, role: payload.role };
+    return {
+      sub: payload.sub,
+      sid: payload.sid,
+      role: payload.role,
+      org: payload.org,
+    };
   }
 }

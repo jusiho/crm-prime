@@ -5,6 +5,13 @@ import { Platform, Role } from "../enums.js";
 export const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
+  // Subdominio desde el que se accede, en modo SaaS. Lo pone el servidor a
+  // partir del `Host`, no el formulario.
+  //
+  // Sirve para SABER A QUIÉN BUSCAR, no para dar acceso: el mismo correo puede
+  // existir en dos empresas. La autorización sigue saliendo de la contraseña, y
+  // el `orgId` del token se toma de la fila del usuario, nunca del `Host`.
+  orgSlug: z.string().max(63).optional(),
   // metadatos del dispositivo (para la Session). Opcionales: el server
   // completa con userAgent/ip si no llegan.
   platform: z.nativeEnum(Platform).default(Platform.WEB),
@@ -77,4 +84,8 @@ export interface AccessTokenClaims {
   sub: string; // userId
   sid: string; // sessionId
   role: Role;
+  // Organización del usuario. Va FIRMADA en el token a propósito: es lo que
+  // impide que alguien cambie de empresa manipulando el subdominio o una
+  // cabecera. El Host nunca decide de quién son los datos.
+  org: string; // orgId
 }

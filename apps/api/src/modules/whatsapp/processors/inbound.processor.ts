@@ -3,6 +3,8 @@ import { Processor, WorkerHost } from "@nestjs/bullmq";
 import { Job } from "bullmq";
 import { QUEUE_INBOUND } from "../../../infra/queue/queue.constants";
 import { MessagingService } from "../../messaging/messaging.service";
+import { WhatsappConnectionService } from "../whatsapp-connection.service";
+import { runInOrg, tenancyMode } from "../../../infra/tenant/tenant.context";
 import {
   WHATSAPP_PROVIDER,
   type WhatsAppProvider,
@@ -15,12 +17,42 @@ export class InboundProcessor extends WorkerHost {
 
   constructor(
     private readonly messaging: MessagingService,
+    private readonly connection: WhatsappConnectionService,
     @Inject(WHATSAPP_PROVIDER) private readonly wa: WhatsAppProvider,
   ) {
     super();
   }
 
+  /**
+   * Un worker no tiene petición HTTP detrás, así que el contexto de
+   * organización hay que abrirlo aquí. Sale del `phone_number_id` que Meta
+   * mandó en el webhook: es lo único que identifica de quién es el mensaje.
+   *
+   * Si no se puede resolver, el trabajo **falla**. Procesarlo "a ver qué pasa"
+   * escribiría datos de un cliente en la empresa equivocada, que es peor que
+   * un job en la cola de fallidos.
+   */
   async process(job: Job<InboundJob>): Promise<void> {
+    const phoneNumberId = job.data.channelPhoneNumberId;
+    const channel = phoneNumberId
+      ? await this.connection.resolveChannel(phoneNumberId)
+      : null;
+
+    if (!channel) {
+      if (tenancyMode === "multi") {
+        throw new Error(
+          `Evento de WhatsApp sin canal reconocible (phone_number_id: ${phoneNumberId ?? "ausente"}). ` +
+            "No se puede saber de qué empresa es.",
+        );
+      }
+      // Una sola empresa: no hay ambigüedad posible.
+      return this.dispatch(job);
+    }
+
+    return runInOrg(channel.orgId, () => this.dispatch(job));
+  }
+
+  private async dispatch(job: Job<InboundJob>): Promise<void> {
     const data = job.data;
 
     if (data.kind === "status") {

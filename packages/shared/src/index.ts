@@ -2,6 +2,7 @@ export * from "./enums.js";
 export * from "./phone.js";
 export * from "./attribution.js";
 export * from "./schemas/auth.schema.js";
+export * from "./schemas/organization.schema.js";
 export * from "./schemas/common.schema.js";
 export * from "./schemas/messaging.schema.js";
 export * from "./schemas/pipeline.schema.js";

@@ -49,7 +49,22 @@ export class AuthController {
     @Body(new ZodValidationPipe(loginSchema)) body: LoginInput,
     @Req() req: Request,
   ) {
-    return this.auth.login(body, {
+    // De dónde sale el subdominio, por orden:
+    //
+    // 1. Del cuerpo, que es lo normal: la petición llega desde el servidor de
+    //    Next (patrón BFF), así que el `Host` que vemos aquí es el suyo, no el
+    //    del navegador. Quien conoce el subdominio real es el middleware de
+    //    Next, y lo manda explícito.
+    // 2. Del `Host`, para quien llame directo a la API (una app móvil contra
+    //    `acme.trimmo.lat`).
+    //
+    // Aceptarlo del cuerpo es seguro porque **solo elige a quién buscar**. Sin
+    // la contraseña no se entra, y el `orgId` del token sale de la fila del
+    // usuario. Pedir que te busquen en otra empresa no te da nada.
+    const host = String(req.headers["x-forwarded-host"] ?? req.headers.host ?? "");
+    const orgSlug = body.orgSlug ?? subdominioDe(host);
+
+    return this.auth.login({ ...body, orgSlug }, {
       platform: body.platform,
       deviceName: body.deviceName,
       userAgent: req.headers["user-agent"],
@@ -133,4 +148,20 @@ export class AuthController {
   async realtimeToken(@CurrentUser() user: AccessTokenClaims) {
     return { token: await this.auth.issueRealtimeToken(user) };
   }
+}
+
+/**
+ * Saca el subdominio de un `Host`, o `undefined` si no lo hay.
+ *
+ * `acme.trimmo.lat` → "acme". `trimmo.lat`, `www.trimmo.lat` y
+ * `localhost:3001` → undefined, que significa "no hay empresa en la URL".
+ */
+function subdominioDe(host: string): string | undefined {
+  const limpio = host.split(":")[0]?.toLowerCase() ?? "";
+  const base = (process.env.SAAS_BASE_DOMAIN ?? "").split(":")[0]?.toLowerCase();
+  if (!base || !limpio.endsWith(`.${base}`)) return undefined;
+  const slug = limpio.slice(0, -(base.length + 1));
+  // Un solo nivel: el certificado comodín tampoco cubre más.
+  if (!slug || slug.includes(".") || slug === "www") return undefined;
+  return slug;
 }

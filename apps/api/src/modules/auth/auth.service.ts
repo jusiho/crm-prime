@@ -19,6 +19,9 @@ import type {
   Role,
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
+import { TenantService } from "../../infra/tenant/tenant.service";
+import { OrganizationService } from "../organizations/organization.service";
+import { runUnscoped } from "../../infra/tenant/tenant.context";
 
 interface DeviceMeta {
   platform: Platform;
@@ -53,6 +56,8 @@ export class AuthService {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly tenant: TenantService,
+    private readonly orgs: OrganizationService,
     private readonly jwt: JwtService,
   ) {}
 
@@ -62,7 +67,10 @@ export class AuthService {
   // conversación hasta que un admin le asigne fuentes.
   async register(input: RegisterInput): Promise<PublicUser> {
     const email = input.email.toLowerCase().trim();
-    const existing = await this.prisma.user.findUnique({ where: { email } });
+    const orgId = this.tenant.orgId();
+    const existing = await runUnscoped("registro: comprobar correo libre", () =>
+      this.prisma.user.findUnique({ where: { orgId_email: { orgId, email } } }),
+    );
     if (existing) {
       throw new ConflictException("Ese correo ya está registrado");
     }
@@ -70,7 +78,13 @@ export class AuthService {
     const role: Role = (userCount === 0 ? "ADMIN" : "AGENT") as Role;
     const passwordHash = await bcrypt.hash(input.password, 10);
     const user = await this.prisma.user.create({
-      data: { name: input.name.trim(), email, passwordHash, role },
+      data: {
+        orgId,
+        name: input.name.trim(),
+        email,
+        passwordHash,
+        role,
+      },
     });
     return {
       id: user.id,
@@ -86,7 +100,32 @@ export class AuthService {
     const throttleKey = `${meta.ipAddress ?? "?"}:${email}`;
     this.assertNotThrottled(throttleKey);
 
-    const user = await this.prisma.user.findUnique({ where: { email } });
+    // De qué empresa es quien intenta entrar.
+    //
+    // En SaaS sale del subdominio, que el servidor pone a partir del `Host`.
+    // Es un dato que el visitante controla, y por eso solo sirve para **elegir
+    // a quién buscar**: la contraseña sigue decidiendo si entra, y el `orgId`
+    // del token se toma de la fila del usuario, no de aquí. Cambiar el `Host`
+    // no te mete en otra empresa; como mucho hace que no te encuentren.
+    const orgId = input.orgSlug
+      ? (await this.orgs.resolveSlug(input.orgSlug))?.id
+      : null;
+
+    if (input.orgSlug && !orgId) {
+      this.recordFailedLogin(throttleKey);
+      throw new UnauthorizedException("Credenciales inválidas");
+    }
+
+    // Agujero 1/4: la búsqueda del usuario no puede filtrarse por la
+    // organización del contexto, porque el contexto es justo lo que falta.
+    // Cuando llega `orgSlug`, el filtro va explícito en el `where`.
+    const user = await runUnscoped("login: buscar usuario por correo", () =>
+      orgId
+        ? this.prisma.user.findUnique({
+            where: { orgId_email: { orgId, email } },
+          })
+        : this.prisma.user.findFirst({ where: { email } }),
+    );
     if (!user || !user.isActive) {
       this.recordFailedLogin(throttleKey);
       throw new UnauthorizedException("Credenciales inválidas");
@@ -275,7 +314,7 @@ export class AuthService {
   // el access token de 15 min al JS del navegador.
   async issueRealtimeToken(claims: AccessTokenClaims): Promise<string> {
     return this.jwt.signAsync(
-      { sub: claims.sub, sid: claims.sid, role: claims.role },
+      { sub: claims.sub, sid: claims.sid, role: claims.role, org: claims.org },
       { secret: process.env.JWT_ACCESS_SECRET, expiresIn: "2m" },
     );
   }
@@ -304,7 +343,13 @@ export class AuthService {
 
   // ── Helpers ────────────────────────────────────────────────
   private async issueTokens(
-    user: { id: string; email: string; name: string | null; role: string },
+    user: {
+      id: string;
+      orgId: string;
+      email: string;
+      name: string | null;
+      role: string;
+    },
     sessionId: string,
     existingRefresh?: string,
   ): Promise<AuthTokens> {
@@ -316,6 +361,7 @@ export class AuthService {
       sub: user.id,
       sid: sessionId,
       role: user.role as Role,
+      org: user.orgId,
     };
     const accessToken = await this.jwt.signAsync(claims, {
       secret: process.env.JWT_ACCESS_SECRET,

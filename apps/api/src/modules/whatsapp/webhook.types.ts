@@ -21,6 +21,7 @@ export interface InboundStatusJob {
   kind: "status";
   waMessageId: string;
   status: MessageStatus;
+  channelPhoneNumberId?: string;
 }
 
 // Coexistencia: mensaje que el negocio envió DESDE la app de WhatsApp del
@@ -39,6 +40,7 @@ export interface InboundReactionJob {
   kind: "reaction";
   targetWaMessageId: string;
   emoji: string;
+  channelPhoneNumberId?: string;
 }
 
 // Coexistencia: un mensaje del historial importado al conectar el número.
@@ -66,6 +68,7 @@ export interface StateSyncItem {
 export interface InboundStateSyncJob {
   kind: "state_sync";
   items: StateSyncItem[];
+  channelPhoneNumberId?: string;
 }
 
 export type InboundJob =
@@ -201,6 +204,7 @@ export function normalizeWebhook(body: MetaWebhookBody): InboundJob[] {
         if (m.type === "reaction" && m.reaction) {
           jobs.push({
             kind: "reaction",
+          channelPhoneNumberId,
             targetWaMessageId: m.reaction.message_id,
             emoji: m.reaction.emoji ?? "",
           });
@@ -223,7 +227,13 @@ export function normalizeWebhook(body: MetaWebhookBody): InboundJob[] {
 
       for (const s of value.statuses ?? []) {
         const status = STATUS_MAP[s.status];
-        if (status) jobs.push({ kind: "status", waMessageId: s.id, status });
+        if (status)
+          jobs.push({
+            kind: "status",
+            waMessageId: s.id,
+            status,
+            channelPhoneNumberId,
+          });
       }
 
       // Coexistencia: mensajes enviados desde la app del celular.
@@ -293,7 +303,12 @@ export function normalizeWebhook(body: MetaWebhookBody): InboundJob[] {
           return null;
         })
         .filter((x): x is StateSyncItem => x !== null);
-      if (syncItems.length) jobs.push({ kind: "state_sync", items: syncItems });
+      if (syncItems.length)
+        jobs.push({
+          kind: "state_sync",
+          items: syncItems,
+          channelPhoneNumberId,
+        });
     }
   }
   return jobs;

@@ -123,9 +123,53 @@ enum AiMessageRole {
 // Auth / Usuarios
 // ─────────────────────────────────────────────────────────────
 
+// ─────────────────────────────────────────────────────────────
+// Organización (raíz multi-inquilino)
+// ─────────────────────────────────────────────────────────────
+
+// Toda fila del CRM cuelga de una organización. En la versión open source hay
+// una sola, creada por el seed, y no cambia nada de cómo se usa el CRM. En el
+// modo SaaS hay una por empresa y `slug` es su subdominio.
+//
+// La columna `orgId` existe SIEMPRE, en los dos modos. El aislamiento no es una
+// función que se enciende: es la forma del esquema. Un esquema que se bifurca
+// es un esquema donde la consulta sin filtrar acaba llegando a producción.
+model Organization {
+  id        String   @id @default(cuid())
+  slug      String   @unique // "acme" → acme.trimmo.lat
+  name      String
+  plan      String   @default("free")
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users              User[]
+  contacts           Contact[]
+  customFields       CustomField[]
+  products           Product[]
+  sources            Source[]
+  tags               Tag[]
+  conversations      Conversation[]
+  messages           Message[]
+  templates          Template[]
+  pipelineStages     PipelineStage[]
+  deals              Deal[]
+  knowledgeDocs      KnowledgeDoc[]
+  whatsappConns      WhatsappConnection[]
+  apiKeys            ApiKey[]
+  webhookSubs        WebhookSubscription[]
+  agentConfigs       AgentConfig[]
+  flows              Flow[]
+  aiSetting          AiSetting?
+  integrationSetting IntegrationSetting?
+
+  @@map("organizations")
+}
+
 model User {
   id           String   @id @default(cuid())
-  email        String   @unique
+  orgId        String
+  email        String
   passwordHash String
   name         String?
   role         Role     @default(AGENT)
@@ -143,6 +187,14 @@ model User {
   ownedDeals            Deal[]           @relation("DealOwner")
   apiKeys               ApiKey[]         @relation("ApiKeyCreator")
 
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  // El correo es único DENTRO de la empresa, no en toda la instalación: la
+  // misma persona puede trabajar en dos empresas distintas. Es lo que obliga a
+  // que el acceso sepa de qué empresa es antes de buscar al usuario, y de ahí
+  // sale la pantalla de acceso por subdominio.
+  @@unique([orgId, email])
+  @@index([orgId])
   @@map("users")
 }
 
@@ -238,7 +290,8 @@ model IdempotencyKey {
 
 model Contact {
   id            String    @id @default(cuid())
-  phone         String    @unique // E.164 (normalizado: siempre con "+")
+  orgId         String
+  phone         String // E.164 (normalizado: siempre con "+")
   name          String?
   optIn         Boolean   @default(true)
   sourceId      String? // origen COMERCIAL del lead (Facebook Ads, Web…)
@@ -258,8 +311,11 @@ model Contact {
   conversations Conversation[]
   deals         Deal[]
 
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, phone])
   @@index([optIn])
-  @@index([lastMessageAt])
+  @@index([orgId, lastMessageAt])
   @@index([sourceId])
   @@index([origin])
   @@map("contacts")
@@ -269,13 +325,17 @@ model Contact {
 // guardan en Contact.metadata (JSON), indexados por `key`.
 model CustomField {
   id        String   @id @default(cuid())
-  key       String   @unique // clave usada en Contact.metadata
+  orgId     String
+  key       String // clave usada en Contact.metadata
   label     String
   type      String   @default("text") // text | number | date | select
   options   String[] // opciones cuando type = select
   order     Int      @default(0)
   createdAt DateTime @default(now())
 
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, key])
   @@map("custom_fields")
 }
 
@@ -285,8 +345,9 @@ model CustomField {
 
 model Product {
   id          String   @id @default(cuid())
+  orgId       String
   name        String
-  sku         String?  @unique
+  sku         String?
   description String?
   price       Decimal  @default(0) @db.Decimal(12, 2)
   currency    String   @default("USD")
@@ -295,6 +356,9 @@ model Product {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, sku])
   @@index([isActive])
   @@map("products")
 }
@@ -306,13 +370,17 @@ model Product {
 // Origen de los contactos: Facebook Ads, Instagram, Web, Referido, etc.
 model Source {
   id        String   @id @default(cuid())
-  name      String   @unique
+  orgId     String
+  name      String
   color     String?
   createdAt DateTime @default(now())
 
   contacts Contact[]
   users    UserSource[] // vendedores que atienden esta fuente
 
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, name])
   @@map("sources")
 }
 
@@ -332,14 +400,19 @@ model UserSource {
 
 model Tag {
   id        String   @id @default(cuid())
-  name      String   @unique
+  orgId     String
+  name      String
   color     String?
-  waLabelId String?  @unique // id de la etiqueta en la app (coexistencia)
+  waLabelId String? // id de la etiqueta en la app (coexistencia)
   createdAt DateTime @default(now())
 
   contacts  ContactTag[]
   campaigns CampaignTag[]
 
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, name])
+  @@unique([orgId, waLabelId])
   @@map("tags")
 }
 
@@ -362,6 +435,7 @@ model ContactTag {
 
 model Conversation {
   id              String             @id @default(cuid())
+  orgId           String
   contactId       String
   channelId       String? // por qué número de WhatsApp entró (multi-número)
   assignedAgentId String?
@@ -386,16 +460,19 @@ model Conversation {
   aiMessages    AiMessage[]
   flowSession   FlowSession?
 
-  @@index([status])
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, status])
   @@index([channelId])
   @@index([assignedAgentId])
   @@index([aiMode])
-  @@index([lastMessageAt])
+  @@index([orgId, lastMessageAt])
   @@map("conversations")
 }
 
 model Message {
   id             String           @id @default(cuid())
+  orgId          String
   conversationId String
   waMessageId    String?          @unique // idempotencia: eventos duplicados se ignoran
   // Mensaje al que este responde (cita estilo WhatsApp). Self-relation.
@@ -423,7 +500,10 @@ model Message {
   campaign     Campaign?    @relation(fields: [campaignId], references: [id], onDelete: SetNull)
   aiRun        AiRun?       @relation(fields: [aiRunId], references: [id], onDelete: SetNull)
 
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
   @@index([conversationId, createdAt])
+  @@index([orgId, createdAt])
   @@index([replyToId])
   @@index([status])
   @@index([campaignId])
@@ -451,7 +531,8 @@ model Note {
 
 model Template {
   id           String         @id @default(cuid())
-  waTemplateId String?        @unique
+  orgId        String
+  waTemplateId String?
   name         String
   language     String         @default("es")
   status       TemplateStatus @default(PENDING)
@@ -463,6 +544,9 @@ model Template {
   campaigns Campaign[]
   messages  Message[]
 
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, waTemplateId])
   @@map("templates")
 }
 
@@ -512,6 +596,7 @@ model CampaignTag {
 // Columnas del kanban (configurables, ordenadas).
 model PipelineStage {
   id        String   @id @default(cuid())
+  orgId     String
   name      String
   order     Int
   isWon     Boolean  @default(false)
@@ -520,12 +605,15 @@ model PipelineStage {
 
   deals Deal[]
 
-  @@unique([order])
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, order])
   @@map("pipeline_stages")
 }
 
 model Deal {
   id        String   @id @default(cuid())
+  orgId     String
   contactId String
   stageId   String
   ownerId   String? // vendedor responsable del deal
@@ -539,8 +627,10 @@ model Deal {
   stage   PipelineStage @relation(fields: [stageId], references: [id], onDelete: Restrict)
   owner   User?         @relation("DealOwner", fields: [ownerId], references: [id], onDelete: SetNull)
 
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
   @@index([contactId])
-  @@index([stageId])
+  @@index([orgId, stageId])
   @@index([ownerId])
   @@map("deals")
 }
@@ -551,6 +641,9 @@ model Deal {
 
 model AgentConfig {
   id                 String   @id @default(cuid())
+  // El bot de respaldo no tiene canal (channelId null), así que no hereda la
+  // organización de nadie: la lleva encima.
+  orgId              String
   name               String
   systemPrompt       String
   model              String   @default("claude-opus-4-8")
@@ -578,9 +671,11 @@ model AgentConfig {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  org     Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
   channel WhatsappConnection? @relation(fields: [channelId], references: [id], onDelete: SetNull)
   runs    AiRun[]
 
+  @@index([orgId])
   @@index([isActive])
   @@map("agent_configs")
 }
@@ -654,6 +749,7 @@ model AiMessage {
 
 model KnowledgeDoc {
   id        String   @id @default(cuid())
+  orgId     String
   title     String
   source    String? // url, nombre de archivo, etc.
   content   String
@@ -664,6 +760,9 @@ model KnowledgeDoc {
 
   chunks KnowledgeChunk[]
 
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
   @@map("knowledge_docs")
 }
 
@@ -694,6 +793,7 @@ model KnowledgeChunk {
 // ejecución (con fallback al .env). Pueden coexistir varias activas a la vez.
 model WhatsappConnection {
   id                 String   @id @default(cuid())
+  orgId              String
   wabaId             String? // WhatsApp Business Account ID
   phoneNumberId      String   @unique // identifica el canal de forma única
   displayPhoneNumber String? // el número en formato legible
@@ -711,7 +811,10 @@ model WhatsappConnection {
   flows         Flow[]
   campaigns     Campaign[]
 
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
   @@index([isActive])
+  @@index([orgId])
   @@map("whatsapp_connections")
 }
 
@@ -722,6 +825,8 @@ model WhatsappConnection {
 // Definición de un flujo: nodos + aristas (formato React Flow) + disparador.
 model Flow {
   id              String   @id @default(cuid())
+  // Igual que AgentConfig: un flujo sin canal no cuelga de nada.
+  orgId           String
   name            String
   isActive        Boolean  @default(false)
   channelId       String? // canal que dispara el flujo (null = cualquiera)
@@ -732,9 +837,11 @@ model Flow {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
+  org      Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
   channel  WhatsappConnection? @relation(fields: [channelId], references: [id], onDelete: SetNull)
   sessions FlowSession[]
 
+  @@index([orgId])
   @@index([isActive])
   @@map("flows")
 }
@@ -765,7 +872,8 @@ model FlowSession {
 // Las keys se guardan cifradas (AES-256-GCM). Si una key está vacía aquí,
 // se usa la variable de entorno equivalente como respaldo.
 model AiSetting {
-  id       String @id @default("singleton")
+  id       String @id @default(cuid())
+  orgId    String @unique // una configuración de IA por organización
   provider String @default("auto") // auto | openai | anthropic | fake
 
   openaiKeyEnc    String? // cifrada; null = usar OPENAI_API_KEY del entorno
@@ -778,6 +886,8 @@ model AiSetting {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
   @@map("ai_settings")
 }
 
@@ -789,6 +899,7 @@ model AiSetting {
 // hash del secreto: la clave completa se enseña una única vez al crearla.
 model ApiKey {
   id          String    @id @default(cuid())
+  orgId       String
   name        String // "n8n-formulario-web"
   prefix      String    @unique // "crm_a1b2c3d4": identifica sin revelar
   secretHash  String // SHA-256 del secreto completo
@@ -802,7 +913,10 @@ model ApiKey {
 
   createdBy User? @relation("ApiKeyCreator", fields: [createdById], references: [id], onDelete: SetNull)
 
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
   @@index([revokedAt])
+  @@index([orgId])
   @@map("api_keys")
 }
 
@@ -813,7 +927,8 @@ model ApiKey {
 // Editable en Ajustes › Integraciones. Los secretos van cifrados; si están
 // vacíos se usa la variable de entorno equivalente.
 model IntegrationSetting {
-  id String @id @default("singleton")
+  id    String @id @default(cuid())
+  orgId String @unique // unas credenciales por organización
 
   voyageKeyEnc String? // null = usar VOYAGE_API_KEY del entorno
   voyageModel  String  @default("voyage-3.5")
@@ -826,6 +941,8 @@ model IntegrationSetting {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
   @@map("integration_settings")
 }
 
@@ -836,12 +953,13 @@ model IntegrationSetting {
 // Una suscripción por destino. El `secret` firma cada entrega (HMAC-SHA256)
 // para que el receptor pueda verificar que el aviso viene de este CRM.
 model WebhookSubscription {
-  id          String   @id @default(cuid())
-  name        String // "n8n · pedidos"
-  url         String
-  events      String[] // message.received, deal.won…
-  secret      String // se muestra una vez al crearla
-  isActive    Boolean  @default(true)
+  id       String   @id @default(cuid())
+  orgId    String
+  name     String // "n8n · pedidos"
+  url      String
+  events   String[] // message.received, deal.won…
+  secret   String // se muestra una vez al crearla
+  isActive Boolean  @default(true)
 
   // Diagnóstico: por qué dejó de funcionar sin tener que mirar logs.
   lastStatus     Int? // código HTTP de la última entrega
@@ -853,6 +971,9 @@ model WebhookSubscription {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
   @@index([isActive])
+  @@index([orgId])
   @@map("webhook_subscriptions")
 }
