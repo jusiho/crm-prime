@@ -125,6 +125,23 @@ export class WhatsappConnectionService {
    * La consulta es deliberadamente sin filtrar por organización: es el único
    * sitio del CRM donde eso es correcto.
    */
+  /**
+   * De qué organización es una WhatsApp Business Account.
+   *
+   * Hace falta para los eventos que llegan a nivel de WABA y no de número —el
+   * estado de una plantilla, por ejemplo—, donde Meta no manda
+   * `phone_number_id`. Se coge el primer canal de esa WABA: todos pertenecen a
+   * la misma empresa, que es lo único que se está preguntando.
+   */
+  async resolveOrgByWaba(wabaId: string): Promise<{ orgId: string } | null> {
+    return runUnscoped("webhook: resolver empresa por wabaId", () =>
+      this.prisma.whatsappConnection.findFirst({
+        where: { wabaId },
+        select: { orgId: true },
+      }),
+    );
+  }
+
   async resolveChannel(
     phoneNumberId: string,
   ): Promise<{ id: string; orgId: string } | null> {

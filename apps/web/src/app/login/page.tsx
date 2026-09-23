@@ -2,14 +2,11 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AuthError } from "next-auth";
 import { auth, signIn } from "@/auth";
-<<<<<<< HEAD
 import { currentOrgContext, currentOrgSlug } from "@/lib/org";
 import { OrgNotFound } from "./OrgNotFound";
-=======
 import { safeCallbackUrl } from "@/lib/session-token";
 import { getTranslator } from "@/i18n/server";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
->>>>>>> 2da1df078dfaeb0e81b9d1a84182da2d2c7e8417
 
 export default async function LoginPage({
   searchParams,
@@ -40,12 +37,8 @@ export default async function LoginPage({
       await signIn("credentials", {
         email: formData.get("email"),
         password: formData.get("password"),
-<<<<<<< HEAD
         ...(orgSlug ? { orgSlug } : {}),
-        redirectTo: "/",
-=======
         redirectTo: target,
->>>>>>> 2da1df078dfaeb0e81b9d1a84182da2d2c7e8417
       });
     } catch (e) {
       // signIn lanza NEXT_REDIRECT al tener éxito (hay que re-lanzarlo).
@@ -87,31 +80,22 @@ export default async function LoginPage({
         <LanguageSwitcher />
       </div>
       <form action={login} style={card}>
-<<<<<<< HEAD
-        <h1 style={{ marginTop: 0 }}>{org?.name ?? "Trimmo"}</h1>
+        <h1 style={{ marginTop: 0 }}>{org?.name ?? t("auth.signInTitle")}</h1>
         <p style={{ color: "var(--muted)", marginTop: -8 }}>
-          {org ? `Acceso de ${org.name}` : "Inicia sesión"}
+          {org
+            ? t("auth.orgAccess", { org: org.name })
+            : t("auth.signInSubtitle")}
         </p>
 
-        {error && (
+        {error ? (
           <p role="alert" style={{ color: "#e08a8a" }}>
             {error === "handoff"
-              ? "El pase para entrar ha caducado. Entra con tu correo y la contraseña que elegiste."
-              : "Credenciales inválidas."}
+              ? t("auth.handoffExpired")
+              : t("auth.invalidCredentials")}
           </p>
-        )}
-=======
-        <h1 style={{ marginTop: 0 }}>{t("auth.signInTitle")}</h1>
-        <p style={{ color: "var(--muted)", marginTop: -8 }}>{t("auth.signInSubtitle")}</p>
-
-        {error ? (
-          <p style={{ color: "#ff6b6b" }}>{t("auth.invalidCredentials")}</p>
         ) : expired ? (
-          <p style={{ color: "var(--muted)" }}>
-            {t("auth.sessionExpired")}
-          </p>
+          <p style={{ color: "var(--muted)" }}>{t("auth.sessionExpired")}</p>
         ) : null}
->>>>>>> 2da1df078dfaeb0e81b9d1a84182da2d2c7e8417
 
         <input type="hidden" name="callbackUrl" value={callbackUrl} />
 
@@ -131,7 +115,6 @@ export default async function LoginPage({
           {t("auth.signIn")}
         </button>
 
-<<<<<<< HEAD
         {/*
           Qué se ofrece debajo del formulario depende de dónde estés:
 
@@ -143,32 +126,22 @@ export default async function LoginPage({
           · Con una sola empresa (open source), todo sigue como siempre.
         */}
         {org ? (
-          <p style={pieTexto}>
-            ¿Necesitas acceso? Pídeselo a quien administra {org.name}.
-          </p>
+          <p style={pieTexto}>{t("auth.askAdmin", { org: org.name })}</p>
         ) : esSaaS ? (
           <p style={pieTexto}>
-            ¿Tu empresa aún no está aquí?{" "}
+            {t("auth.companyNotHere")}{" "}
             <Link href="/signup" style={{ color: "var(--accent)" }}>
-              Créala en un minuto
+              {t("auth.createCompany")}
             </Link>
           </p>
         ) : (
           <p style={pieTexto}>
-            ¿No tienes cuenta?{" "}
+            {t("auth.noAccount")}{" "}
             <Link href="/register" style={{ color: "var(--accent)" }}>
-              Regístrate
+              {t("auth.signUp")}
             </Link>
           </p>
         )}
-=======
-        <p style={{ color: "var(--muted)", fontSize: 13, marginTop: 18, textAlign: "center" }}>
-          {t("auth.noAccount")}{" "}
-          <Link href="/register" style={{ color: "var(--accent)" }}>
-            {t("auth.signUp")}
-          </Link>
-        </p>
->>>>>>> 2da1df078dfaeb0e81b9d1a84182da2d2c7e8417
       </form>
     </main>
   );

@@ -3,12 +3,9 @@ import { Processor, WorkerHost } from "@nestjs/bullmq";
 import { Job } from "bullmq";
 import { QUEUE_INBOUND } from "../../../infra/queue/queue.constants";
 import { MessagingService } from "../../messaging/messaging.service";
-<<<<<<< HEAD
 import { WhatsappConnectionService } from "../whatsapp-connection.service";
-import { runInOrg, tenancyMode } from "../../../infra/tenant/tenant.context";
-=======
 import { TemplateService } from "../../campaigns/template.service";
->>>>>>> 2da1df078dfaeb0e81b9d1a84182da2d2c7e8417
+import { runInOrg, tenancyMode } from "../../../infra/tenant/tenant.context";
 import {
   WHATSAPP_PROVIDER,
   type WhatsAppProvider,
@@ -21,11 +18,8 @@ export class InboundProcessor extends WorkerHost {
 
   constructor(
     private readonly messaging: MessagingService,
-<<<<<<< HEAD
     private readonly connection: WhatsappConnectionService,
-=======
     private readonly templates: TemplateService,
->>>>>>> 2da1df078dfaeb0e81b9d1a84182da2d2c7e8417
     @Inject(WHATSAPP_PROVIDER) private readonly wa: WhatsAppProvider,
   ) {
     super();
@@ -46,7 +40,16 @@ export class InboundProcessor extends WorkerHost {
       ? await this.connection.resolveChannel(phoneNumberId)
       : null;
 
-    if (!channel) {
+    // El estado de una plantilla llega a nivel de WABA y sin número, así que
+    // para ese caso la empresa se resuelve por el id de la cuenta.
+    const porWaba =
+      !channel && job.data.kind === "template_status" && job.data.wabaId
+        ? await this.connection.resolveOrgByWaba(job.data.wabaId)
+        : null;
+
+    const orgId = channel?.orgId ?? porWaba?.orgId ?? null;
+
+    if (!orgId) {
       if (tenancyMode === "multi") {
         throw new Error(
           `Evento de WhatsApp sin canal reconocible (phone_number_id: ${phoneNumberId ?? "ausente"}). ` +
@@ -57,7 +60,7 @@ export class InboundProcessor extends WorkerHost {
       return this.dispatch(job);
     }
 
-    return runInOrg(channel.orgId, () => this.dispatch(job));
+    return runInOrg(orgId, () => this.dispatch(job));
   }
 
   private async dispatch(job: Job<InboundJob>): Promise<void> {

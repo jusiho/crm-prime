@@ -47,40 +47,7 @@ export async function AppShell({
 
   return (
     <div style={shell}>
-<<<<<<< HEAD
-      <aside style={sidebar}>
-        <div style={brand}>
-          <span style={brandMark}>P</span>
-          <span style={{ fontWeight: 700, fontSize: 16 }}>Trimmo</span>
-        </div>
-
-        <nav style={{ padding: "4px 10px", overflowY: "auto", flex: 1 }}>
-          {NAV.map((group) => {
-            const items = group.items.filter(
-              (it) => !it.adminOnly || role === "ADMIN",
-            );
-            if (items.length === 0) return null;
-            return (
-              <div key={group.label}>
-                <div className="nav-group">{group.label}</div>
-                {items.map((it) => (
-                  <Link
-                    key={it.key}
-                    href={it.href}
-                    className={`nav-item${active === it.key ? " active" : ""}`}
-                  >
-                    <NavIcon name={it.icon} />
-                    {it.label}
-                  </Link>
-                ))}
-              </div>
-            );
-          })}
-        </nav>
-      </aside>
-=======
       <SideNav role={role} active={active} initialCollapsed={collapsed} />
->>>>>>> 2da1df078dfaeb0e81b9d1a84182da2d2c7e8417
 
       <div style={main}>
         <header style={topbar}>

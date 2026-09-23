@@ -25,11 +25,8 @@ import type { Prisma } from "@prisma/client";
 import { ZodValidationPipe } from "../../common/pipes/zod-validation.pipe";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { PrismaService } from "../../infra/prisma/prisma.service";
-<<<<<<< HEAD
 import { TenantService } from "../../infra/tenant/tenant.service";
-=======
 import { i18n } from "../../i18n/i18n";
->>>>>>> 2da1df078dfaeb0e81b9d1a84182da2d2c7e8417
 
 @Controller("products")
 @UseGuards(JwtAuthGuard)
@@ -111,8 +108,10 @@ export class ProductsController {
         }
         if (row.sku) seenSkus.add(row.sku);
 
+        // findFirst: el SKU ya solo es único dentro de la empresa, y la
+        // extensión acota la consulta a la organización en curso.
         const existing = row.sku
-          ? await this.prisma.product.findUnique({ where: { sku: row.sku } })
+          ? await this.prisma.product.findFirst({ where: { sku: row.sku } })
           : null;
 
         if (existing && !body.updateExisting) {
@@ -134,7 +133,9 @@ export class ProductsController {
           await this.prisma.product.update({ where: { id: existing.id }, data });
           result.updated++;
         } else {
-          await this.prisma.product.create({ data });
+          await this.prisma.product.create({
+            data: { ...data, orgId: this.tenant.orgId() },
+          });
           result.created++;
         }
       } catch (e) {

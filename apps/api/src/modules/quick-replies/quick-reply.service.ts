@@ -10,11 +10,15 @@ import type {
   UpdateQuickReplyInput,
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
+import { TenantService } from "../../infra/tenant/tenant.service";
 import { i18n } from "../../i18n/i18n";
 
 @Injectable()
 export class QuickReplyService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly tenant: TenantService,
+  ) {}
 
   async list(): Promise<QuickReplyDto[]> {
     const rows = await this.prisma.quickReply.findMany({
@@ -27,6 +31,7 @@ export class QuickReplyService {
     await this.assertShortcutFree(input.shortcut);
     const row = await this.prisma.quickReply.create({
       data: {
+        orgId: this.tenant.orgId(),
         shortcut: input.shortcut,
         title: input.title,
         body: input.body,
@@ -66,7 +71,7 @@ export class QuickReplyService {
   }
 
   private async assertShortcutFree(shortcut: string): Promise<void> {
-    const taken = await this.prisma.quickReply.findUnique({ where: { shortcut } });
+    const taken = await this.prisma.quickReply.findFirst({ where: { shortcut } });
     if (taken) {
       throw new BadRequestException(i18n("quickReply.shortcutTaken", { shortcut }));
     }

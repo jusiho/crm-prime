@@ -56,7 +56,7 @@ export const es: Messages = {
     settings: { title: "Ajustes", subtitle: "Etiquetas, canales, fuentes y más" },
   },
   auth: {
-    signInTitle: "CRM Prime",
+    signInTitle: "Trimmo",
     signInSubtitle: "Inicia sesión",
     email: "Email",
     emailPlaceholder: "tucorreo@empresa.com",
@@ -64,6 +64,13 @@ export const es: Messages = {
     signIn: "Entrar",
     invalidCredentials: "Credenciales inválidas.",
     sessionExpired: "Tu sesión expiró. Vuelve a iniciar sesión.",
+    // Multi-empresa: el acceso cambia según el subdominio desde el que entres.
+    orgAccess: "Acceso de {org}",
+    handoffExpired:
+      "El pase para entrar ha caducado. Entra con tu correo y la contraseña que elegiste.",
+    askAdmin: "¿Necesitas acceso? Pídeselo a quien administra {org}.",
+    companyNotHere: "¿Tu empresa aún no está aquí?",
+    createCompany: "Créala en un minuto",
     noAccount: "¿No tienes cuenta?",
     signUp: "Regístrate",
     signUpTitle: "Crear cuenta",

@@ -112,8 +112,8 @@ export function SideNav({
       <div style={{ ...brand, justifyContent: collapsed ? "center" : "space-between" }}>
         {!collapsed && (
           <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-            <span style={brandMark}>P</span>
-            <span style={{ fontWeight: 700, fontSize: 16 }}>CRM Prime</span>
+            <span style={brandMark}>T</span>
+            <span style={{ fontWeight: 700, fontSize: 16 }}>Trimmo</span>
           </div>
         )}
         <button

@@ -168,6 +168,8 @@ model Organization {
   webhookSubs        WebhookSubscription[]
   agentConfigs       AgentConfig[]
   flows              Flow[]
+  metaPages          MetaPage[]
+  quickReplies       QuickReply[]
   aiSetting          AiSetting?
   integrationSetting IntegrationSetting?
 
@@ -543,45 +545,40 @@ model Note {
 // ─────────────────────────────────────────────────────────────
 
 model Template {
-<<<<<<< HEAD
-  id           String         @id @default(cuid())
-  orgId        String
-  waTemplateId String?
-=======
-  id           String           @id @default(cuid())
-  waTemplateId String?          @unique
-  wabaId       String? // cuenta de WhatsApp Business donde vive
->>>>>>> 2da1df078dfaeb0e81b9d1a84182da2d2c7e8417
-  name         String
-  language     String           @default("es")
-  category     TemplateCategory @default(MARKETING)
-  status       TemplateStatus   @default(PENDING)
+  id             String           @id @default(cuid())
+  orgId          String
+  waTemplateId   String?
+  wabaId         String? // cuenta de WhatsApp Business donde vive
+  name           String
+  language       String           @default("es")
+  category       TemplateCategory @default(MARKETING)
+  status         TemplateStatus   @default(PENDING)
   // Componentes según Meta: header { format, text?, example? } y buttons[].
-  header       Json?
-  body         String
-  footer       String?
-  buttons      Json?
-  variables    Json? // definición de variables/posiciones
+  header         Json?
+  body           String
+  footer         String?
+  buttons        Json?
+  variables      Json? // definición de variables/posiciones
   // Motivo del rechazo que informa Meta, para mostrarlo en el panel.
   rejectedReason String?
   // Importada de Meta con componentes que el editor no cubre: no se edita.
-  readOnly     Boolean          @default(false)
-  syncedAt     DateTime?
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
+  readOnly       Boolean          @default(false)
+  syncedAt       DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
 
   campaigns Campaign[]
   messages  Message[]
   metaPages MetaPage[]
 
-<<<<<<< HEAD
   org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@unique([orgId, waTemplateId])
-=======
-  // Meta identifica una plantilla por nombre + idioma.
-  @@unique([name, language])
->>>>>>> 2da1df078dfaeb0e81b9d1a84182da2d2c7e8417
+  // Meta identifica una plantilla por nombre + idioma, pero eso vale DENTRO de
+  // una WABA. Dos empresas distintas pueden tener cada una su plantilla
+  // "bienvenida" en español, y con la restricción global la segunda no podría
+  // crearla. Por eso lleva orgId delante, igual que el resto.
+  @@unique([orgId, name, language])
   @@map("templates")
 }
 
@@ -592,24 +589,31 @@ model Template {
 // Página de Facebook conectada. Su token es de página (no de usuario): es el
 // que Meta exige para suscribirse a `leadgen` y para leer cada lead.
 model MetaPage {
-  id           String    @id @default(cuid())
-  pageId       String    @unique
-  name         String
-  accessToken  String
-  isActive     Boolean   @default(true)
-  subscribedAt DateTime?
+  id                String    @id @default(cuid())
+  // Sus dos relaciones (source, template) son opcionales: una página sin
+  // ninguna de las dos no colgaría de nadie. Lleva la columna como raíz.
+  orgId             String
+  // El pageId sigue siendo único global: una página de Facebook pertenece a
+  // una sola empresa, igual que un número de WhatsApp.
+  pageId            String    @unique
+  name              String
+  accessToken       String
+  isActive          Boolean   @default(true)
+  subscribedAt      DateTime?
   // Qué hacer con los leads de esta página.
-  sourceId     String? // fuente comercial que se asigna al contacto
-  tagIds       Json? // etiquetas a aplicar
-  createDeal   Boolean   @default(false)
+  sourceId          String? // fuente comercial que se asigna al contacto
+  tagIds            Json? // etiquetas a aplicar
+  createDeal        Boolean   @default(false)
   welcomeTemplateId String? // plantilla de WhatsApp de bienvenida
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
-  source   Source?   @relation(fields: [sourceId], references: [id], onDelete: SetNull)
-  template Template? @relation(fields: [welcomeTemplateId], references: [id], onDelete: SetNull)
+  org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  source   Source?      @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+  template Template?    @relation(fields: [welcomeTemplateId], references: [id], onDelete: SetNull)
   leads    MetaLead[]
 
+  @@index([orgId])
   @@map("meta_pages")
 }
 
@@ -649,7 +653,10 @@ model MetaLead {
 // dentro de la ventana de 24h (no necesitan aprobación de Meta).
 model QuickReply {
   id        String       @id @default(cuid())
-  shortcut  String       @unique // "/precio"
+  orgId     String
+  // El atajo es único DENTRO de la empresa: dos negocios distintos pueden
+  // tener cada uno su "/precio".
+  shortcut  String // "/precio"
   title     String
   body      String
   mediaUrl  String? // referencia "storage://…" opcional
@@ -657,6 +664,9 @@ model QuickReply {
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
 
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, shortcut])
   @@map("quick_replies")
 }
 

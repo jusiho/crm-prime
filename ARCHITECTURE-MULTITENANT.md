@@ -118,7 +118,7 @@ model Organization {
 
 ### Qué tablas llevan `orgId`
 
-**19 de los 34 modelos.** Trece son raíz de verdad:
+**21 de los 36 modelos.** Trece son raíz de verdad:
 
 `User` · `Tag` · `Product` · `Source` · `PipelineStage` · `WhatsappConnection` ·
 `ApiKey` · `AiSetting` · `Template` · `KnowledgeDoc` · `CustomField` ·
@@ -129,10 +129,16 @@ model Organization {
 compuesto `(orgId, …)` cambia el plan de ejecución; y RLS necesita la columna en
 la propia tabla para no hacer un `JOIN` en cada política.
 
-**Y dos que el diseño en papel se dejó:** `AgentConfig` y `Flow`. Parecen hijas
-de `WhatsappConnection`, pero esa relación es **opcional**: el bot de respaldo y
-el flujo global tienen `channelId = null` y entonces no cuelgan de nadie. Son
-raíces encubiertas, y salieron al implementar, no al diseñar.
+**Y cuatro que el diseño en papel se dejó:** `AgentConfig` y `Flow` parecen
+hijas de `WhatsappConnection`, pero esa relación es **opcional**: el bot de
+respaldo y el flujo global tienen `channelId = null` y entonces no cuelgan de
+nadie. `MetaPage` y `QuickReply` llegaron después, en la rama de Lead Ads y
+plantillas, y aparecieron con el mismo problema.
+
+Las cuatro son raíces encubiertas, y ninguna salió al diseñar: salieron al
+compilar. Por eso la regla de abajo conviene pasarla cada vez que se añade un
+modelo — es una consulta de treinta segundos y encuentra lo que la revisión a
+ojo no.
 
 > La regla que las encuentra: un modelo necesita `orgId` si **no tiene ninguna
 > relación padre obligatoria**. Un padre opcional no sirve para heredar nada.

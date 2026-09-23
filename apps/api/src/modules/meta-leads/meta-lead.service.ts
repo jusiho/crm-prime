@@ -9,6 +9,7 @@ import {
   type MetaLeadStatusValue,
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
+import { TenantService } from "../../infra/tenant/tenant.service";
 import { LeadService } from "../leads/lead.service";
 import { MessagingService } from "../messaging/messaging.service";
 import { MetaGraphClient } from "./meta-graph.client";
@@ -31,6 +32,7 @@ export class MetaLeadService {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly tenant: TenantService,
     private readonly graph: MetaGraphClient,
     private readonly leads: LeadService,
     private readonly messaging: MessagingService,
@@ -102,6 +104,9 @@ export class MetaLeadService {
   /** Crea/actualiza el contacto y dispara las acciones de la página. */
   private async createContact(
     page: {
+      // Los leads llegan por webhook de Meta, sin petición del usuario detrás.
+      // La empresa sale de la página conectada, que es quien recibió el lead.
+      orgId: string;
       pageId: string;
       name: string;
       sourceId: string | null;
@@ -136,9 +141,11 @@ export class MetaLeadService {
       `Meta Lead Ads · ${page.name}`,
     );
 
-    if (page.createDeal) await this.createDeal(contactId, mapped.name, formName);
+    if (page.createDeal) {
+      await this.createDeal(page.orgId, contactId, mapped.name, formName);
+    }
     if (page.welcomeTemplateId) {
-      await this.sendWelcome(contactId, page.welcomeTemplateId);
+      await this.sendWelcome(page.orgId, contactId, page.welcomeTemplateId);
     }
 
     return contactId;
@@ -146,6 +153,7 @@ export class MetaLeadService {
 
   /** Oportunidad en la primera etapa del pipeline. */
   private async createDeal(
+    orgId: string,
     contactId: string,
     name: string | null,
     formName: string | null,
@@ -160,6 +168,7 @@ export class MetaLeadService {
     await this.prisma.deal
       .create({
         data: {
+          orgId,
           contactId,
           stageId: stage.id,
           title: formName
@@ -177,11 +186,12 @@ export class MetaLeadService {
    * de 24h está cerrada y solo una plantilla aprobada puede abrir el chat.
    */
   private async sendWelcome(
+    orgId: string,
     contactId: string,
     templateId: string,
   ): Promise<void> {
     try {
-      const conversation = await this.ensureConversation(contactId);
+      const conversation = await this.ensureConversation(orgId, contactId);
       await this.messaging.sendTemplateMessage(
         {
           conversationId: conversation,
@@ -201,14 +211,17 @@ export class MetaLeadService {
     }
   }
 
-  private async ensureConversation(contactId: string): Promise<string> {
+  private async ensureConversation(
+    orgId: string,
+    contactId: string,
+  ): Promise<string> {
     const open = await this.prisma.conversation.findFirst({
       where: { contactId, status: { not: "CLOSED" } },
       orderBy: { createdAt: "desc" },
     });
     if (open) return open.id;
     const created = await this.prisma.conversation.create({
-      data: { contactId, status: "OPEN" },
+      data: { orgId, contactId, status: "OPEN" },
     });
     return created.id;
   }

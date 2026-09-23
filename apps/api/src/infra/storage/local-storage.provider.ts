@@ -4,7 +4,7 @@ import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { env } from "../../common/utils/env";
 import type {
-  FileContent,
+  ReadFile,
   StorageProvider,
   StoredFile,
 } from "./storage.provider";
@@ -55,7 +55,7 @@ export class LocalStorageProvider implements StorageProvider {
     return { id, mimeType, size: buffer.byteLength };
   }
 
-  async read(id: string): Promise<FileContent | null> {
+  async read(id: string): Promise<ReadFile | null> {
     // El id viene de la URL: hay que impedir que se salga del directorio.
     const safe = this.safeName(id);
     if (!safe) return null;
@@ -65,6 +65,7 @@ export class LocalStorageProvider implements StorageProvider {
         buffer,
         mimeType: this.mimeFrom(safe),
         size: buffer.byteLength,
+        fileName: safe,
       };
     } catch {
       return null;

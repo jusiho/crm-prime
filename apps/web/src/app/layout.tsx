@@ -5,19 +5,11 @@ import { I18nProvider } from "@/i18n/I18nProvider";
 import { getLocale, getMessages } from "@/i18n/server";
 
 export const metadata: Metadata = {
-<<<<<<< HEAD
-  title: "Trimmo — Vende por WhatsApp con agentes de IA",
-=======
-  title: "CRM Prime — Sell on WhatsApp with AI agents",
->>>>>>> 2da1df078dfaeb0e81b9d1a84182da2d2c7e8417
+  title: "Trimmo — Sell on WhatsApp with AI agents",
   description:
     "The CRM with AI agents that replies, qualifies and books your leads in seconds, 24/7, straight from your WhatsApp number.",
   openGraph: {
-<<<<<<< HEAD
-    title: "Trimmo — Convierte WhatsApp en tu mejor vendedor",
-=======
-    title: "CRM Prime — Turn WhatsApp into your best salesperson",
->>>>>>> 2da1df078dfaeb0e81b9d1a84182da2d2c7e8417
+    title: "Trimmo — Turn WhatsApp into your best salesperson",
     description:
       "AI agents that answer, qualify and book your WhatsApp leads around the clock. Real-time inbox, pipeline, broadcasts and no-code flows.",
     type: "website",

@@ -56,7 +56,7 @@ export const en = {
     settings: { title: "Settings", subtitle: "Tags, channels, sources and more" },
   },
   auth: {
-    signInTitle: "CRM Prime",
+    signInTitle: "Trimmo",
     signInSubtitle: "Sign in",
     email: "Email",
     emailPlaceholder: "you@company.com",
@@ -64,6 +64,13 @@ export const en = {
     signIn: "Sign in",
     invalidCredentials: "Invalid email or password.",
     sessionExpired: "Your session expired. Please sign in again.",
+    // Multi-empresa: el acceso cambia según el subdominio desde el que entres.
+    orgAccess: "Sign in to {org}",
+    handoffExpired:
+      "Your sign-in pass expired. Use your email and the password you just chose.",
+    askAdmin: "Need access? Ask whoever administers {org}.",
+    companyNotHere: "Your company isn't here yet?",
+    createCompany: "Create it in a minute",
     noAccount: "Don't have an account yet?",
     signUp: "Sign up",
     signUpTitle: "Create account",

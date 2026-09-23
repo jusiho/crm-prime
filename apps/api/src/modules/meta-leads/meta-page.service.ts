@@ -13,6 +13,7 @@ import type {
   UpdateMetaPageInput,
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
+import { TenantService } from "../../infra/tenant/tenant.service";
 import { MetaGraphClient, type MetaPageAccount } from "./meta-graph.client";
 
 /** El token de usuario solo vive unos minutos, entre elegir páginas y guardar. */
@@ -29,6 +30,7 @@ export class MetaPageService {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly tenant: TenantService,
     private readonly graph: MetaGraphClient,
   ) {}
 
@@ -86,6 +88,7 @@ export class MetaPageService {
       await this.prisma.metaPage.upsert({
         where: { pageId: account.pageId },
         create: {
+          orgId: this.tenant.orgId(),
           pageId: account.pageId,
           name: account.name,
           accessToken: account.accessToken,

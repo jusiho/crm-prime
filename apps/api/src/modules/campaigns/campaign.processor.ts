@@ -76,14 +76,11 @@ export class CampaignProcessor extends WorkerHost {
       contact,
       campaign.channel?.phoneNumberId,
     );
-<<<<<<< HEAD
-    const preview = this.render(campaign.template.body, variables);
+    // El renderizado pasó a `fills.preview` en la rama de plantillas.
+    const preview = this.fills.preview(campaign.template.body, spec);
     // Esto corre en un worker, sin petición HTTP detrás: la organización sale
     // del propio contacto, no del contexto.
     const orgId = contact.orgId;
-=======
-    const preview = this.fills.preview(campaign.template.body, spec);
->>>>>>> 2da1df078dfaeb0e81b9d1a84182da2d2c7e8417
     const conversationId = await this.ensureConversation(
       orgId,
       contactId,

@@ -19,15 +19,7 @@ import {
   validateButtons,
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
-<<<<<<< HEAD
 import { TenantService } from "../../infra/tenant/tenant.service";
-
-@Injectable()
-export class TemplateService {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly tenant: TenantService,
-=======
 import {
   STORAGE_PROVIDER,
   parseStorageRef,
@@ -49,9 +41,9 @@ export class TemplateService {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly tenant: TenantService,
     private readonly meta: MetaTemplateClient,
     @Inject(STORAGE_PROVIDER) private readonly storage: StorageProvider,
->>>>>>> 2da1df078dfaeb0e81b9d1a84182da2d2c7e8417
   ) {}
 
   async list(): Promise<TemplateDto[]> {
@@ -97,11 +89,8 @@ export class TemplateService {
 
     const row = await this.prisma.template.create({
       data: {
-<<<<<<< HEAD
         orgId: this.tenant.orgId(),
-=======
         waTemplateId,
->>>>>>> 2da1df078dfaeb0e81b9d1a84182da2d2c7e8417
         name: input.name,
         language: input.language,
         category: input.category,
@@ -204,7 +193,9 @@ export class TemplateService {
         await this.prisma.template.update({ where: { id: existing.id }, data });
         updated++;
       } else {
-        await this.prisma.template.create({ data });
+        await this.prisma.template.create({
+          data: { ...data, orgId: this.tenant.orgId() },
+        });
         imported++;
       }
     }

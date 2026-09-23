@@ -1,22 +1,42 @@
 import { NextResponse, type NextRequest } from "next/server";
-<<<<<<< HEAD
+import {
+  REFRESH_UNAVAILABLE_HEADER,
+  clearSessionCookieWrites,
+  readSessionCookie,
+  refreshTokens,
+  sessionCookieWrites,
+  type CookieWrite,
+} from "@/lib/session-token";
 
 /**
- * Resuelve el subdominio de cada petición: `acme.trimmo.lat` → "acme".
+ * El middleware hace dos cosas independientes, en este orden:
  *
- * ── Lo único que hace, y lo que NO hace ──────────────────────
+ *   1. Resuelve el subdominio de la empresa: `acme.trimmo.lat` → "acme".
+ *   2. Renueva el access token si está a punto de caducar.
+ *
+ * Van juntas porque las dos necesitan tocar las cabeceras de la petición antes
+ * de que la vea cualquier página, y el middleware es el único sitio del App
+ * Router donde eso se puede hacer una sola vez.
+ *
+ * ── Sobre el subdominio: lo único que hace, y lo que NO hace ──
  * Pone el slug en una cabecera para que las páginas sepan **qué pantalla de
  * acceso enseñar**. No decide de quién son los datos: eso sale del `orgId`
  * firmado dentro del token, y lo comprueba el backend.
  *
- * La diferencia importa. El `Host` lo controla quien llama: con `curl -H "Host:
- * otra-empresa.trimmo.lat"` cualquiera puede decir lo que quiera. Si el
- * subdominio decidiera el acceso, eso sería toda la intrusión.
+ * La diferencia importa. El `Host` lo controla quien llama: con
+ * `curl -H "Host: otra-empresa.trimmo.lat"` cualquiera puede decir lo que
+ * quiera. Si el subdominio decidiera el acceso, eso sería toda la intrusión.
+ *
+ * ── Sobre el refresco: por qué aquí ───────────────────────────
+ * Es el único punto que puede reescribir la cookie a la vez para el navegador
+ * y para la request en curso. Si se refrescara dentro de `auth()` (callback
+ * jwt), el refresh token rotado se perdería y el backend acabaría revocando la
+ * sesión por "reuso".
  */
 
-const BASE = (process.env.SAAS_BASE_DOMAIN ?? "")
-  .split(":")[0]
-  ?.toLowerCase();
+const REFRESH_MARGIN_MS = 60_000;
+
+const BASE = (process.env.SAAS_BASE_DOMAIN ?? "").split(":")[0]?.toLowerCase();
 
 /** Subdominios que nunca son una empresa. */
 const NO_SON_EMPRESA = new Set(["www", "app", "api", "admin"]);
@@ -33,38 +53,18 @@ function slugDe(host: string): string | null {
   return slug;
 }
 
-export function middleware(req: NextRequest) {
-  const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? "";
+/**
+ * Escribe el subdominio en las cabeceras de ENTRADA (no en las de salida): así
+ * lo leen las páginas y los route handlers con `headers()`, y no se filtra al
+ * navegador.
+ */
+function aplicarOrg(req: NextRequest): void {
+  const host =
+    req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? "";
   const slug = slugDe(host);
-
-  // Se reescriben las cabeceras de entrada, no las de salida: así las páginas y
-  // los route handlers lo leen con headers(), y no se filtra al navegador.
-  const headers = new Headers(req.headers);
-  if (slug) headers.set("x-org-slug", slug);
-  else headers.delete("x-org-slug"); // que nadie la inyecte desde fuera
-
-  return NextResponse.next({ request: { headers } });
+  if (slug) req.headers.set("x-org-slug", slug);
+  else req.headers.delete("x-org-slug"); // que nadie la inyecte desde fuera
 }
-
-export const config = {
-  // Todo menos estáticos: el slug hace falta en páginas y en el BFF.
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
-=======
-import {
-  REFRESH_UNAVAILABLE_HEADER,
-  clearSessionCookieWrites,
-  readSessionCookie,
-  refreshTokens,
-  sessionCookieWrites,
-  type CookieWrite,
-} from "@/lib/session-token";
-
-// Renueva el access token aquí porque es el único punto de App Router que puede
-// reescribir la cookie a la vez para el navegador y para la request en curso.
-// Si se refrescara dentro de `auth()` (callback jwt), el refresh token rotado
-// se perdería y el backend acabaría revocando la sesión por "reuso".
-
-const REFRESH_MARGIN_MS = 60_000;
 
 function forward(req: NextRequest, writes: CookieWrite[] = []): NextResponse {
   // La cookie de la request debe quedar lista ANTES de crear la response:
@@ -79,8 +79,9 @@ function forward(req: NextRequest, writes: CookieWrite[] = []): NextResponse {
 }
 
 export async function middleware(req: NextRequest) {
-  // Nadie de fuera puede fingir este estado.
+  // Nadie de fuera puede fingir estos dos estados.
   req.headers.delete(REFRESH_UNAVAILABLE_HEADER);
+  aplicarOrg(req);
 
   const session = await readSessionCookie(req.cookies);
   const expires = session?.token.accessTokenExpires as number | undefined;
@@ -118,5 +119,4 @@ export const config = {
   matcher: [
     "/((?!api/auth|auth/expired|_next/static|_next/image|favicon.ico|.*\\.(?:png|jpe?g|gif|svg|webp|ico|css|js|map|woff2?|txt)$).*)",
   ],
->>>>>>> 2da1df078dfaeb0e81b9d1a84182da2d2c7e8417
 };

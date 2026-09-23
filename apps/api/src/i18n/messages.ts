@@ -124,6 +124,21 @@ export const ES_TO_EN: Record<string, string> = {
   "Vendedor no encontrado": "Seller not found",
   "Ya existe una etiqueta con ese nombre": "A tag with that name already exists",
   "Webhook no encontrado": "Webhook not found",
+  "Demasiadas altas desde esta conexión. Inténtalo dentro de una hora.":
+    "Too many sign-ups from this connection. Try again in an hour.",
+  "El pase ha caducado o no es válido": "The pass has expired or is not valid",
+  "El pase no es válido": "The pass is not valid",
+  "El registro público está desactivado. Pide a quien administra tu empresa que te invite, o crea una empresa nueva.":
+    "Public sign-up is disabled. Ask whoever administers your company to invite you, or create a new company.",
+  "Esa empresa no existe": "That company does not exist",
+  "Ese subdominio está reservado, elige otro":
+    "That subdomain is reserved, choose another one",
+  "Esta instalación funciona con una sola empresa (TENANCY_MODE=single)":
+    "This installation runs a single company (TENANCY_MODE=single)",
+  "Este pase ya se usó": "This pass has already been used",
+  "Falta el subdominio": "The subdomain is missing",
+  "No hay organización en el contexto de esta operación":
+    "There is no organization in the context of this operation",
 };
 
 /**

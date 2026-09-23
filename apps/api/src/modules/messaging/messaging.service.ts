@@ -594,6 +594,7 @@ export class MessagingService {
 
     const message = await this.prisma.message.create({
       data: {
+        orgId: conversation.orgId,
         conversationId: conversation.id,
         direction: MessageDirection.OUTBOUND,
         type: MessageType.TEXT,
@@ -661,6 +662,7 @@ export class MessagingService {
 
     const message = await this.prisma.message.create({
       data: {
+        orgId: conversation.orgId,
         conversationId: conversation.id,
         templateId: template.id,
         direction: MessageDirection.OUTBOUND,

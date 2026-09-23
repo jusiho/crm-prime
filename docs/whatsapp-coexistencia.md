@@ -135,7 +135,7 @@ App de tipo **Business** con los productos **WhatsApp** y
 
 ---
 
-## Variables en el VPS (`~/crm-prime/.env`)
+## Variables en el VPS (`~/trimmo/.env`)
 
 ```env
 WHATSAPP_APP_ID=
@@ -150,7 +150,7 @@ NEXT_PUBLIC_WHATSAPP_CONFIG_ID=
 del frontend al construirla, así que siempre hay que usar `--build`.
 
 ```bash
-cd ~/crm-prime
+cd ~/trimmo
 git pull
 docker compose -f docker-compose.prod.yml up -d --build api web
 docker exec crm-api printenv WHATSAPP_APP_ID

@@ -77,6 +77,11 @@ export interface InboundStateSyncJob {
 // message_template_status_update).
 export interface InboundTemplateStatusJob {
   kind: "template_status";
+  // Sin esto el worker no sabe de qué empresa es lo que procesa. Este evento
+  // llega a nivel de WABA y NO trae phone_number_id, así que la empresa se
+  // resuelve por `wabaId`, que Meta pone en `entry.id`.
+  channelPhoneNumberId?: string;
+  wabaId?: string;
   waTemplateId?: string;
   name?: string;
   language?: string;
@@ -191,7 +196,7 @@ interface MetaValue extends MetaTemplateStatusValue {
   state_sync?: MetaStateSync[];
 }
 export interface MetaWebhookBody {
-  entry?: { changes?: { field?: string; value?: MetaValue }[] }[];
+  entry?: { id?: string; changes?: { field?: string; value?: MetaValue }[] }[];
 }
 
 const TYPE_MAP: Record<string, MessageType> = {
@@ -228,6 +233,7 @@ export function normalizeWebhook(body: MetaWebhookBody): InboundJob[] {
       if (change.field === "message_template_status_update" && value.event) {
         jobs.push({
           kind: "template_status",
+          wabaId: entry.id,
           waTemplateId: value.message_template_id
             ? String(value.message_template_id)
             : undefined,
