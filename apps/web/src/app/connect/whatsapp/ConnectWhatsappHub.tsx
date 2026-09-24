@@ -65,7 +65,18 @@ export function ConnectWhatsappHub({ ticket, t }: { ticket: string; t: HubTexts 
     s.defer = true;
     s.crossOrigin = "anonymous";
     s.src = "https://connect.facebook.net/es_LA/sdk.js";
+    // Un bloqueador de contenido o una CSP pueden impedir la carga: que se vea.
+    s.onerror = () =>
+      setEstado({ tipo: "error", mensaje: "No se pudo cargar el SDK de Meta (¿bloqueador de contenido?)." });
     document.body.appendChild(s);
+    const aviso = setTimeout(() => {
+      setEstado((e) =>
+        e.tipo === "cargando"
+          ? { tipo: "error", mensaje: "El SDK de Meta tarda demasiado en cargar. Desactiva el bloqueador de contenido y recarga." }
+          : e,
+      );
+    }, 12_000);
+    return () => clearTimeout(aviso);
   }, []);
 
   // El Embedded Signup manda por postMessage el waba_id / phone_number_id.
@@ -96,14 +107,32 @@ export function ConnectWhatsappHub({ ticket, t }: { ticket: string; t: HubTexts 
   }, [estado]);
 
   function lanzar() {
-    if (!window.FB) return;
+    if (!window.FB) {
+      setEstado({ tipo: "error", mensaje: "El SDK de Meta no está disponible. Recarga la página." });
+      return;
+    }
     setEstado({ tipo: "esperando" });
+    // Si en unos segundos no hay ventana ni respuesta, casi siempre es el
+    // bloqueador de ventanas emergentes del navegador.
+    const vigilante = setTimeout(() => {
+      setEstado((e) =>
+        e.tipo === "esperando"
+          ? { tipo: "error", mensaje: "No se abrió la ventana de Meta. Permite las ventanas emergentes para trimmo.lat y vuelve a intentarlo." }
+          : e,
+      );
+    }, 8_000);
+    try {
     window.FB.login(
       async (response: any) => {
+        clearTimeout(vigilante);
+        console.info("[conector] respuesta de Meta:", response);
         const code = response?.authResponse?.code;
         const { phoneNumberId, wabaId } = signupRef.current;
         if (!code || !phoneNumberId) {
-          setEstado({ tipo: "error", mensaje: t.notCompleted });
+          setEstado({
+            tipo: "error",
+            mensaje: `${t.notCompleted} (${response?.status ?? "sin respuesta"}${phoneNumberId ? "" : ", sin número"})`,
+          });
           return;
         }
         setEstado({ tipo: "guardando" });
@@ -122,6 +151,11 @@ export function ConnectWhatsappHub({ ticket, t }: { ticket: string; t: HubTexts 
         },
       },
     );
+    } catch (e) {
+      clearTimeout(vigilante);
+      console.error("[conector] FB.login lanzó:", e);
+      setEstado({ tipo: "error", mensaje: `Meta devolvió un error al abrir la ventana: ${(e as Error).message}` });
+    }
   }
 
   if (!APP_ID || !CONFIG_ID) {
@@ -147,7 +181,7 @@ export function ConnectWhatsappHub({ ticket, t }: { ticket: string; t: HubTexts 
       <button
         onClick={lanzar}
         disabled={estado.tipo === "cargando" || ocupado}
-        style={boton}
+        style={{ ...boton, opacity: estado.tipo === "cargando" || ocupado ? 0.6 : 1 }}
       >
         {estado.tipo === "cargando"
           ? t.loadingSdk
