@@ -94,7 +94,9 @@ services:
       # API_URL interno (servidor → api container, no sale a internet)
       API_URL: http://api:3001
       AUTH_SECRET: ${AUTH_SECRET}
-      AUTH_URL: ${AUTH_URL}
+      # Solo para instalaciones de UNA empresa. Con SAAS_BASE_DOMAIN debe ir
+      # vacío: cada subdominio es su propio origen de autenticación.
+      AUTH_URL: ${AUTH_URL:-}
       # El middleware lo lee en cada petición para sacar el subdominio. Es de
       # ejecución y no de build a propósito: cambiar de dominio es reiniciar,
       # no reconstruir la imagen.
