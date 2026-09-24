@@ -8,6 +8,7 @@ import {
   connectWhatsapp,
   disconnectWhatsapp,
   fetchWhatsappChannels,
+  requestWhatsappConnectTicket,
   testWhatsappChannel,
 } from "@/lib/bff";
 
@@ -23,9 +24,17 @@ declare global {
   }
 }
 
-export function WhatsAppConnect() {
+/**
+ * `hub`: instalación SaaS. El SDK de Meta NO carga aquí (Meta solo lo permite
+ * en dominios listados a mano, y este es el subdominio de una empresa): el
+ * botón pide un pase y salta al conector en el dominio raíz.
+ */
+export function WhatsAppConnect({ hub = false }: { hub?: boolean }) {
   const queryClient = useQueryClient();
   const [sdkReady, setSdkReady] = useState(false);
+  const [hubError, setHubError] = useState<string | null>(null);
+  const [hubPending, setHubPending] = useState(false);
+  const [justConnected, setJustConnected] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
   // Canal cuyo token se va a renovar: precarga el formulario manual.
   const [editing, setEditing] = useState<WhatsappChannel | null>(null);
@@ -46,9 +55,22 @@ export function WhatsAppConnect() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["wa-channels"] }),
   });
 
-  // Cargar el SDK de Facebook (Embedded Signup).
+  // Vuelta del conector: `?connected=1`. Se limpia de la URL para que un
+  // refresco no repita el aviso.
   useEffect(() => {
-    if (!APP_ID) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("connected") === "1") {
+      setJustConnected(true);
+      queryClient.invalidateQueries({ queryKey: ["wa-channels"] });
+      params.delete("connected");
+      const limpia = `${window.location.pathname}${params.size ? `?${params}` : ""}`;
+      window.history.replaceState(null, "", limpia);
+    }
+  }, [queryClient]);
+
+  // Cargar el SDK de Facebook (Embedded Signup). En SaaS no: ver `hub`.
+  useEffect(() => {
+    if (!APP_ID || hub) return;
     window.fbAsyncInit = () => {
       window.FB.init({
         appId: APP_ID,
@@ -92,7 +114,21 @@ export function WhatsAppConnect() {
     return () => window.removeEventListener("message", onMessage);
   }, []);
 
-  function launch() {
+  async function launch() {
+    if (hub) {
+      // Al conector en el dominio raíz, con un pase de un solo uso.
+      setHubError(null);
+      setHubPending(true);
+      try {
+        const t = await requestWhatsappConnectTicket();
+        if (!t.connectUrl) throw new Error("El conector no está disponible");
+        window.location.assign(t.connectUrl);
+      } catch (e) {
+        setHubError((e as Error).message);
+        setHubPending(false);
+      }
+      return;
+    }
     if (!window.FB || !CONFIG_ID) return;
     window.FB.login(
       (response: any) => {
@@ -117,7 +153,10 @@ export function WhatsAppConnect() {
 
   const missingConfig = !APP_ID || !CONFIG_ID;
   const list = channels ?? [];
-  const connectError = connect.isError ? (connect.error as Error).message : null;
+  const connectError = connect.isError ? (connect.error as Error).message : hubError;
+  // En SaaS el botón no depende del SDK: no hay SDK en esta página.
+  const ready = hub || sdkReady;
+  const connecting = connect.isPending || hubPending;
 
   return (
     <div style={{ maxWidth: 720, margin: "0 auto", padding: 24 }}>
@@ -131,9 +170,9 @@ export function WhatsAppConnect() {
       >
         <h2 style={{ marginTop: 0, marginBottom: 0 }}>Números de WhatsApp</h2>
         {!missingConfig && list.length > 0 && (
-          <button onClick={launch} disabled={!sdkReady || connect.isPending} style={addBtn}>
+          <button onClick={launch} disabled={!ready || connecting} style={addBtn}>
             <WaIcon />
-            {connect.isPending ? "Conectando…" : "Añadir número"}
+            {connecting ? "Conectando…" : "Añadir número"}
           </button>
         )}
       </div>
@@ -146,6 +185,12 @@ export function WhatsAppConnect() {
       {connectError && (
         <p style={{ color: "#ff6b6b", fontSize: 13 }}>{connectError}</p>
       )}
+      {justConnected && (
+        <p style={{ color: "#7ee2a8", fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>
+          <NavIcon name="check" size={14} />
+          Número conectado. Ya puedes recibir y enviar mensajes desde el CRM.
+        </p>
+      )}
 
       <div style={card}>
         {isPending ? (
@@ -154,8 +199,8 @@ export function WhatsAppConnect() {
           <PendingConfig hasAppId={!!APP_ID} />
         ) : list.length === 0 ? (
           <Empty
-            ready={sdkReady}
-            connecting={connect.isPending}
+            ready={ready}
+            connecting={connecting}
             onConnect={launch}
           />
         ) : (

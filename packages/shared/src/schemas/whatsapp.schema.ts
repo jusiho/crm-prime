@@ -70,3 +70,29 @@ export const disconnectWhatsappSchema = z.object({
   phoneNumberId: z.string().min(1),
 });
 export type DisconnectWhatsappInput = z.infer<typeof disconnectWhatsappSchema>;
+
+// ── Conector en dominio fijo (SaaS) ─────────────────────────
+// El SDK de Meta corre en el dominio raíz; el panel de la empresa pide un pase
+// y salta allí. Ver ConnectHubController en la API.
+
+/** Respuesta al pedir el pase. `connectUrl: null` = instalación de una sola empresa. */
+export interface ConnectTicketResult {
+  ticket: string | null;
+  connectUrl: string | null;
+}
+
+/** Lo que el conector manda a la API al terminar el Embedded Signup. */
+export const connectWithTicketSchema = z.object({
+  ticket: z.string().min(1),
+  code: z.string().min(1),
+  phoneNumberId: z.string().min(1),
+  wabaId: z.string().optional(),
+  mode: z.enum(["coexistence", "api"]).default("coexistence"),
+});
+export type ConnectWithTicketInput = z.infer<typeof connectWithTicketSchema>;
+
+export interface ConnectWithTicketResult {
+  ok: true;
+  /** A dónde vuelve el usuario: el panel de su empresa, ya con el número guardado. */
+  returnUrl: string;
+}

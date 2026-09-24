@@ -55,6 +55,22 @@ export const en = {
     account: { title: "My account", subtitle: "Profile, password and security" },
     settings: { title: "Settings", subtitle: "Tags, channels, sources and more" },
   },
+  // Conector de Meta en el dominio raíz (SaaS): el SDK solo carga ahí.
+  connect: {
+    title: "Connect your WhatsApp",
+    subtitle:
+      "Meta's official window will open. Choose your account and number, and scan the QR with your WhatsApp Business app. When you're done, you'll be taken back to your dashboard.",
+    loadingSdk: "Loading…",
+    continueWithMeta: "Continue with Meta",
+    waiting: "Waiting for Meta…",
+    saving: "Saving your number…",
+    done: "Done! Taking you back…",
+    notCompleted: "The connection wasn't completed. You can try again.",
+    missingConfig: "WhatsApp connection is not configured on this platform yet.",
+    backHint: "If nothing happens, close this window and press \"Connect WhatsApp\" again from your dashboard.",
+    expired: "This link has expired",
+    expiredHint: "Go back to your dashboard and press \"Connect WhatsApp\" again: a fresh link lasts 15 minutes.",
+  },
   auth: {
     signInTitle: "Trimmo",
     signInSubtitle: "Sign in",

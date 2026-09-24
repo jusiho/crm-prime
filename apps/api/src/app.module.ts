@@ -4,6 +4,7 @@ import { EventEmitterModule } from "@nestjs/event-emitter";
 import { StorageModule } from "./infra/storage/storage.module";
 import { PrismaModule } from "./infra/prisma/prisma.module";
 import { TenantModule } from "./infra/tenant/tenant.module";
+import { TicketsModule } from "./infra/tickets/tickets.module";
 import { QueueModule } from "./infra/queue/queue.module";
 import { AuthModule } from "./modules/auth/auth.module";
 import { MessagingModule } from "./modules/messaging/messaging.module";
@@ -38,6 +39,7 @@ import { HealthController } from "./health.controller";
     EventEmitterModule.forRoot(),
     PrismaModule,
     TenantModule,
+    TicketsModule,
     StorageModule,
     QueueModule,
     AuthModule,

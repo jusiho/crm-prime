@@ -98,6 +98,7 @@ import type {
   SyncTemplatesResult,
   SendInteractiveInput,
   SendTemplateMessageInput,
+  ConnectTicketResult,
 } from "@crm/shared";
 
 // Fetchers del lado del cliente: llaman al BFF (mismo origen, cookie httpOnly).
@@ -250,6 +251,20 @@ export async function connectWhatsapp(
   }
   const data = (await res.json()) as { channels: WhatsappChannel[] };
   return data.channels ?? [];
+}
+
+/**
+ * Pase para conectar WhatsApp desde el conector en dominio fijo. En una
+ * instalación de una sola empresa devuelve `connectUrl: null`: el SDK de Meta
+ * carga en la propia página, como siempre.
+ */
+export async function requestWhatsappConnectTicket(): Promise<ConnectTicketResult> {
+  const res = await bffFetch("/api/bff/whatsapp/connect/ticket", { method: "POST" });
+  if (!res.ok) {
+    const b = (await res.json().catch(() => null)) as { message?: string } | null;
+    throw new Error(b?.message ?? "No se pudo iniciar la conexión");
+  }
+  return (await res.json()) as ConnectTicketResult;
 }
 
 export async function disconnectWhatsapp(

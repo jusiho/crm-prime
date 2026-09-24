@@ -10,7 +10,9 @@ export default async function WhatsAppPage() {
 
   return (
     <AppShell email={session.user?.email ?? ""} role={role} active="whatsapp">
-      <WhatsAppConnect />
+      {/* En SaaS el SDK de Meta no carga aquí: el botón salta al conector del
+          dominio raíz, el único que Meta tiene listado. */}
+      <WhatsAppConnect hub={!!process.env.SAAS_BASE_DOMAIN} />
     </AppShell>
   );
 }

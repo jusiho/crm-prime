@@ -667,6 +667,31 @@ multi, y el middleware manda a su subdominio a quien llegue al raíz con sesión
 (un marcador viejo, una sesión anterior al cambio). Para eso el login devuelve
 `orgSlug` y la web lo guarda en la sesión.
 
+### El SDK de Meta corre en un solo host
+
+Meta solo deja que su SDK de JavaScript arranque en dominios **listados a mano**
+en el panel de la app — "el dominio de la página que aloja el SDK debe
+coincidir con una de las entradas", sin comodines. Con un subdominio por
+empresa, eso obligaría a tocar Meta en cada alta: justo lo que el comodín
+evitaba en DNS, de vuelta por otra puerta.
+
+Así que el SDK carga en un solo sitio, `trimmo.lat/connect/whatsapp`, listado
+una vez. Lo que cruza desde el panel de la empresa hasta allí es un **pase
+firmado de un solo uso** (`OneTimeTicketService`: quién, de qué empresa, para
+qué, 15 minutos). Al terminar el Embedded Signup, el conector entrega el pase y
+el resultado de Meta a la API, que abre el contexto de esa empresa y guarda el
+número; luego devuelve al usuario a `acme.trimmo.lat/whatsapp`. Es el patrón de
+Shopify o Slack: el OAuth ocurre en un dominio central y después se entrega.
+
+En Meta, entonces, solo hace falta `trimmo.lat` en *App Domains* y en *Allowed
+Domains for the JavaScript SDK*. Y el día que se vendan dominios propios
+(`crm.acme.com`) el conector sigue valiendo igual.
+
+Con una sola empresa (open source) no hay conector: el SDK carga en la propia
+página como siempre, y `POST whatsapp/connect/ticket` devuelve
+`connectUrl: null`. Pendiente: el conector de páginas de Facebook para Lead Ads
+sigue cargando el SDK en el panel; usa el mismo mecanismo y se moverá igual.
+
 ### La API también bajo el subdominio de cada empresa
 
 Al estilo Kommo: `acme.trimmo.lat/api/public/v1/contacts`. Es la misma API y

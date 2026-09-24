@@ -55,6 +55,22 @@ export const es: Messages = {
     account: { title: "Mi cuenta", subtitle: "Perfil, contraseña y seguridad" },
     settings: { title: "Ajustes", subtitle: "Etiquetas, canales, fuentes y más" },
   },
+  // Conector de Meta en el dominio raíz (SaaS): el SDK solo carga ahí.
+  connect: {
+    title: "Conecta tu WhatsApp",
+    subtitle:
+      "Se abrirá la ventana oficial de Meta. Elige tu cuenta y tu número, y escanea el QR con tu app de WhatsApp Business. Al terminar volverás a tu panel.",
+    loadingSdk: "Cargando…",
+    continueWithMeta: "Continuar con Meta",
+    waiting: "Esperando a Meta…",
+    saving: "Guardando tu número…",
+    done: "¡Listo! Volviendo a tu panel…",
+    notCompleted: "No se completó la conexión. Puedes intentarlo otra vez.",
+    missingConfig: "La conexión de WhatsApp aún no está configurada en esta plataforma.",
+    backHint: "Si no pasa nada, cierra esta ventana y pulsa \"Conectar WhatsApp\" otra vez desde tu panel.",
+    expired: "Este enlace ha caducado",
+    expiredHint: "Vuelve a tu panel y pulsa \"Conectar WhatsApp\" otra vez: un enlace nuevo dura 15 minutos.",
+  },
   auth: {
     signInTitle: "Trimmo",
     signInSubtitle: "Inicia sesión",

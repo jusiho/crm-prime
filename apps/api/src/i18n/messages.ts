@@ -145,6 +145,8 @@ export const ES_TO_EN: Record<string, string> = {
     "Enter your company address (subdomain)",
   "Esta clave no pertenece a la empresa de esta dirección":
     "This key does not belong to the company at this address",
+  "Solo un administrador puede conectar números":
+    "Only an administrator can connect numbers",
 };
 
 /**

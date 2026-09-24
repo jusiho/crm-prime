@@ -19,7 +19,8 @@
     "test:cors": "tsx --test test/cors.test.ts",
     "check:i18n": "tsx scripts/check-i18n.ts",
     "test:joborg": "tsx --test test/job-org.test.ts",
-    "test:subdomain": "tsx --test test/subdomain.test.ts"
+    "test:subdomain": "tsx --test test/subdomain.test.ts",
+    "test:tickets": "tsx --test test/one-time-ticket.test.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
