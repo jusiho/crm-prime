@@ -22,6 +22,8 @@ export interface AuthenticatedApiKey {
   scopes: ApiScope[];
   /** Empresa dueña de la clave. De aquí sale el contexto de la petición. */
   orgId: string;
+  /** Su subdominio, para comprobar que la clave se usa en su propia dirección. */
+  orgSlug: string;
 }
 
 /**
@@ -128,7 +130,10 @@ export class ApiKeyService {
     // Agujero 3/4: igual que el webhook, la clave identifica a la empresa;
     // no se puede filtrar por una empresa que aún no se conoce.
     const row = await runUnscoped("auth: resolver clave de API por prefijo", () =>
-      this.prisma.apiKey.findUnique({ where: { prefix } }),
+      this.prisma.apiKey.findUnique({
+        where: { prefix },
+        include: { org: { select: { slug: true } } },
+      }),
     );
     if (!row || row.revokedAt) return null;
 
@@ -151,6 +156,7 @@ export class ApiKeyService {
       id: row.id,
       name: row.name,
       orgId: row.orgId,
+      orgSlug: row.org.slug,
       scopes: row.scopes as ApiScope[],
     };
   }

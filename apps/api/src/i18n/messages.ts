@@ -143,6 +143,8 @@ export const ES_TO_EN: Record<string, string> = {
     "That WhatsApp number is already connected to another company",
   "Indica la dirección de tu empresa (subdominio)":
     "Enter your company address (subdomain)",
+  "Esta clave no pertenece a la empresa de esta dirección":
+    "This key does not belong to the company at this address",
 };
 
 /**

@@ -667,6 +667,17 @@ multi, y el middleware manda a su subdominio a quien llegue al raíz con sesión
 (un marcador viejo, una sesión anterior al cambio). Para eso el login devuelve
 `orgSlug` y la web lo guarda en la sesión.
 
+### La API también bajo el subdominio de cada empresa
+
+Al estilo Kommo: `acme.trimmo.lat/api/public/v1/contacts`. Es la misma API y
+la misma clave; lo que se añade es una comprobación de **coherencia**: si la
+llamada entra por la dirección de una empresa, la clave tiene que ser de esa
+empresa (403 si no). No concede nada —la clave ya lo hizo—, evita usar una
+clave contra la dirección equivocada. En el proxy es una ubicación más en el
+host comodín: `/api/public/` y `/api/v1/webhooks/` → API; el resto → web.
+`api.trimmo.lat` se queda para lo que necesita una URL fija: el webhook de
+Meta y el WebSocket.
+
 ### El subdominio no da acceso
 
 `Host` lo controla quien llama: `curl -H "Host: otra.trimmo.lat"` dice lo que

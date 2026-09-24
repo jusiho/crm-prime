@@ -12,6 +12,8 @@ import { timingSafeEqual } from "node:crypto";
 import type { ApiScope } from "@crm/shared";
 import { SCOPES_KEY } from "../decorators/scopes.decorator";
 import { env } from "../utils/env";
+import { tenancyMode } from "../../infra/tenant/tenant.context";
+import { hostDe, subdominioDe } from "../utils/subdomain";
 import {
   ApiKeyService,
   type AuthenticatedApiKey,
@@ -63,12 +65,27 @@ export class ApiKeyGuard implements CanActivate {
           }),
         );
       }
+      // La API también se sirve bajo el subdominio de cada empresa
+      // (acme.trimmo.lat/api/public/…), al estilo Kommo. Si la llamada entra
+      // por la dirección de una empresa, la clave tiene que ser de ESA
+      // empresa. No es lo que concede el acceso —eso ya lo hizo la clave—,
+      // es lo que impide usar una clave de Acme contra la dirección de Globex
+      // por error o por prueba.
+      const slug = subdominioDe(hostDe(req.headers));
+      if (slug && slug !== key.orgSlug) {
+        throw new ForbiddenException(
+          "Esta clave no pertenece a la empresa de esta dirección",
+        );
+      }
+
       req.apiKey = key satisfies AuthenticatedApiKey;
       return true;
     }
 
-    // Camino heredado: token único del .env.
-    const legacy = env("LEAD_WEBHOOK_TOKEN");
+    // Camino heredado: token único del .env. Solo con una empresa: en SaaS ese
+    // token no pertenece a nadie, y una clave sin empresa no puede leer ni
+    // escribir nada. Cada cliente crea las suyas en Ajustes › Claves de API.
+    const legacy = tenancyMode === "multi" ? undefined : env("LEAD_WEBHOOK_TOKEN");
     if (legacy && this.sameSecret(presented, legacy)) {
       this.logger.warn(
         "Petición autenticada con LEAD_WEBHOOK_TOKEN (heredado). Crea una clave por integración en Ajustes › Claves de API.",

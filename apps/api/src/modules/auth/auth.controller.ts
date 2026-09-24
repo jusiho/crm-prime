@@ -31,6 +31,7 @@ import {
 } from "@crm/shared";
 import { ZodValidationPipe } from "../../common/pipes/zod-validation.pipe";
 import { tenancyMode } from "../../infra/tenant/tenant.context";
+import { hostDe, subdominioDe } from "../../common/utils/subdomain";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { AuthService } from "./auth.service";
@@ -80,8 +81,7 @@ export class AuthController {
     // Aceptarlo del cuerpo es seguro porque **solo elige a quién buscar**. Sin
     // la contraseña no se entra, y el `orgId` del token sale de la fila del
     // usuario. Pedir que te busquen en otra empresa no te da nada.
-    const host = String(req.headers["x-forwarded-host"] ?? req.headers.host ?? "");
-    const orgSlug = body.orgSlug ?? subdominioDe(host);
+    const orgSlug = body.orgSlug ?? subdominioDe(hostDe(req.headers));
 
     return this.auth.login({ ...body, orgSlug }, {
       platform: body.platform,
@@ -183,23 +183,4 @@ export class AuthController {
   async realtimeToken(@CurrentUser() user: AccessTokenClaims) {
     return { token: await this.auth.issueRealtimeToken(user) };
   }
-}
-
-/**
- * Saca el subdominio de un `Host`, o `undefined` si no lo hay.
- *
- * `acme.trimmo.lat` → "acme". `trimmo.lat`, `www.trimmo.lat` y
- * `localhost:3001` → undefined, que significa "no hay empresa en la URL".
- */
-const NO_SON_EMPRESA = new Set(["www", "api", "app", "admin"]);
-
-function subdominioDe(host: string): string | undefined {
-  const limpio = host.split(":")[0]?.toLowerCase() ?? "";
-  const base = (process.env.SAAS_BASE_DOMAIN ?? "").split(":")[0]?.toLowerCase();
-  if (!base || !limpio.endsWith(`.${base}`)) return undefined;
-  const slug = limpio.slice(0, -(base.length + 1));
-  // Un solo nivel: el certificado comodín tampoco cubre más. Y los hosts de
-  // infraestructura (api, www, app) nunca son una empresa.
-  if (!slug || slug.includes(".") || NO_SON_EMPRESA.has(slug)) return undefined;
-  return slug;
 }

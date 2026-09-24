@@ -18,7 +18,8 @@
     "test:slug": "tsx --test test/org-slug.test.ts",
     "test:cors": "tsx --test test/cors.test.ts",
     "check:i18n": "tsx scripts/check-i18n.ts",
-    "test:joborg": "tsx --test test/job-org.test.ts"
+    "test:joborg": "tsx --test test/job-org.test.ts",
+    "test:subdomain": "tsx --test test/subdomain.test.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
