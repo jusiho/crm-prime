@@ -17,7 +17,8 @@
     "pretest:rls": "node ../../scripts/setup-rls-test-db.mjs",
     "test:slug": "tsx --test test/org-slug.test.ts",
     "test:cors": "tsx --test test/cors.test.ts",
-    "check:i18n": "tsx scripts/check-i18n.ts"
+    "check:i18n": "tsx scripts/check-i18n.ts",
+    "test:joborg": "tsx --test test/job-org.test.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

@@ -326,6 +326,42 @@ tuya. En SaaS deja de ser un lujo y pasa a ser el camino principal.
 
 ### Las colas también necesitan la organización
 
+**Estado (24/09/2026): hecho, y con una lección.** Al revisar "¿cada empresa
+usa solo sus números?" apareció que **cinco de los seis workers** no abrían
+contexto: envíos, campañas, flujos, leads de Meta y webhooks salientes. Con una
+empresa nadie lo nota, porque la organización única hace de respaldo; con dos,
+la extensión de Prisma les lanza "sin organización en contexto" y todo lo que
+pasa por cola deja de funcionar. Era invisible hasta el primer cliente de
+verdad.
+
+La regla quedó en un solo sitio, `runJobInOrg()` en
+[job-org.ts](apps/api/src/infra/tenant/job-org.ts): la empresa viaja en el
+trabajo (la pone quien encola, que sí tiene contexto) o se deduce del dato que
+el trabajo señala — el mensaje, la conversación, la plantilla de la campaña, la
+página de Meta —, siempre con `runUnscoped` porque es la consulta que produce
+el filtro. Si no hay forma de saberla, en SaaS el trabajo **falla** con motivo.
+
+| Worker | De dónde sale la empresa |
+|---|---|
+| Entrante (WhatsApp) | `phone_number_id` → `WhatsappConnection.orgId`; para `template_status`, `wabaId` |
+| Envío | `orgId` en el job; si falta, `Message.orgId` |
+| Flujos | `orgId` en el job; si falta, `Conversation.orgId` |
+| Campañas | `orgId` en el job; si falta, `Campaign.template.orgId` |
+| Leads de Meta | `MetaPage.orgId` por `pageId` (el aviso viene de Meta, sin contexto) |
+| Webhooks salientes | `orgId` en el job; si falta, `WebhookSubscription.orgId` |
+
+Dos consecuencias del mismo repaso:
+
+- **El tiempo real tenía una sola sala para todos.** Cada cambio de bandeja de
+  una empresa llegaba a los navegadores de las demás: no el contenido, pero sí
+  los ids y el ritmo de actividad. Ahora hay una sala por empresa, `org:<id>`,
+  y la sala la decide el `org` firmado en el token, no el cliente. Un evento
+  sin empresa en SaaS se descarta, no se emite "por si acaso".
+- **Nada de credenciales del `.env` para los clientes.** En SaaS el
+  `WHATSAPP_TOKEN` del entorno es de la plataforma; una empresa sin número
+  propio ya no puede enviar con él. Y conectar un número que otra empresa ya
+  conectó devuelve un 409 claro en vez de un 500.
+
 El contexto de organización viaja con la petición HTTP. **Los workers no tienen
 petición.** Todo job encolado —mensaje saliente, campaña, reanudación de flujo,
 webhook saliente— tiene que llevar el `orgId` en su carga y fijar el contexto al

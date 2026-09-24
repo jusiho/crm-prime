@@ -7,6 +7,7 @@ import type {
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { TenantService } from "../../infra/tenant/tenant.service";
+import { tenancyMode } from "../../infra/tenant/tenant.context";
 import { env } from "../../common/utils/env";
 import {
   decryptSecret,
@@ -107,12 +108,25 @@ export class IntegrationSettingsService {
     };
   }
 
+  // ── WhatsApp: el app secret cambia de dueño según el modo ──────
+  //
+  // Con una sola empresa, la app de Meta es del negocio y sus credenciales
+  // viven en Ajustes › Integraciones (con respaldo en el .env).
+  //
+  // En SaaS hay UNA app de Meta, la de la plataforma, que firma los webhooks
+  // de todos los clientes. Y esos webhooks llegan ANTES de saber de qué
+  // empresa son: no hay fila de ajustes que consultar, y `load()` fallaría por
+  // falta de contexto. Por eso en modo multi estas tres salen del entorno y
+  // nunca de la base. (ARCHITECTURE-MULTITENANT.md §5.)
+
   async whatsappAppSecret(): Promise<string | null> {
+    if (tenancyMode === "multi") return env("WHATSAPP_APP_SECRET") ?? null;
     const row = await this.load();
     return this.secret(row.whatsappAppSecretEnc, "WHATSAPP_APP_SECRET").value;
   }
 
   async whatsappVerifyToken(): Promise<string | null> {
+    if (tenancyMode === "multi") return env("WHATSAPP_VERIFY_TOKEN") ?? null;
     const row = await this.load();
     return this.secret(row.whatsappVerifyTokenEnc, "WHATSAPP_VERIFY_TOKEN")
       .value;
@@ -123,6 +137,13 @@ export class IntegrationSettingsService {
     appSecret: string | null;
     graphVersion: string;
   }> {
+    if (tenancyMode === "multi") {
+      return {
+        appId: env("WHATSAPP_APP_ID") ?? null,
+        appSecret: env("WHATSAPP_APP_SECRET") ?? null,
+        graphVersion: env("WHATSAPP_GRAPH_VERSION") || "v21.0",
+      };
+    }
     const row = await this.load();
     return {
       appId: row.whatsappAppId ?? env("WHATSAPP_APP_ID") ?? null,

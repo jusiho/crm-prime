@@ -17,6 +17,8 @@ import { QUEUE_WEBHOOK } from "../../infra/queue/queue.constants";
 /** Lo que se encola por cada suscripción interesada en un evento. */
 export interface WebhookJob {
   subscriptionId: string;
+  /** Empresa dueña de la suscripción. Lo pone quien encola. */
+  orgId?: string;
   event: WebhookEvent;
   payload: Record<string, unknown>;
   occurredAt: string;
@@ -122,7 +124,8 @@ export class WebhookOutService {
     try {
       const subs = await this.prisma.webhookSubscription.findMany({
         where: { isActive: true, events: { has: event } },
-        select: { id: true },
+        select: {
+          orgId: true, id: true },
       });
       if (!subs.length) return;
 
@@ -131,6 +134,7 @@ export class WebhookOutService {
         subs.map((s) =>
           this.queue.add("deliver", {
             subscriptionId: s.id,
+            orgId: s.orgId,
             event,
             payload,
             occurredAt,

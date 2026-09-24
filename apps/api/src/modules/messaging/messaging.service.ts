@@ -34,6 +34,7 @@ import {
 import type { Prisma } from "@prisma/client";
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { TenantService } from "../../infra/tenant/tenant.service";
+import { currentOrgId } from "../../infra/tenant/tenant.context";
 import { QUEUE_OUTBOUND } from "../../infra/queue/queue.constants";
 import {
   WHATSAPP_PROVIDER,
@@ -104,7 +105,10 @@ export class MessagingService {
   ) {}
 
   private notify(conversationId: string): void {
-    this.events.emit("inbox.changed", { conversationId });
+    this.events.emit("inbox.changed", {
+      conversationId,
+      orgId: currentOrgId() ?? undefined,
+    });
   }
 
   // Pausa la IA tras intervención humana (ventana configurable).
@@ -609,7 +613,10 @@ export class MessagingService {
       },
     });
 
-    await this.outbound.add("send", { messageId: message.id });
+    await this.outbound.add("send", {
+      messageId: message.id,
+      orgId: conversation.orgId,
+    });
     await this.prisma.conversation.update({
       where: { id: conversation.id },
       data: {
@@ -746,7 +753,10 @@ export class MessagingService {
       },
     });
 
-    await this.outbound.add("send", { messageId: message.id });
+    await this.outbound.add("send", {
+      messageId: message.id,
+      orgId: conversation.orgId,
+    });
 
     // Respondimos: la conversación deja de estar "sin responder". Y si responde
     // un humano, pausar la IA un rato (no pisar al agente humano).

@@ -12,6 +12,8 @@ import {
 import { QUEUE_CAMPAIGN } from "../../infra/queue/queue.constants";
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { TenantService } from "../../infra/tenant/tenant.service";
+import { runUnscoped } from "../../infra/tenant/tenant.context";
+import { runJobInOrg } from "../../infra/tenant/job-org";
 import {
   WHATSAPP_PROVIDER,
   type WhatsAppProvider,
@@ -19,9 +21,11 @@ import {
 import { CampaignService } from "./campaign.service";
 import { TemplateFillService, normalizeFill } from "./template-fill.service";
 
+// `orgId` lo pone quien encola. Los trabajos anteriores al cambio no lo traen
+// y la empresa se deduce de la plantilla de la campaña.
 type CampaignJob =
-  | { kind: "launch"; campaignId: string }
-  | { kind: "send"; campaignId: string; contactId: string };
+  | { kind: "launch"; campaignId: string; orgId?: string }
+  | { kind: "send"; campaignId: string; contactId: string; orgId?: string };
 
 const WINDOW_MS = 24 * 60 * 60 * 1000;
 
@@ -44,11 +48,28 @@ export class CampaignProcessor extends WorkerHost {
   }
 
   async process(job: Job<CampaignJob>): Promise<void> {
-    if (job.data.kind === "launch") {
-      await this.campaigns.fanOut(job.data.campaignId);
-      return;
-    }
-    await this.sendOne(job.data.campaignId, job.data.contactId);
+    const orgId = job.data.orgId ?? (await this.orgDeCampana(job.data.campaignId));
+    await runJobInOrg("campaña", orgId, async () => {
+      if (job.data.kind === "launch") {
+        await this.campaigns.fanOut(job.data.campaignId);
+        return;
+      }
+      await this.sendOne(job.data.campaignId, job.data.contactId);
+    });
+  }
+
+  /**
+   * Una campaña no lleva `orgId` propio (cuelga de su plantilla, que sí). Se
+   * consulta sin filtrar por necesidad: es la que produce el filtro.
+   */
+  private async orgDeCampana(campaignId: string): Promise<string | null> {
+    const c = await runUnscoped("worker de campañas: empresa de la campaña", () =>
+      this.prisma.campaign.findUnique({
+        where: { id: campaignId },
+        select: { template: { select: { orgId: true } } },
+      }),
+    );
+    return c?.template?.orgId ?? null;
   }
 
   private async sendOne(campaignId: string, contactId: string): Promise<void> {

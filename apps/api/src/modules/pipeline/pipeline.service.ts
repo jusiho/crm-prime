@@ -67,7 +67,7 @@ export class PipelineService {
       },
       include: DEAL_INCLUDE,
     });
-    this.events.emit("pipeline.changed", { dealId: deal.id });
+    this.events.emit("pipeline.changed", { orgId: this.tenant.orgId(), dealId: deal.id });
     return this.toDealDto(deal);
   }
 
@@ -86,7 +86,7 @@ export class PipelineService {
       .catch(() => {
         throw new NotFoundException("Deal no encontrado");
       });
-    this.events.emit("pipeline.changed", { dealId: deal.id });
+    this.events.emit("pipeline.changed", { orgId: this.tenant.orgId(), dealId: deal.id });
     return this.toDealDto(deal);
   }
 
@@ -104,7 +104,7 @@ export class PipelineService {
       .catch(() => {
         throw new NotFoundException("Deal no encontrado");
       });
-    this.events.emit("pipeline.changed", { dealId: deal.id });
+    this.events.emit("pipeline.changed", { orgId: this.tenant.orgId(), dealId: deal.id });
     return this.toDealDto(deal);
   }
 
@@ -112,7 +112,7 @@ export class PipelineService {
     const deal = await this.prisma.deal.findUnique({ where: { id } });
     if (!deal) throw new NotFoundException("Deal no encontrado");
     await this.prisma.deal.delete({ where: { id } });
-    this.events.emit("pipeline.changed", { dealId: id });
+    this.events.emit("pipeline.changed", { orgId: this.tenant.orgId(), dealId: id });
     return { ok: true };
   }
 
@@ -130,7 +130,7 @@ export class PipelineService {
         order: (last?.order ?? -1) + 1,
       },
     });
-    this.events.emit("pipeline.changed", { dealId: "" });
+    this.events.emit("pipeline.changed", { orgId: this.tenant.orgId(), dealId: "" });
     return this.toStageDto(s);
   }
 
@@ -147,7 +147,7 @@ export class PipelineService {
       .catch(() => {
         throw new NotFoundException("Etapa no encontrada");
       });
-    this.events.emit("pipeline.changed", { dealId: "" });
+    this.events.emit("pipeline.changed", { orgId: this.tenant.orgId(), dealId: "" });
     return this.toStageDto(s);
   }
 
@@ -161,7 +161,7 @@ export class PipelineService {
     await this.prisma.pipelineStage.delete({ where: { id } }).catch(() => {
       throw new NotFoundException("Etapa no encontrada");
     });
-    this.events.emit("pipeline.changed", { dealId: "" });
+    this.events.emit("pipeline.changed", { orgId: this.tenant.orgId(), dealId: "" });
     return { ok: true };
   }
 
@@ -181,7 +181,7 @@ export class PipelineService {
         }),
       ),
     ]);
-    this.events.emit("pipeline.changed", { dealId: "" });
+    this.events.emit("pipeline.changed", { orgId: this.tenant.orgId(), dealId: "" });
     return { ok: true };
   }
 

@@ -15,6 +15,7 @@ import type {
   UpdateCampaignInput,
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
+import { currentOrgId } from "../../infra/tenant/tenant.context";
 import { QUEUE_CAMPAIGN } from "../../infra/queue/queue.constants";
 import { normalizeFill } from "./template-fill.service";
 import { TemplateService } from "./template.service";
@@ -171,7 +172,7 @@ export class CampaignService {
       });
       await this.queue.add(
         "launch",
-        { kind: "launch", campaignId: id },
+        { kind: "launch", campaignId: id, orgId: currentOrgId() ?? undefined },
         { delay: c.scheduledAt.getTime() - Date.now() },
       );
       return this.getById(id);
@@ -216,10 +217,11 @@ export class CampaignService {
       return;
     }
 
+    const orgId = currentOrgId() ?? undefined;
     await this.queue.addBulk(
       contacts.map((ct) => ({
         name: "send",
-        data: { kind: "send", campaignId, contactId: ct.id },
+        data: { kind: "send", campaignId, contactId: ct.id, orgId },
       })),
     );
   }

@@ -139,6 +139,8 @@ export const ES_TO_EN: Record<string, string> = {
   "Falta el subdominio": "The subdomain is missing",
   "No hay organización en el contexto de esta operación":
     "There is no organization in the context of this operation",
+  "Ese número de WhatsApp ya está conectado en otra empresa":
+    "That WhatsApp number is already connected to another company",
 };
 
 /**

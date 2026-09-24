@@ -11,6 +11,7 @@ import {
 } from "@crm/shared";
 import type { Prisma } from "@prisma/client";
 import { PrismaService } from "../../infra/prisma/prisma.service";
+import { currentOrgId } from "../../infra/tenant/tenant.context";
 import { TenantService } from "../../infra/tenant/tenant.service";
 import { QUEUE_FLOW } from "../../infra/queue/queue.constants";
 import { MessagingService } from "../messaging/messaging.service";
@@ -195,7 +196,9 @@ export class FlowEngineService {
         await this.persist(conversationId, nextId, vars, "waiting_timer");
         await this.flowQueue.add(
           "resume",
-          { conversationId },
+          // La empresa viaja en el trabajo: el worker no tiene otra forma de
+          // saberla sin consultar la conversación.
+          { conversationId, orgId: currentOrgId() ?? undefined },
           { delay: ms },
         );
         return;

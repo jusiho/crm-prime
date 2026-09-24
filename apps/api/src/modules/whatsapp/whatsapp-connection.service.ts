@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, Logger } from "@nestjs/common";
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  Logger,
+} from "@nestjs/common";
 import type {
   ChannelTestResult,
   ConnectWhatsappInput,
@@ -7,7 +12,7 @@ import type {
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { TenantService } from "../../infra/tenant/tenant.service";
-import { runUnscoped } from "../../infra/tenant/tenant.context";
+import { runUnscoped, tenancyMode } from "../../infra/tenant/tenant.context";
 import { IntegrationSettingsService } from "../integrations/integration-settings.service";
 
 export interface WhatsappCreds {
@@ -46,8 +51,10 @@ export class WhatsappConnectionService {
           version: this.version,
         };
       }
-      // El número pedido es el del .env.
+      // El número pedido es el del .env. Solo con una empresa: en SaaS el
+      // .env es de la plataforma y ningún cliente envía con él.
       if (
+        tenancyMode !== "multi" &&
         phoneNumberId === process.env.WHATSAPP_PHONE_NUMBER_ID &&
         process.env.WHATSAPP_TOKEN
       ) {
@@ -74,7 +81,7 @@ export class WhatsappConnectionService {
     }
     const envToken = process.env.WHATSAPP_TOKEN;
     const envPhone = process.env.WHATSAPP_PHONE_NUMBER_ID;
-    if (envToken && envPhone) {
+    if (tenancyMode !== "multi" && envToken && envPhone) {
       return { token: envToken, phoneNumberId: envPhone, version: this.version };
     }
     return null;
@@ -216,7 +223,7 @@ export class WhatsappConnectionService {
     }
     const envToken = process.env.WHATSAPP_TOKEN;
     const envPhone = process.env.WHATSAPP_PHONE_NUMBER_ID;
-    if (envToken && envPhone) {
+    if (tenancyMode !== "multi" && envToken && envPhone) {
       return {
         connected: true,
         phoneNumberId: envPhone,
@@ -267,6 +274,16 @@ export class WhatsappConnectionService {
         status: "connected",
         statusReason: null,
       },
+    }).catch((e: { code?: string }) => {
+      // La extensión acota el upsert a la empresa en curso: si el número es
+      // de otra, no encuentra la fila y pasa a crear, y el índice único global
+      // de phoneNumberId lo rechaza. Sin esto el usuario vería un 500 opaco.
+      if (e.code === "P2002") {
+        throw new ConflictException(
+          "Ese número de WhatsApp ya está conectado en otra empresa",
+        );
+      }
+      throw e;
     });
     this.logger.log(`WhatsApp conectado (${input.mode}) ${input.phoneNumberId}`);
 
