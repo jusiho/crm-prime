@@ -71,6 +71,13 @@ export const en = {
     askAdmin: "Need access? Ask whoever administers {org}.",
     companyNotHere: "Your company isn't here yet?",
     createCompany: "Create it in a minute",
+    // Dominio raíz: aquí no se inicia sesión, se elige empresa.
+    findCompanyTitle: "Which company are you signing in to?",
+    findCompanySubtitle: "Each company signs in at its own address.",
+    companyAddress: "Your company's address",
+    goToCompany: "Go to my company",
+    unknownCompany: "We couldn't find a company at that address.",
+    forgotAddress: "Don't remember it? Ask whoever administers your company.",
     noAccount: "Don't have an account yet?",
     signUp: "Sign up",
     signUpTitle: "Create account",

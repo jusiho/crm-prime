@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   HttpException,
@@ -21,7 +22,7 @@ import type {
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { TenantService } from "../../infra/tenant/tenant.service";
 import { OrganizationService } from "../organizations/organization.service";
-import { runUnscoped } from "../../infra/tenant/tenant.context";
+import { runUnscoped, tenancyMode } from "../../infra/tenant/tenant.context";
 
 interface DeviceMeta {
   platform: Platform;
@@ -111,6 +112,14 @@ export class AuthService {
     // a quién buscar**: la contraseña sigue decidiendo si entra, y el `orgId`
     // del token se toma de la fila del usuario, no de aquí. Cambiar el `Host`
     // no te mete en otra empresa; como mucho hace que no te encuentren.
+    if (tenancyMode === "multi" && !input.orgSlug) {
+      // En SaaS el mismo correo puede existir en dos empresas: sin subdominio
+      // la búsqueda sería "a ver a quién encuentro", y eso no es un login.
+      throw new BadRequestException(
+        "Indica la dirección de tu empresa (subdominio)",
+      );
+    }
+
     const orgId = input.orgSlug
       ? (await this.orgs.resolveSlug(input.orgSlug))?.id
       : null;
@@ -432,11 +441,19 @@ export class AuthService {
       expiresIn: this.accessTtl,
     });
 
+    // `Organization` no lleva orgId, así que esta consulta no pasa por el
+    // filtro de empresa y no necesita contexto.
+    const org = await this.prisma.organization.findUnique({
+      where: { id: user.orgId },
+      select: { slug: true },
+    });
+
     const publicUser: PublicUser = {
       id: user.id,
       email: user.email,
       name: user.name,
       role: user.role as Role,
+      orgSlug: org?.slug,
     };
 
     return {

@@ -656,6 +656,17 @@ vencimiento.
 El comodín cubre **un solo nivel**: `acme.trimmo.lat` sí, `a.b.trimmo.lat` no.
 Por eso el middleware rechaza los slugs con punto.
 
+### El dominio raíz no inicia sesión
+
+`trimmo.lat/login` pregunta **cuál es tu empresa** y salta a
+`acme.trimmo.lat/login`, que es donde está el formulario de verdad. Igual que
+Slack con el workspace. No es estética: en SaaS el correo no identifica a nadie
+por sí solo —puede existir en dos empresas—, así que un login "sin empresa"
+sería una búsqueda a ver a quién encuentra. La API lo rechaza con 400 en modo
+multi, y el middleware manda a su subdominio a quien llegue al raíz con sesión
+(un marcador viejo, una sesión anterior al cambio). Para eso el login devuelve
+`orgSlug` y la web lo guarda en la sesión.
+
 ### El subdominio no da acceso
 
 `Host` lo controla quien llama: `curl -H "Host: otra.trimmo.lat"` dice lo que

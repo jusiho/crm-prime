@@ -94,6 +94,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           email: tokens.user.email,
           name: tokens.user.name ?? undefined,
           role: tokens.user.role,
+          orgSlug: tokens.user.orgSlug,
           accessToken: tokens.accessToken,
           refreshToken: tokens.refreshToken,
           accessTokenExpires: Date.now() + tokens.expiresIn * 1000,
@@ -109,13 +110,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.refreshToken = (user as any).refreshToken;
         token.accessTokenExpires = (user as any).accessTokenExpires;
         token.role = (user as any).role;
+        // Para mandar a su subdominio a quien entra por el dominio raíz.
+        token.orgSlug = (user as any).orgSlug;
       }
       // Sin refresco aquí: `auth()` descarta la cookie que devolvería, así que
       // el refresh token rotado se perdería. Lo hace el middleware.
       return token;
     },
     async session({ session, token }) {
-      if (session.user) (session.user as any).role = token.role;
+      if (session.user) {
+        (session.user as any).role = token.role;
+        (session.user as any).orgSlug = token.orgSlug;
+      }
       return session;
     },
   },

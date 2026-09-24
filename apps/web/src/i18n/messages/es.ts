@@ -71,6 +71,13 @@ export const es: Messages = {
     askAdmin: "¿Necesitas acceso? Pídeselo a quien administra {org}.",
     companyNotHere: "¿Tu empresa aún no está aquí?",
     createCompany: "Créala en un minuto",
+    // Dominio raíz: aquí no se inicia sesión, se elige empresa.
+    findCompanyTitle: "¿Cuál es tu empresa?",
+    findCompanySubtitle: "Cada empresa entra por su propia dirección.",
+    companyAddress: "Dirección de tu empresa",
+    goToCompany: "Ir a mi empresa",
+    unknownCompany: "No encontramos ninguna empresa en esa dirección.",
+    forgotAddress: "¿No la recuerdas? Pídesela a quien administra tu empresa.",
     noAccount: "¿No tienes cuenta?",
     signUp: "Regístrate",
     signUpTitle: "Crear cuenta",

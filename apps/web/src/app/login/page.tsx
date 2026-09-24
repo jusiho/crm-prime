@@ -4,6 +4,7 @@ import { AuthError } from "next-auth";
 import { auth, signIn } from "@/auth";
 import { currentOrgContext, currentOrgSlug } from "@/lib/org";
 import { OrgNotFound } from "./OrgNotFound";
+import { FindCompany } from "./FindCompany";
 import { safeCallbackUrl } from "@/lib/session-token";
 import { getTranslator } from "@/i18n/server";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
@@ -11,10 +12,15 @@ import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; expired?: string; callbackUrl?: string }>;
+  searchParams: Promise<{
+    error?: string;
+    expired?: string;
+    callbackUrl?: string;
+    slug?: string;
+  }>;
 }) {
   const t = await getTranslator();
-  const { error, expired, callbackUrl: rawCallback } = await searchParams;
+  const { error, expired, callbackUrl: rawCallback, slug } = await searchParams;
   const callbackUrl = safeCallbackUrl(rawCallback);
   const session = await auth();
   if (session) redirect(callbackUrl);
@@ -50,6 +56,25 @@ export default async function LoginPage({
       }
       throw e;
     }
+  }
+
+  // Dominio raíz en SaaS: aquí no se inicia sesión, se elige empresa.
+  if (esSaaS && ctx.kind === "none") {
+    return (
+      <main
+        style={{
+          display: "grid",
+          placeItems: "center",
+          minHeight: "100vh",
+          padding: 24,
+        }}
+      >
+        <div style={{ position: "absolute", top: 20, right: 20 }}>
+          <LanguageSwitcher />
+        </div>
+        <FindCompany baseDomain={baseDomain} error={error} slug={slug} />
+      </main>
+    );
   }
 
   if (ctx.kind === "unknown") {

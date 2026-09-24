@@ -141,6 +141,8 @@ export const ES_TO_EN: Record<string, string> = {
     "There is no organization in the context of this operation",
   "Ese número de WhatsApp ya está conectado en otra empresa":
     "That WhatsApp number is already connected to another company",
+  "Indica la dirección de tu empresa (subdominio)":
+    "Enter your company address (subdomain)",
 };
 
 /**

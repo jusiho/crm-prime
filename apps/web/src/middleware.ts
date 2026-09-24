@@ -54,6 +54,29 @@ function slugDe(host: string): string | null {
 }
 
 /**
+ * Rutas del dominio raíz que existen aunque tengas sesión: el alta, el pase y
+ * las de Auth.js. Todo lo demás, con sesión, pertenece a tu subdominio.
+ */
+const RAIZ_PERMITIDAS = ["/signup", "/handoff", "/api/", "/connect/"];
+
+/**
+ * Con sesión y en el dominio raíz, al subdominio de tu empresa.
+ *
+ * El dominio raíz no tiene app: es la portada y el alta. Quien llega ahí con
+ * sesión (un marcador viejo, una sesión de antes del cambio) tiene que acabar
+ * en `acme.trimmo.lat`, que es donde vive su cookie de verdad y su panel.
+ */
+function redirigirASuEmpresa(req: NextRequest, orgSlug: unknown): NextResponse | null {
+  if (!BASE || typeof orgSlug !== "string" || !orgSlug) return null;
+  const { pathname, search } = req.nextUrl;
+  if (RAIZ_PERMITIDAS.some((p) => pathname === p || pathname.startsWith(p))) return null;
+  const protocolo = BASE.startsWith("localhost") ? "http" : "https";
+  const puerto = (process.env.SAAS_BASE_DOMAIN ?? "").split(":")[1];
+  const host = `${orgSlug}.${BASE}${puerto ? `:${puerto}` : ""}`;
+  return NextResponse.redirect(`${protocolo}://${host}${pathname}${search}`, 307);
+}
+
+/**
  * Escribe el subdominio en las cabeceras de ENTRADA (no en las de salida): así
  * lo leen las páginas y los route handlers con `headers()`, y no se filtra al
  * navegador.
@@ -84,6 +107,14 @@ export async function middleware(req: NextRequest) {
   aplicarOrg(req);
 
   const session = await readSessionCookie(req.cookies);
+
+  // Dominio raíz con sesión → al subdominio de la empresa. Va antes del
+  // refresco: no tiene sentido renovar una cookie que no debería estar aquí.
+  if (session && !req.headers.get("x-org-slug")) {
+    const salto = redirigirASuEmpresa(req, session.token.orgSlug);
+    if (salto) return salto;
+  }
+
   const expires = session?.token.accessTokenExpires as number | undefined;
   if (!session || !expires || Date.now() < expires - REFRESH_MARGIN_MS) {
     return forward(req);
@@ -110,6 +141,7 @@ export async function middleware(req: NextRequest) {
     refreshToken: tokens.refreshToken,
     accessTokenExpires: Date.now() + tokens.expiresIn * 1000,
     role: tokens.user.role,
+    orgSlug: tokens.user.orgSlug ?? session.token.orgSlug,
   };
   return forward(req, await sessionCookieWrites(reader, session.name, token));
 }

@@ -61,6 +61,9 @@ export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 
 // ── Respuestas ───────────────────────────────────────────────
 export const publicUserSchema = z.object({
+  // Subdominio de la empresa del usuario. La web lo guarda en la sesión para
+  // poder mandar al sitio correcto a quien entra por el dominio raíz.
+  orgSlug: z.string().optional(),
   id: z.string(),
   email: z.string().email(),
   name: z.string().nullable(),
