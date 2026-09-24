@@ -6,24 +6,30 @@ export const metadata = { title: "Conectar WhatsApp" };
 /**
  * Conector de WhatsApp en el dominio raíz. Sin sesión: lo que autoriza es el
  * pase de la URL, emitido desde el panel de la empresa. Ver ConnectHubController.
+ *
+ * `embed=1`: va dentro del modal del panel (iframe), sin cabecera propia.
  */
 export default async function ConnectWhatsappPage({
   searchParams,
 }: {
-  searchParams: Promise<{ ticket?: string }>;
+  searchParams: Promise<{ ticket?: string; embed?: string }>;
 }) {
   const t = await getTranslator();
-  const { ticket } = await searchParams;
+  const { ticket, embed: embedParam } = await searchParams;
+  const embed = embedParam === "1";
 
   return (
-    <main style={{ display: "grid", placeItems: "center", minHeight: "100vh", padding: 24 }}>
+    <main style={{ display: "grid", placeItems: "center", minHeight: "100vh", padding: embed ? 16 : 24 }}>
       <div style={{ width: "100%", maxWidth: 420 }}>
-        <p style={{ margin: "0 0 14px", fontWeight: 700, fontSize: 16, letterSpacing: "-0.01em" }}>
-          Trimmo
-        </p>
+        {!embed && (
+          <p style={{ margin: "0 0 14px", fontWeight: 700, fontSize: 16, letterSpacing: "-0.01em" }}>
+            Trimmo
+          </p>
+        )}
         {ticket ? (
           <ConnectWhatsappHub
             ticket={ticket}
+            embed={embed}
             t={{
               title: t("connect.title"),
               subtitle: t("connect.subtitle"),

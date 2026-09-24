@@ -59,12 +59,12 @@ export const es: Messages = {
   connect: {
     title: "Conecta tu WhatsApp",
     subtitle:
-      "Se abrirá la ventana oficial de Meta. Elige tu cuenta y tu número, y escanea el QR con tu app de WhatsApp Business. Al terminar volverás a tu panel.",
+      "Se abrirá la ventana oficial de Meta. Elige tu cuenta y tu número, y escanea el QR con tu app de WhatsApp Business.",
     loadingSdk: "Cargando…",
     continueWithMeta: "Continuar con Meta",
     waiting: "Esperando a Meta…",
     saving: "Guardando tu número…",
-    done: "¡Listo! Volviendo a tu panel…",
+    done: "¡Listo! Número conectado.",
     notCompleted: "No se completó la conexión. Puedes intentarlo otra vez.",
     missingConfig: "La conexión de WhatsApp aún no está configurada en esta plataforma.",
     backHint: "Si no pasa nada, cierra esta ventana y pulsa \"Conectar WhatsApp\" otra vez desde tu panel.",

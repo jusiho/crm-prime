@@ -27,7 +27,10 @@ declare global {
 /**
  * `hub`: instalación SaaS. El SDK de Meta NO carga aquí (Meta solo lo permite
  * en dominios listados a mano, y este es el subdominio de una empresa): el
- * botón pide un pase y salta al conector en el dominio raíz.
+ * botón pide un pase y enseña el conector del dominio raíz en un modal, dentro
+ * de un iframe. Meta mira el dominio del marco que llama a `FB.login`, no el
+ * de la página de fuera: el usuario no sale de su subdominio y aun así el SDK
+ * arranca en el dominio listado.
  */
 export function WhatsAppConnect({ hub = false }: { hub?: boolean }) {
   const queryClient = useQueryClient();
@@ -35,6 +38,9 @@ export function WhatsAppConnect({ hub = false }: { hub?: boolean }) {
   const [hubError, setHubError] = useState<string | null>(null);
   const [hubPending, setHubPending] = useState(false);
   const [justConnected, setJustConnected] = useState(false);
+  // URL del conector en el modal (iframe) y su origen: solo se aceptan sus avisos.
+  const [hubUrl, setHubUrl] = useState<string | null>(null);
+  const hubOriginRef = useRef<string | null>(null);
   const [manualOpen, setManualOpen] = useState(false);
   // Canal cuyo token se va a renovar: precarga el formulario manual.
   const [editing, setEditing] = useState<WhatsappChannel | null>(null);
@@ -67,6 +73,41 @@ export function WhatsAppConnect({ hub = false }: { hub?: boolean }) {
       window.history.replaceState(null, "", limpia);
     }
   }, [queryClient]);
+
+  // Aviso del conector (iframe) al terminar: cerrar el modal y refrescar sin
+  // recargar.
+  useEffect(() => {
+    if (!hub) return;
+    function onMessage(e: MessageEvent) {
+      if (!hubOriginRef.current || e.origin !== hubOriginRef.current) return;
+      if (e.data?.type !== "trimmo:whatsapp-connected") return;
+      setHubUrl(null);
+      setHubPending(false);
+      setJustConnected(true);
+      queryClient.invalidateQueries({ queryKey: ["wa-channels"] });
+    }
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [hub, queryClient]);
+
+  // Cerrar el modal a medias (Esc, la X o fuera): el botón vuelve a estar
+  // disponible y se refresca la lista por si en realidad sí acabó.
+  function cerrarConector() {
+    setHubUrl(null);
+    setHubPending(false);
+    queryClient.invalidateQueries({ queryKey: ["wa-channels"] });
+  }
+  useEffect(() => {
+    if (!hubUrl) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setHubUrl(null);
+      setHubPending(false);
+      queryClient.invalidateQueries({ queryKey: ["wa-channels"] });
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [hubUrl, queryClient]);
 
   // Cargar el SDK de Facebook (Embedded Signup). En SaaS no: ver `hub`.
   useEffect(() => {
@@ -116,13 +157,20 @@ export function WhatsAppConnect({ hub = false }: { hub?: boolean }) {
 
   async function launch() {
     if (hub) {
-      // Al conector en el dominio raíz, con un pase de un solo uso.
+      // Al conector en el dominio raíz, con un pase de un solo uso, dentro de
+      // un modal: el panel se queda aquí y se refresca al terminar. La ventana
+      // de Meta la abre el propio conector con el clic del usuario dentro del
+      // iframe, así que aquí no hay que pelearse con el bloqueador de
+      // emergentes.
       setHubError(null);
       setHubPending(true);
       try {
         const t = await requestWhatsappConnectTicket();
         if (!t.connectUrl) throw new Error("El conector no está disponible");
-        window.location.assign(t.connectUrl);
+        const url = new URL(t.connectUrl);
+        url.searchParams.set("embed", "1");
+        hubOriginRef.current = url.origin;
+        setHubUrl(url.toString());
       } catch (e) {
         setHubError((e as Error).message);
         setHubPending(false);
@@ -282,9 +330,68 @@ export function WhatsAppConnect({ hub = false }: { hub?: boolean }) {
       </div>
 
       <WebhookInfo />
+
+      {hubUrl && (
+        <div className="confirm-backdrop" onClick={cerrarConector}>
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Conectar WhatsApp"
+            style={hubDialog}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={hubHead}>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontWeight: 600 }}>
+                <WaIcon />
+                Conectar WhatsApp
+              </span>
+              <button onClick={cerrarConector} aria-label="Cerrar" style={hubClose}>
+                <NavIcon name="x" size={16} />
+              </button>
+            </div>
+            {/* El conector del dominio raíz: ahí sí arranca el SDK de Meta. */}
+            <iframe src={hubUrl} title="Conectar WhatsApp" style={hubFrame} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
+const hubDialog: React.CSSProperties = {
+  width: 480,
+  maxWidth: "100%",
+  borderRadius: 12,
+  background: "var(--bg)",
+  border: "1px solid var(--border)",
+  boxShadow: "var(--shadow-card)",
+  overflow: "hidden",
+};
+
+const hubHead: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  padding: "12px 14px",
+  borderBottom: "1px solid var(--border)",
+  background: "var(--panel)",
+};
+
+const hubClose: React.CSSProperties = {
+  border: "none",
+  background: "transparent",
+  color: "var(--muted)",
+  cursor: "pointer",
+  padding: 4,
+  display: "inline-flex",
+};
+
+const hubFrame: React.CSSProperties = {
+  display: "block",
+  width: "100%",
+  height: 320,
+  border: 0,
+};
 
 /**
  * Alta manual de un número con credenciales de Meta.

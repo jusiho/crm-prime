@@ -59,12 +59,12 @@ export const en = {
   connect: {
     title: "Connect your WhatsApp",
     subtitle:
-      "Meta's official window will open. Choose your account and number, and scan the QR with your WhatsApp Business app. When you're done, you'll be taken back to your dashboard.",
+      "Meta's official window will open. Choose your account and number, and scan the QR with your WhatsApp Business app.",
     loadingSdk: "Loading…",
     continueWithMeta: "Continue with Meta",
     waiting: "Waiting for Meta…",
     saving: "Saving your number…",
-    done: "Done! Taking you back…",
+    done: "Done! Number connected.",
     notCompleted: "The connection wasn't completed. You can try again.",
     missingConfig: "WhatsApp connection is not configured on this platform yet.",
     backHint: "If nothing happens, close this window and press \"Connect WhatsApp\" again from your dashboard.",

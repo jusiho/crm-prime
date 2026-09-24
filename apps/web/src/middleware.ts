@@ -89,6 +89,23 @@ function aplicarOrg(req: NextRequest): void {
   else req.headers.delete("x-org-slug"); // que nadie la inyecte desde fuera
 }
 
+/**
+ * El conector de Meta (`/connect/…`) vive en el dominio raíz pero se enseña
+ * dentro de un modal del panel de cada empresa, en un iframe. Hay que dejar
+ * que lo enmarquen los subdominios, y solo ellos. `frame-ancestors` manda
+ * sobre cualquier `X-Frame-Options` que añada el proxy.
+ */
+function permitirMarco(req: NextRequest, res: NextResponse): void {
+  if (!req.nextUrl.pathname.startsWith("/connect/")) return;
+  let hermanos = "";
+  if (BASE) {
+    const protocolo = BASE.startsWith("localhost") ? "http" : "https";
+    const puerto = (process.env.SAAS_BASE_DOMAIN ?? "").split(":")[1];
+    hermanos = ` ${protocolo}://*.${BASE}${puerto ? `:${puerto}` : ""}`;
+  }
+  res.headers.set("Content-Security-Policy", `frame-ancestors 'self'${hermanos}`);
+}
+
 function forward(req: NextRequest, writes: CookieWrite[] = []): NextResponse {
   // La cookie de la request debe quedar lista ANTES de crear la response:
   // NextResponse.next copia las cabeceras en ese momento.
@@ -98,6 +115,7 @@ function forward(req: NextRequest, writes: CookieWrite[] = []): NextResponse {
   }
   const res = NextResponse.next({ request: { headers: req.headers } });
   for (const w of writes) res.cookies.set(w.name, w.value, w.options);
+  permitirMarco(req, res);
   return res;
 }
 
