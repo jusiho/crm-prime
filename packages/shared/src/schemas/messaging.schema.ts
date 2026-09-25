@@ -133,7 +133,19 @@ export const conversationDtoSchema = z.object({
   windowExpiresAt: z.string().nullable(),
   windowOpen: z.boolean(),
   lastMessageAt: z.string().nullable(),
-  unread: z.number().optional(),
+  // Mensajes del contacto desde la última vez que alguien abrió el chat.
+  unreadCount: z.number().default(0),
+  // El último mensaje, para la vista previa de la fila (solo en el listado).
+  lastMessage: z
+    .object({
+      direction: z.nativeEnum(MessageDirection),
+      type: z.nativeEnum(MessageType),
+      author: z.nativeEnum(MessageAuthor),
+      text: z.string().nullable(),
+      at: z.string(),
+    })
+    .nullable()
+    .default(null),
 });
 export type ConversationDto = z.infer<typeof conversationDtoSchema>;
 

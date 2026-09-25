@@ -62,7 +62,9 @@ export type IconName =
   | "plus"
   | "filter"
   | "inbox-check"
-  | "hourglass";
+  | "hourglass"
+  | "bell"
+  | "bell-off";
 
 export function NavIcon({ name, size = 18 }: { name: IconName; size?: number }) {
   const p = {
@@ -306,6 +308,22 @@ export function NavIcon({ name, size = 18 }: { name: IconName; size?: number }) 
       return (
         <svg {...p}>
           <path d="M6 6l12 12M18 6 6 18" />
+        </svg>
+      );
+    case "bell":
+      return (
+        <svg {...p}>
+          <path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 2h-15z" />
+          <path d="M10 20.5a2 2 0 0 0 4 0" />
+        </svg>
+      );
+    case "bell-off":
+      return (
+        <svg {...p}>
+          <path d="M8.6 5.4A6 6 0 0 1 18 11v5.5l1.5 2H9" />
+          <path d="M6 11v5.5l-1.5 2H5" />
+          <path d="M10 20.5a2 2 0 0 0 4 0" />
+          <path d="M3 3l18 18" />
         </svg>
       );
     case "alert":

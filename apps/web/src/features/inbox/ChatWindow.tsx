@@ -17,6 +17,7 @@ import {
   fetchMessages,
   fetchNotes,
   fetchSources,
+  markConversationRead,
   reactToMessage,
   sendMessage,
   setAiMode,
@@ -61,7 +62,17 @@ function windowLeft(iso: string | null): string | null {
   return hours > 0 ? `${hours} h` : `${minutes} min`;
 }
 
-export function ChatWindow({ conversation }: { conversation: ConversationDto }) {
+export function ChatWindow({
+  conversation,
+  onBack,
+  onCloseAndNext,
+}: {
+  conversation: ConversationDto;
+  /** Móvil: volver a la lista. */
+  onBack?: () => void;
+  /** Cerrar esta conversación y abrir la siguiente de la lista. */
+  onCloseAndNext?: () => void;
+}) {
   const t = useT();
   const locale = useLocale();
   const queryClient = useQueryClient();
@@ -148,6 +159,15 @@ export function ChatWindow({ conversation }: { conversation: ConversationDto }) 
 
   const invalidateConvs = () =>
     queryClient.invalidateQueries({ queryKey: ["conversations"] });
+
+  // Abrir el chat (o recibir mensajes con él abierto) lo marca como leído.
+  useEffect(() => {
+    if ((conversation.unreadCount ?? 0) === 0) return;
+    void markConversationRead(conversation.id)
+      .then(invalidateConvs)
+      .catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversation.id, conversation.unreadCount]);
 
   const sendMut = useMutation({
     mutationFn: async () => {
@@ -254,13 +274,24 @@ export function ChatWindow({ conversation }: { conversation: ConversationDto }) 
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      <header style={chatHeader}>
-        <div style={{ display: "flex", gap: 12, minWidth: 0 }}>
+      <header className="chat-header" style={chatHeader}>
+        <div className="chat-header__id" style={{ display: "flex", gap: 12, minWidth: 0, alignItems: "center", flex: "1 1 220px" }}>
+          {onBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              title={t("inbox.back")}
+              aria-label={t("inbox.back")}
+              style={toggleBtn(false)}
+            >
+              <NavIcon name="arrow-left" size={16} />
+            </button>
+          )}
           <span style={avatar} aria-hidden>
             {initials(conversation.contact.name ?? conversation.contact.phone)}
           </span>
           <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
-            <strong style={{ fontSize: 16 }}>
+            <strong style={{ fontSize: 16, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {conversation.contact.name ?? conversation.contact.phone}
             </strong>
             <span style={{ color: "var(--muted)", fontSize: 13 }}>
@@ -278,7 +309,7 @@ export function ChatWindow({ conversation }: { conversation: ConversationDto }) 
           </div>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <div className="chat-header__tools" style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
           {/* Cuánto queda de la ventana de 24 h: el dato que decide si puedes
               escribir libre o solo mandar una plantilla. */}
           {left && (
@@ -346,6 +377,19 @@ export function ChatWindow({ conversation }: { conversation: ConversationDto }) 
               {t("inbox.statusClosed")}
             </option>
           </select>
+
+          {onCloseAndNext && conversation.status !== ConversationStatus.CLOSED && (
+            <button
+              type="button"
+              onClick={onCloseAndNext}
+              title={t("inbox.closeAndNext")}
+              aria-label={t("inbox.closeAndNext")}
+              style={{ ...toggleBtn(false), width: "auto", padding: "0 10px", gap: 6 }}
+            >
+              <NavIcon name="check" size={15} />
+              {t("inbox.closeAndNextShort")}
+            </button>
+          )}
 
           {/* Antes decía solo "Notas" y no se sabía si había alguna sin
               abrirlo. El número lo dice de un vistazo. */}

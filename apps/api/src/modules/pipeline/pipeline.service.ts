@@ -383,7 +383,11 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
    * asignada al vendedor de su fuente con menos carga. Si tenía una
    * descartada por inactividad, vuelve: acaba de responder.
    */
-  async intakeFromWhatsapp(contactId: string, channelId: string | null): Promise<void> {
+  async intakeFromWhatsapp(
+    contactId: string,
+    channelId: string | null,
+    conversationId: string | null = null,
+  ): Promise<void> {
     const channel = channelId
       ? await this.prisma.whatsappConnection.findUnique({
           where: { id: channelId },
@@ -430,6 +434,14 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
         title: contact.name ?? contact.phone,
       },
     });
+    // La conversación sigue al mismo vendedor: le aparece en "Mías" sin que
+    // nadie la reparta a mano. Solo si nadie la había asignado ya.
+    if (ownerId && conversationId) {
+      await this.prisma.conversation.updateMany({
+        where: { id: conversationId, assignedAgentId: null },
+        data: { assignedAgentId: ownerId },
+      });
+    }
     this.changed(deal.id);
   }
 

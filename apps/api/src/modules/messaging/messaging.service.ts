@@ -226,12 +226,6 @@ export class MessagingService {
     // (interesa la PRIMERA campaña que lo trajo, no la última).
     if (hasUtms) await this.mergeUtms(contact.id, utms);
 
-    // Entrada al embudo: si la empresa activó la regla y el contacto no tiene
-    // una oportunidad en curso, aparece en "Entrantes" sin que nadie la cree.
-    await this.pipeline
-      .intakeFromWhatsapp(contact.id, channelId)
-      .catch((e: Error) => this.logger.warn(`Entrada al embudo falló: ${e.message}`));
-
     // Reusar conversación abierta o crear una nueva. La ventana de 24h se
     // renueva con cada mensaje entrante del contacto.
     const open = await this.prisma.conversation.findFirst({
@@ -248,6 +242,7 @@ export class MessagingService {
             lastMessageAt: now,
             status: "OPEN",
             awaitingReply: true, // el contacto escribió: queda pendiente de responder
+            unreadCount: { increment: 1 },
             // Fija el canal si aún no lo tenía (conversaciones previas).
             ...(channelId && !open.channelId ? { channelId } : {}),
           },
@@ -261,12 +256,20 @@ export class MessagingService {
             windowExpiresAt,
             lastMessageAt: now,
             awaitingReply: true,
+            unreadCount: 1,
             // Qué anuncio abrió esta conversación (null si no vino de uno).
             ...(referral
               ? { referral: referral as unknown as Prisma.InputJsonObject }
               : {}),
           },
         });
+
+    // Entrada al embudo: si la empresa activó la regla y el contacto no tiene
+    // una oportunidad en curso, aparece en "Entrantes" sin que nadie la cree,
+    // y la conversación queda asignada al mismo vendedor.
+    await this.pipeline
+      .intakeFromWhatsapp(contact.id, channelId, conversation.id)
+      .catch((e: Error) => this.logger.warn(`Entrada al embudo falló: ${e.message}`));
 
     // La cita llega como waMessageId de Meta: se traduce al id nuestro.
     const quoted = msg.replyToWaMessageId
@@ -951,10 +954,32 @@ export class MessagingService {
         contact: { include: { tags: { include: { tag: true } }, source: true } },
         assignedAgent: true,
         channel: true,
+        // El último mensaje, para la vista previa de la fila.
+        messages: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          select: { direction: true, type: true, content: true, author: true, createdAt: true },
+        },
       },
       take: 100,
     });
     return rows.map((c) => this.toConversationDto(c));
+  }
+
+  /** Alguien abrió el chat: los mensajes del contacto ya no cuentan como nuevos. */
+  async markRead(id: string): Promise<ConversationDto> {
+    const c = await this.prisma.conversation
+      .update({
+        where: { id },
+        data: { unreadCount: 0, lastReadAt: new Date() },
+        include: { contact: { include: { tags: { include: { tag: true } }, source: true } }, assignedAgent: true, channel: true },
+      })
+      .catch(() => {
+        throw new NotFoundException("Conversación no encontrada");
+      });
+    // Que las demás pestañas y compañeros dejen de ver el contador.
+    this.notify(c.id);
+    return this.toConversationDto(c);
   }
 
   async assignConversation(
@@ -1035,6 +1060,7 @@ export class MessagingService {
     awaitingReply: boolean;
     windowExpiresAt: Date | null;
     lastMessageAt: Date | null;
+    unreadCount?: number;
     contact: {
       id: string;
       phone: string;
@@ -1048,11 +1074,30 @@ export class MessagingService {
       label: string | null;
       displayPhoneNumber: string | null;
     } | null;
+    // Solo el listado lo trae (take: 1); el resto de llamadas no lo necesita.
+    messages?: {
+      direction: string;
+      type: string;
+      content: string | null;
+      author: string;
+      createdAt: Date;
+    }[];
   }): ConversationDto {
     const now = new Date();
+    const last = c.messages?.[0];
     return {
       id: c.id,
       status: c.status as ConversationStatus,
+      unreadCount: c.unreadCount ?? 0,
+      lastMessage: last
+        ? {
+            direction: last.direction as MessageDirection,
+            type: last.type as MessageType,
+            author: last.author as MessageAuthor,
+            text: last.content,
+            at: last.createdAt.toISOString(),
+          }
+        : null,
       contact: {
         id: c.contact.id,
         phone: c.contact.phone,

@@ -773,3 +773,68 @@ code {
 .flow-edge-tools.is-selected button {
   opacity: 1;
 }
+
+/* ── Pantallas estrechas: menú lateral desplegable y bandeja a un panel ── */
+.mobile-menu-btn {
+  display: none;
+  margin-right: 12px;
+  flex-shrink: 0;
+}
+.mobile-nav-backdrop {
+  display: none;
+}
+@media (max-width: 900px) {
+  .mobile-menu-btn {
+    display: inline-flex;
+  }
+  .side-nav {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 70;
+    width: var(--sidebar-w) !important;
+    transform: translateX(-104%);
+    transition: transform 0.18s ease;
+    box-shadow: var(--shadow-drawer);
+  }
+  body.nav-open .side-nav {
+    transform: none;
+  }
+  .mobile-nav-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    background: rgba(0, 0, 0, 0.5);
+  }
+  /* La bandeja: lista o chat, nunca los dos. */
+  .inbox-list {
+    width: 100% !important;
+    border-right: none !important;
+  }
+}
+
+/* Cabecera y chat en pantallas estrechas: menos texto, más sitio. */
+@media (max-width: 900px) {
+  .topbar-subtitle,
+  .user-chip__text {
+    display: none;
+  }
+  .chat-header {
+    flex-wrap: wrap;
+    gap: 8px !important;
+    padding: 10px 12px !important;
+  }
+  .chat-header__id {
+    flex: 1 1 100% !important;
+  }
+  .chat-header__tools {
+    justify-content: flex-start !important;
+  }
+}
+@media (max-width: 600px) {
+  .topbar-lang {
+    display: none;
+  }
+}

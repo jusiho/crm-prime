@@ -102,6 +102,12 @@ export class MessagingController {
     return this.messaging.setStatus(id, body.status);
   }
 
+  // Al abrir el chat: los mensajes del contacto dejan de contar como nuevos.
+  @Patch("conversations/:id/read")
+  markRead(@Param("id") id: string) {
+    return this.messaging.markRead(id);
+  }
+
   @Patch("conversations/:id/ai-mode")
   setAiMode(
     @Param("id") id: string,

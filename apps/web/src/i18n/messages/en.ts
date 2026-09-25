@@ -231,6 +231,28 @@ export const en = {
     aiPausedChip: "Paused · resume",
     aiPausedHint:
       "The AI pauses for 15 min when a human replies. Click to resume it now.",
+    // Rows, alerts and shortcuts
+    previewImage: "Image",
+    previewVideo: "Video",
+    previewAudio: "Audio",
+    previewDocument: "Document",
+    previewLocation: "Location",
+    previewOther: "Message",
+    unreadCount: "{n} unread",
+    waitingFor: "Waiting for a reply for {time}",
+    awaitingCount: "{n} awaiting reply",
+    sortRecent: "Sort by most recent",
+    sortRecentShort: "Recent",
+    sortWaiting: "Sort by longest waiting",
+    sortWaitingShort: "Waiting",
+    channelFilter: "WhatsApp number",
+    allChannels: "All numbers",
+    notifyEnable: "Turn on alerts: sound and notification when a message arrives",
+    notifyOn: "Alerts on (click to turn off)",
+    notifyBlocked: "The browser blocked notifications; sound stays on",
+    back: "Back to the list",
+    closeAndNext: "Close this conversation and move to the next one",
+    closeAndNextShort: "Close & next",
   },
 };
 

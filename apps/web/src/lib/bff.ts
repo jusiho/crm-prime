@@ -169,6 +169,12 @@ export async function assignConversation(
   return res.json();
 }
 
+/** Al abrir el chat: pone a cero los mensajes sin leer de la conversación. */
+export async function markConversationRead(conversationId: string): Promise<void> {
+  const res = await bffFetch(`/api/bff/conversations/${conversationId}/read`, { method: "PATCH" });
+  if (!res.ok) throw new Error("No se pudo marcar como leída");
+}
+
 export async function setConversationStatus(
   conversationId: string,
   status: ConversationStatus,

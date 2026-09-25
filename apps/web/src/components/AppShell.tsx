@@ -5,6 +5,7 @@ import { readSessionCookie, revokeRefreshToken } from "@/lib/session-token";
 import { NavIcon } from "./NavIcons";
 import { SideNav, type NavKey } from "./SideNav";
 import { LanguageSwitcher } from "./LanguageSwitcher";
+import { MobileMenuButton } from "./MobileMenuButton";
 import { getTranslator } from "@/i18n/server";
 import type { MessageKey } from "@/i18n/translate";
 
@@ -51,16 +52,19 @@ export async function AppShell({
 
       <div style={main}>
         <header style={topbar}>
-          <div>
-            <div style={{ fontSize: 16, fontWeight: 700 }}>
+          <MobileMenuButton />
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div style={{ fontSize: 16, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
               {t(`pages.${page}.title` as MessageKey)}
             </div>
-            <div style={{ fontSize: 12.5, color: "var(--muted)" }}>
+            <div className="topbar-subtitle" style={{ fontSize: 12.5, color: "var(--muted)" }}>
               {t(`pages.${page}.subtitle` as MessageKey)}
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <LanguageSwitcher />
+            <span className="topbar-lang">
+              <LanguageSwitcher />
+            </span>
             <Link
               href="/account"
               className="user-chip"
@@ -68,7 +72,7 @@ export async function AppShell({
               title={t("nav.myAccount")}
             >
               <span style={avatar}>{(email[0] ?? "?").toUpperCase()}</span>
-              <div style={{ lineHeight: 1.2 }}>
+              <div className="user-chip__text" style={{ lineHeight: 1.2 }}>
                 <div style={{ fontSize: 13 }}>{email}</div>
                 <div style={{ fontSize: 11, color: "var(--muted)" }}>{role}</div>
               </div>

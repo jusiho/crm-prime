@@ -461,6 +461,9 @@ model Conversation {
   referral        Json?
   awaitingReply   Boolean            @default(false) // el contacto escribió y aún no respondemos
   lastMessageAt   DateTime?
+  // Mensajes del contacto desde la última vez que alguien abrió el chat.
+  unreadCount     Int                @default(0)
+  lastReadAt      DateTime?
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
 

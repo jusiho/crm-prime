@@ -108,7 +108,7 @@ export function SideNav({
   }
 
   return (
-    <aside style={{ ...sidebar, width: collapsed ? 64 : "var(--sidebar-w)" }}>
+    <aside className="side-nav" style={{ ...sidebar, width: collapsed ? 64 : "var(--sidebar-w)" }}>
       <div style={{ ...brand, justifyContent: collapsed ? "center" : "space-between" }}>
         {!collapsed && (
           <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
@@ -155,6 +155,7 @@ export function SideNav({
                   className={`nav-item${active === it.key ? " active" : ""}`}
                   style={collapsed ? collapsedItem : undefined}
                   title={collapsed ? t(it.labelKey) : undefined}
+                  onClick={() => document.body.classList.remove("nav-open")}
                 >
                   <NavIcon name={it.icon} />
                   {!collapsed && t(it.labelKey)}
