@@ -20,15 +20,7 @@ import { PrismaService } from "../../infra/prisma/prisma.service";
 import { runUnscoped } from "../../infra/tenant/tenant.context";
 import { env } from "../../common/utils/env";
 
-/** Etapas con las que arranca cualquier empresa nueva. */
-const ETAPAS = [
-  { name: "Nuevo", order: 0 },
-  { name: "Contactado", order: 1 },
-  { name: "Calificado", order: 2 },
-  { name: "Propuesta", order: 3 },
-  { name: "Ganado", order: 4, isWon: true },
-  { name: "Perdido", order: 5, isLost: true },
-];
+import { DEFAULT_STAGES } from "../pipeline/pipeline.service";
 
 const PROMPT_POR_DEFECTO = [
   "Eres un asistente de atención al cliente por WhatsApp.",
@@ -122,8 +114,22 @@ export class OrganizationService {
           },
         });
 
+        // Embudo "Ventas" con la entrada automática activada: lo que escriba
+        // un contacto nuevo aparece en "Entrantes" sin configurar nada.
+        const embudo = await tx.pipeline.create({
+          data: { orgId: creada.id, name: "Ventas", isDefault: true, inboundEnabled: true },
+        });
         await tx.pipelineStage.createMany({
-          data: ETAPAS.map((e) => ({ ...e, orgId: creada.id })),
+          data: DEFAULT_STAGES.map((e) => ({ ...e, orgId: creada.id, pipelineId: embudo.id })),
+        });
+        const entrada = await tx.pipelineStage.findFirst({
+          where: { pipelineId: embudo.id },
+          orderBy: { order: "asc" },
+          select: { id: true },
+        });
+        await tx.pipeline.update({
+          where: { id: embudo.id },
+          data: { inboundStageId: entrada?.id ?? null },
         });
 
         await tx.agentConfig.create({

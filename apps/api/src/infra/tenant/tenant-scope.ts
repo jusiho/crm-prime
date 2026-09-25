@@ -2,7 +2,7 @@ import { Prisma } from "@prisma/client";
 import { currentOrgId, isUnscoped, tenancyMode } from "./tenant.context";
 
 /**
- * Las 21 tablas que llevan `orgId`. El resto lo hereda por su padre y queda
+ * Las 22 tablas que llevan `orgId`. El resto lo hereda por su padre y queda
  * cubierto por la clave foránea (y, en la capa 2, por RLS).
  */
 const TENANT_MODELS = new Set<string>([
@@ -15,6 +15,7 @@ const TENANT_MODELS = new Set<string>([
   "Conversation",
   "Message",
   "Template",
+  "Pipeline",
   "PipelineStage",
   "Deal",
   "KnowledgeDoc",

@@ -158,7 +158,9 @@ export class MetaLeadService {
     name: string | null,
     formName: string | null,
   ): Promise<void> {
+    // Primera etapa del embudo predeterminado.
     const stage = await this.prisma.pipelineStage.findFirst({
+      where: { pipeline: { isDefault: true } },
       orderBy: { order: "asc" },
     });
     if (!stage) {

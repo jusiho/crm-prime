@@ -54,6 +54,7 @@ export function Landing() {
             <a href="#como">Cómo funciona</a>
             <a href="#porque">Por qué</a>
             <a href="#ediciones">Open source</a>
+            <Link href="/docs">Docs</Link>
           </nav>
           <div className="lp-nav__cta">
             <Link href="/login" className="lp-nav__login">Iniciar sesión</Link>
@@ -77,6 +78,7 @@ export function Landing() {
               <a href="#como" onClick={() => setMenuOpen(false)}>Cómo funciona</a>
               <a href="#porque" onClick={() => setMenuOpen(false)}>Por qué</a>
               <a href="#ediciones" onClick={() => setMenuOpen(false)}>Open source</a>
+              <Link href="/docs">Docs</Link>
               <Link href="/login">Iniciar sesión</Link>
             </div>
           </div>
@@ -413,6 +415,7 @@ export function Landing() {
           <nav className="lp-foot__links">
             <a href="#capacidades">Producto</a>
             <a href="#como">Cómo funciona</a>
+            <Link href="/docs">Documentación</Link>
             <a href={GITHUB} target="_blank" rel="noopener noreferrer">GitHub</a>
             <Link href="/login">Iniciar sesión</Link>
             <Link href="/privacy">Privacidad</Link>

@@ -17,6 +17,10 @@ import type {
   UpdateDealInput,
   CreateStageInput,
   UpdateStageInput,
+  CreatePipelineInput,
+  UpdatePipelineInput,
+  PipelineSummaryDto,
+  PipelineView,
   StageDto,
   DealDto,
   MessageDto,
@@ -1269,10 +1273,79 @@ export async function deleteProduct(id: string): Promise<void> {
 }
 
 // ── Pipeline ─────────────────────────────────────────────────
-export async function fetchPipeline(): Promise<PipelineDto> {
-  const res = await bffFetch("/api/bff/pipeline");
+/** Tablero de un embudo (sin id: el predeterminado). `view` = abiertas o descartadas. */
+export async function fetchPipeline(
+  pipelineId?: string,
+  view: PipelineView = "open",
+): Promise<PipelineDto> {
+  const q = new URLSearchParams();
+  if (pipelineId) q.set("id", pipelineId);
+  if (view !== "open") q.set("view", view);
+  const qs = q.toString();
+  const res = await bffFetch(`/api/bff/pipeline${qs ? `?${qs}` : ""}`);
   if (!res.ok) throw new Error("No se pudo cargar el pipeline");
   return res.json();
+}
+
+// ── Embudos ──────────────────────────────────────────────────
+export async function createPipeline(input: CreatePipelineInput): Promise<PipelineSummaryDto> {
+  const res = await bffFetch("/api/bff/pipelines", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(await bffError(res, "No se pudo crear el embudo"));
+  return res.json();
+}
+
+export async function updatePipeline(
+  id: string,
+  input: UpdatePipelineInput,
+): Promise<PipelineSummaryDto> {
+  const res = await bffFetch(`/api/bff/pipelines/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(await bffError(res, "No se pudo guardar el embudo"));
+  return res.json();
+}
+
+export async function deletePipeline(id: string): Promise<void> {
+  const res = await bffFetch(`/api/bff/pipelines/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(await bffError(res, "No se pudo eliminar el embudo"));
+}
+
+export async function reorderPipelines(ids: string[]): Promise<void> {
+  const res = await bffFetch("/api/bff/pipelines/reorder", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ids }),
+  });
+  if (!res.ok) throw new Error("No se pudo reordenar los embudos");
+}
+
+export async function discardDeal(dealId: string, reason?: string): Promise<DealDto> {
+  const res = await bffFetch(`/api/bff/deals/${dealId}/discard`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ reason }),
+  });
+  if (!res.ok) throw new Error("No se pudo descartar la oportunidad");
+  return res.json();
+}
+
+export async function restoreDeal(dealId: string): Promise<DealDto> {
+  const res = await bffFetch(`/api/bff/deals/${dealId}/restore`, { method: "POST" });
+  if (!res.ok) throw new Error("No se pudo restaurar la oportunidad");
+  return res.json();
+}
+
+/** Mensaje de error de la API si lo hay; si no, el de respaldo. */
+async function bffError(res: Response, fallback: string): Promise<string> {
+  const b = (await res.json().catch(() => null)) as { message?: string | string[] } | null;
+  const m = Array.isArray(b?.message) ? b?.message[0] : b?.message;
+  return m ?? fallback;
 }
 
 export async function createDeal(input: CreateDealInput): Promise<DealDto> {

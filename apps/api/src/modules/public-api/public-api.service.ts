@@ -187,7 +187,10 @@ export class PublicApiService {
 
     const stage = input.stage
       ? await this.findStage(input.stage)
-      : await this.prisma.pipelineStage.findFirst({ orderBy: { order: "asc" } });
+      : await this.prisma.pipelineStage.findFirst({
+          where: { pipeline: { isDefault: true } },
+          orderBy: { order: "asc" },
+        });
     if (!stage) {
       throw new BadRequestException(
         "No hay etapas de pipeline configuradas en el CRM",
@@ -232,6 +235,7 @@ export class PublicApiService {
   private async findStage(name: string) {
     const stage = await this.prisma.pipelineStage.findFirst({
       where: { name: { equals: name.trim(), mode: "insensitive" } },
+      orderBy: { pipeline: { isDefault: "desc" } },
     });
     if (!stage) {
       const all = await this.prisma.pipelineStage.findMany({
@@ -341,9 +345,11 @@ export class PublicApiService {
   }
 
   async funnel(): Promise<FunnelStage[]> {
+    // Embudo predeterminado, solo oportunidades abiertas.
     const stages = await this.prisma.pipelineStage.findMany({
+      where: { pipeline: { isDefault: true } },
       orderBy: { order: "asc" },
-      include: { deals: { select: { value: true } } },
+      include: { deals: { where: { discardedAt: null }, select: { value: true } } },
     });
     return stages.map((s) => ({
       stage: s.name,

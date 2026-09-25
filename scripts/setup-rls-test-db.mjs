@@ -45,8 +45,10 @@ psql(["-U", "crm", "-d", DB, "-q", "-c", `
     ('k1','o_a','Doc Acme','x',now()),('k2','o_b','Doc Globex','y',now());
   INSERT INTO knowledge_chunks (id,"docId",content) VALUES
     ('kc1','k1','secreto de Acme'),('kc2','k2','secreto de Globex');
-  INSERT INTO pipeline_stages (id,"orgId",name,"order") VALUES
-    ('s1','o_a','Nuevo',0),('s2','o_a','Ganado',1),('s3','o_b','Nuevo',0);
+  INSERT INTO pipelines (id,"orgId",name,"isDefault") VALUES
+    ('pl_a','o_a','Ventas',true),('pl_b','o_b','Ventas',true);
+  INSERT INTO pipeline_stages (id,"orgId","pipelineId",name,"order") VALUES
+    ('s1','o_a','pl_a','Nuevo',0),('s2','o_a','pl_a','Ganado',1),('s3','o_b','pl_b','Nuevo',0);
 `]);
 
 console.log(`✔ ${DB} lista. Ahora: npm run test:rls --workspace=apps/api`);

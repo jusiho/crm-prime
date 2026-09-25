@@ -49,6 +49,7 @@ import {
 } from "../../infra/storage/storage.provider";
 import type { MetaReferral } from "../whatsapp/webhook.types";
 import { TemplateFillService } from "../campaigns/template-fill.service";
+import { PipelineService } from "../pipeline/pipeline.service";
 import { i18n } from "../../i18n/i18n";
 
 // Aplana el payload de Meta a nuestra forma, en camelCase y con nulls
@@ -102,6 +103,7 @@ export class MessagingService {
     private readonly events: EventEmitter2,
     private readonly webhooks: WebhookOutService,
     private readonly fills: TemplateFillService,
+    private readonly pipeline: PipelineService,
   ) {}
 
   private notify(conversationId: string): void {
@@ -223,6 +225,12 @@ export class MessagingService {
     // Contacto ya existente: fusionar los utm_* nuevos sin pisar los previos
     // (interesa la PRIMERA campaña que lo trajo, no la última).
     if (hasUtms) await this.mergeUtms(contact.id, utms);
+
+    // Entrada al embudo: si la empresa activó la regla y el contacto no tiene
+    // una oportunidad en curso, aparece en "Entrantes" sin que nadie la cree.
+    await this.pipeline
+      .intakeFromWhatsapp(contact.id, channelId)
+      .catch((e: Error) => this.logger.warn(`Entrada al embudo falló: ${e.message}`));
 
     // Reusar conversación abierta o crear una nueva. La ventana de 24h se
     // renueva con cada mensaje entrante del contacto.

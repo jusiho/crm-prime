@@ -352,7 +352,7 @@ export class FlowEngineService {
     });
     if (!convo) return;
     const deal = await this.prisma.deal.findFirst({
-      where: { contactId: convo.contactId },
+      where: { contactId: convo.contactId, discardedAt: null },
       orderBy: { updatedAt: "desc" },
     });
     if (deal) {

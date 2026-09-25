@@ -57,7 +57,7 @@ function slugDe(host: string): string | null {
  * Rutas del dominio raíz que existen aunque tengas sesión: el alta, el pase y
  * las de Auth.js. Todo lo demás, con sesión, pertenece a tu subdominio.
  */
-const RAIZ_PERMITIDAS = ["/signup", "/handoff", "/api/", "/connect/"];
+const RAIZ_PERMITIDAS = ["/signup", "/handoff", "/api/", "/connect/", "/docs", "/privacy", "/data-deletion"];
 
 /**
  * Con sesión y en el dominio raíz, al subdominio de tu empresa.

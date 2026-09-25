@@ -120,7 +120,7 @@ model Organization {
 
 **21 de los 36 modelos.** Trece son raíz de verdad:
 
-`User` · `Tag` · `Product` · `Source` · `PipelineStage` · `WhatsappConnection` ·
+`User` · `Tag` · `Product` · `Source` · `Pipeline` · `PipelineStage` · `WhatsappConnection` ·
 `ApiKey` · `AiSetting` · `Template` · `KnowledgeDoc` · `CustomField` ·
 `IntegrationSetting` · `WebhookSubscription`
 

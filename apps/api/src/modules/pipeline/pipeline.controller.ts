@@ -6,20 +6,29 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from "@nestjs/common";
 import {
   createDealSchema,
+  createPipelineSchema,
   createStageSchema,
+  discardDealSchema,
   moveDealSchema,
+  reorderPipelinesSchema,
   reorderStagesSchema,
   updateDealSchema,
+  updatePipelineSchema,
   updateStageSchema,
   type CreateDealInput,
+  type CreatePipelineInput,
   type CreateStageInput,
+  type DiscardDealInput,
   type MoveDealInput,
+  type ReorderPipelinesInput,
   type ReorderStagesInput,
   type UpdateDealInput,
+  type UpdatePipelineInput,
   type UpdateStageInput,
 } from "@crm/shared";
 import { ZodValidationPipe } from "../../common/pipes/zod-validation.pipe";
@@ -31,11 +40,47 @@ import { PipelineService } from "./pipeline.service";
 export class PipelineController {
   constructor(private readonly pipeline: PipelineService) {}
 
+  // Tablero de un embudo (por defecto, el predeterminado). `view=discarded`
+  // devuelve las oportunidades descartadas en vez de las abiertas.
   @Get("pipeline")
-  getPipeline() {
-    return this.pipeline.getPipeline();
+  getPipeline(@Query("id") id?: string, @Query("view") view?: string) {
+    return this.pipeline.getPipeline(id || undefined, view === "discarded" ? "discarded" : "open");
   }
 
+  // ── Embudos ────────────────────────────────────────────────
+  @Get("pipelines")
+  listPipelines() {
+    return this.pipeline.listPipelines();
+  }
+
+  @Post("pipelines")
+  createPipeline(
+    @Body(new ZodValidationPipe(createPipelineSchema)) body: CreatePipelineInput,
+  ) {
+    return this.pipeline.createPipeline(body);
+  }
+
+  @Patch("pipelines/reorder")
+  reorderPipelines(
+    @Body(new ZodValidationPipe(reorderPipelinesSchema)) body: ReorderPipelinesInput,
+  ) {
+    return this.pipeline.reorderPipelines(body.ids);
+  }
+
+  @Patch("pipelines/:id")
+  updatePipeline(
+    @Param("id") id: string,
+    @Body(new ZodValidationPipe(updatePipelineSchema)) body: UpdatePipelineInput,
+  ) {
+    return this.pipeline.updatePipeline(id, body);
+  }
+
+  @Delete("pipelines/:id")
+  deletePipeline(@Param("id") id: string) {
+    return this.pipeline.deletePipeline(id);
+  }
+
+  // ── Oportunidades ──────────────────────────────────────────
   @Post("deals")
   createDeal(
     @Body(new ZodValidationPipe(createDealSchema)) body: CreateDealInput,
@@ -49,6 +94,19 @@ export class PipelineController {
     @Body(new ZodValidationPipe(moveDealSchema)) body: MoveDealInput,
   ) {
     return this.pipeline.moveDeal(id, body);
+  }
+
+  @Post("deals/:id/discard")
+  discardDeal(
+    @Param("id") id: string,
+    @Body(new ZodValidationPipe(discardDealSchema)) body: DiscardDealInput,
+  ) {
+    return this.pipeline.discardDeal(id, body);
+  }
+
+  @Post("deals/:id/restore")
+  restoreDeal(@Param("id") id: string) {
+    return this.pipeline.restoreDeal(id);
   }
 
   @Patch("deals/:id")

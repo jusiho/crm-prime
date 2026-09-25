@@ -14,6 +14,8 @@ export const whatsappChannelSchema = z.object({
   source: z.string(), // embedded | env
   isActive: z.boolean(),
   connectedAt: z.string().nullable(),
+  // Embudo al que entran sus conversaciones nuevas; null = el predeterminado.
+  pipelineId: z.string().nullable(),
 });
 export type WhatsappChannel = z.infer<typeof whatsappChannelSchema>;
 

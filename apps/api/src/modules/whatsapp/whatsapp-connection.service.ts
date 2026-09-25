@@ -178,6 +178,7 @@ export class WhatsappConnectionService {
       source: "embedded",
       isActive: c.isActive,
       connectedAt: c.connectedAt.toISOString(),
+      pipelineId: c.pipelineId,
     }));
 
     // El número del .env aparece como canal extra si no está ya en la BD.
@@ -190,6 +191,7 @@ export class WhatsappConnectionService {
     ) {
       channels.push({
         statusReason: null,
+        pipelineId: null,
         id: "env",
         phoneNumberId: envPhone,
         displayPhoneNumber: null,

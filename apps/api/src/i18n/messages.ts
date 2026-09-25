@@ -108,6 +108,11 @@ export const ES_TO_EN: Record<string, string> = {
   "Esta empresa no tiene configurada su propia app de Meta": "This company has not set up its own Meta app",
   "Esta ruta solo existe bajo el subdominio de una empresa": "This route only exists under a company subdomain",
   "Empresa no encontrada": "Company not found",
+  "Embudo no encontrado": "Pipeline not found",
+  "La etapa de entrada no es de este embudo": "The entry stage does not belong to this pipeline",
+  "No se puede eliminar el embudo predeterminado: marca otro como predeterminado primero": "The default pipeline cannot be deleted: make another one the default first",
+  "El embudo tiene oportunidades. Muévelas o elimínalas antes de borrarlo.": "The pipeline has deals. Move or delete them before removing it.",
+  "Las etapas a reordenar deben ser del mismo embudo": "Stages to reorder must belong to the same pipeline",
   "Se requiere code o accessToken": "Either code or accessToken is required",
   "No se pudo renovar tu sesión. Reintenta en unos segundos.":
     "Could not refresh your session. Try again in a few seconds.",

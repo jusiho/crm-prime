@@ -40,7 +40,9 @@ export class AgentActionsService {
         select: { name: true },
         orderBy: { name: "asc" },
       }),
+      // El agente trabaja sobre el embudo predeterminado.
       this.prisma.pipelineStage.findMany({
+        where: { pipeline: { isDefault: true } },
         select: { name: true },
         orderBy: { order: "asc" },
       }),
@@ -148,13 +150,15 @@ export class AgentActionsService {
   }
 
   private async moveDeal(contactId: string, stageName: string): Promise<string> {
+    // Con varios embudos el nombre puede repetirse: gana el predeterminado.
     const stage = await this.prisma.pipelineStage.findFirst({
       where: { name: stageName },
+      orderBy: { pipeline: { isDefault: "desc" } },
     });
     if (!stage) throw new Error(`La etapa "${stageName}" no existe`);
 
     const deal = await this.prisma.deal.findFirst({
-      where: { contactId },
+      where: { contactId, discardedAt: null },
       orderBy: { createdAt: "desc" },
     });
     if (deal) {
@@ -197,7 +201,7 @@ export class AgentActionsService {
     if (!seller) throw new Error(`El vendedor "${sellerName}" no existe`);
 
     const deal = await this.prisma.deal.findFirst({
-      where: { contactId },
+      where: { contactId, discardedAt: null },
       orderBy: { createdAt: "desc" },
     });
     if (!deal) {

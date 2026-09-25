@@ -160,6 +160,7 @@ model Organization {
   conversations      Conversation[]
   messages           Message[]
   templates          Template[]
+  pipelines          Pipeline[]
   pipelineStages     PipelineStage[]
   deals              Deal[]
   knowledgeDocs      KnowledgeDoc[]
@@ -714,20 +715,48 @@ model CampaignTag {
 // ─────────────────────────────────────────────────────────────
 
 // Columnas del kanban (configurables, ordenadas).
-model PipelineStage {
-  id        String   @id @default(cuid())
-  orgId     String
-  name      String
-  order     Int
-  isWon     Boolean  @default(false)
-  isLost    Boolean  @default(false)
-  createdAt DateTime @default(now())
+// Un embudo de la empresa. Puede haber varios (Ventas, Soporte, Renovaciones…)
+// y uno es el predeterminado. La entrada automática de WhatsApp se configura
+// aquí: al primer mensaje de un contacto sin oportunidad abierta se crea una
+// en `inboundStageId` (o en la primera etapa) y, si nadie la atiende en
+// `inboundDiscardDays`, se descarta sola.
+model Pipeline {
+  id                 String   @id @default(cuid())
+  orgId              String
+  name               String
+  order              Int      @default(0)
+  isDefault          Boolean  @default(false)
+  inboundEnabled     Boolean  @default(false)
+  inboundStageId     String?
+  inboundDiscardDays Int      @default(7) // 0 = nunca
+  createdAt          DateTime @default(now())
 
-  deals Deal[]
+  stages   PipelineStage[]
+  channels WhatsappConnection[]
 
   org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
-  @@unique([orgId, order])
+  @@index([orgId])
+  @@map("pipelines")
+}
+
+model PipelineStage {
+  id         String   @id @default(cuid())
+  orgId      String
+  pipelineId String
+  name       String
+  order      Int
+  isWon      Boolean  @default(false)
+  isLost     Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  deals Deal[]
+
+  pipeline Pipeline     @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([pipelineId, order])
+  @@index([orgId])
   @@map("pipeline_stages")
 }
 
@@ -740,6 +769,10 @@ model Deal {
   title     String
   value     Decimal? @db.Decimal(12, 2)
   currency  String   @default("USD")
+  // Descartada: no era una venta (soporte, spam…) o nadie la atendió a tiempo.
+  // No se borra: cuenta para el embudo y vuelve sola si el contacto escribe.
+  discardedAt   DateTime?
+  discardReason String? // "manual" | "auto" | texto libre
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -751,6 +784,7 @@ model Deal {
 
   @@index([contactId])
   @@index([orgId, stageId])
+  @@index([orgId, discardedAt])
   @@index([ownerId])
   @@map("deals")
 }
@@ -923,6 +957,9 @@ model WhatsappConnection {
   status             String   @default("connected") // connected | error
   statusReason       String? // motivo cuando status = error (token caducado…)
   isActive           Boolean  @default(true)
+  // Embudo al que entran las conversaciones nuevas de este número. Null = el
+  // predeterminado de la empresa.
+  pipelineId         String?
   connectedAt        DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
@@ -931,7 +968,8 @@ model WhatsappConnection {
   flows         Flow[]
   campaigns     Campaign[]
 
-  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  pipeline Pipeline?    @relation(fields: [pipelineId], references: [id], onDelete: SetNull)
+  org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@index([isActive])
   @@index([orgId])

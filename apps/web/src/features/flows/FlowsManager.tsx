@@ -19,8 +19,8 @@ export function FlowsManager() {
     queryFn: fetchFlows,
   });
   const { data: pipeline } = useQuery({
-    queryKey: ["pipeline"],
-    queryFn: fetchPipeline,
+    queryKey: ["pipeline", "default", "open"],
+    queryFn: () => fetchPipeline(),
   });
 
   const remove = useMutation({
@@ -34,7 +34,12 @@ export function FlowsManager() {
         flowId={view.id}
         channels={data?.channels ?? []}
         bots={data?.bots ?? []}
-        stages={(pipeline?.stages ?? []).map((s) => ({ id: s.id, name: s.name }))}
+        // Todas las etapas de todos los embudos; con más de uno, el nombre
+        // lleva el embudo delante para distinguirlas.
+        stages={(pipeline?.stagesAll ?? []).map((s) => ({
+          id: s.id,
+          name: (pipeline?.pipelines.length ?? 0) > 1 ? `${s.pipelineName} › ${s.name}` : s.name,
+        }))}
         agents={data?.agents ?? []}
         flows={data?.flows ?? []}
         onBack={() => setView({ kind: "list" })}

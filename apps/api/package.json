@@ -22,7 +22,8 @@
     "test:subdomain": "tsx --test test/subdomain.test.ts",
     "test:tickets": "tsx --test test/one-time-ticket.test.ts",
     "test:inbound": "tsx --test test/inbound-origin.test.ts",
-    "test:aikeys": "tsx --test test/ai-keys.test.ts"
+    "test:aikeys": "tsx --test test/ai-keys.test.ts",
+    "test:intake": "tsx --test test/pipeline-intake.test.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
