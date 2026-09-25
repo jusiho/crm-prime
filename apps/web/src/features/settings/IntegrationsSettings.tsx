@@ -14,6 +14,9 @@ import {
   updateIntegrationSettings,
 } from "@/lib/bff";
 import { toast } from "@/lib/toast";
+import { ghostBtn as ghostBase, primaryBtn, smBtn } from "@/components/ui";
+
+const ghostBtn: React.CSSProperties = { ...ghostBase, ...smBtn };
 
 /**
  * Ajustes › Integraciones. Credenciales que el CRM usa para llamar a
@@ -418,27 +421,6 @@ const hint: React.CSSProperties = {
   fontSize: 12,
   margin: "6px 0 0",
   lineHeight: 1.45,
-};
-
-const primaryBtn: React.CSSProperties = {
-  padding: "9px 16px",
-  borderRadius: 8,
-  border: "none",
-  background: "var(--accent)",
-  color: "#f3f8ff",
-  fontWeight: 600,
-  cursor: "pointer",
-};
-
-const ghostBtn: React.CSSProperties = {
-  padding: "8px 13px",
-  borderRadius: 8,
-  border: "1px solid var(--border)",
-  background: "transparent",
-  color: "var(--text)",
-  cursor: "pointer",
-  fontSize: 13,
-  whiteSpace: "nowrap",
 };
 
 const chip: React.CSSProperties = {

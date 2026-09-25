@@ -21,7 +21,8 @@
     "test:joborg": "tsx --test test/job-org.test.ts",
     "test:subdomain": "tsx --test test/subdomain.test.ts",
     "test:tickets": "tsx --test test/one-time-ticket.test.ts",
-    "test:inbound": "tsx --test test/inbound-origin.test.ts"
+    "test:inbound": "tsx --test test/inbound-origin.test.ts",
+    "test:aikeys": "tsx --test test/ai-keys.test.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

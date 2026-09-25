@@ -1,11 +1,12 @@
 import type { CSSProperties } from "react";
+import { card, input as fieldInput, primaryBtn as btnPrimary, ghostBtn as btnGhost } from "@/components/ui";
+
+// Los controles salen del módulo común (components/ui.ts) para que los
+// botones y campos de los agentes sean los mismos que en el resto del CRM.
+// Aquí solo queda lo que es propio de estas pantallas.
 
 export const box: CSSProperties = {
-  background: "var(--panel)",
-  border: "1px solid var(--border)",
-  borderRadius: 12,
-  padding: 18,
-  boxShadow: "var(--shadow-card)",
+  ...card,
   display: "flex",
   flexDirection: "column",
   gap: 12,
@@ -22,16 +23,7 @@ export const label: CSSProperties = {
   color: "var(--muted)",
 };
 
-export const input: CSSProperties = {
-  padding: "9px 11px",
-  borderRadius: 8,
-  border: "1px solid var(--border)",
-  background: "#0d1320",
-  color: "var(--text)",
-  fontSize: 14,
-  width: "100%",
-  boxSizing: "border-box",
-};
+export const input: CSSProperties = fieldInput;
 
 export const toggle: CSSProperties = {
   display: "flex",
@@ -41,21 +33,6 @@ export const toggle: CSSProperties = {
   cursor: "pointer",
 };
 
-export const primaryBtn: CSSProperties = {
-  padding: "10px 18px",
-  borderRadius: 8,
-  border: "none",
-  background: "var(--accent)",
-  color: "#f3f8ff",
-  fontWeight: 600,
-  cursor: "pointer",
-};
+export const primaryBtn: CSSProperties = { ...btnPrimary, padding: "10px 18px" };
 
-export const ghostBtn: CSSProperties = {
-  padding: "9px 14px",
-  borderRadius: 8,
-  border: "1px solid var(--border)",
-  background: "transparent",
-  color: "var(--muted)",
-  cursor: "pointer",
-};
+export const ghostBtn: CSSProperties = btnGhost;

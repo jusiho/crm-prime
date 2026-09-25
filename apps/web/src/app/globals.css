@@ -1,4 +1,8 @@
 :root {
+  /* Los controles nativos (desplegables de select, scrollbars, calendarios)
+     se pintan en oscuro: sin esto, un select abre una lista blanca. */
+  color-scheme: dark;
+
   --bg: #0b0f17;
   --panel: #131a26;
   --panel-2: #0f1726;
@@ -72,10 +76,36 @@ a:hover {
   color: #eaf2ff;
 }
 
-/* ── Pulido global de controles (no pisa estilos inline) ──────── */
+/* ── Scrollbars finos, del color del panel ───────────────────── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #2a3a57 transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #2a3a57;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: #3a4c6a;
+  background-clip: padding-box;
+}
+
+/* ── Pulido global de controles ──────────────────────────────────
+   Casi todos los controles llevan su estilo inline. Lo que el inline NO puede
+   expresar —hover, active, foco, apariencia nativa— se pone aquí, y donde
+   hace falta pisar un valor inline en un estado, se usa !important. Los
+   botones se reconocen por su fondo inline (transitorio: lo nuevo usa .btn). */
 button {
+  font-family: inherit;
   transition: filter 0.13s ease, transform 0.07s ease, opacity 0.13s ease,
-    background 0.13s ease, border-color 0.13s ease;
+    background 0.13s ease, border-color 0.13s ease, box-shadow 0.13s ease,
+    color 0.13s ease;
 }
 button:not(:disabled):hover {
   filter: brightness(1.08);
@@ -88,10 +118,40 @@ button:disabled {
   cursor: not-allowed !important;
 }
 
+/* Primario (azul de marca): más luz y una sombra corta al pasar. */
+button[style*="background: var(--accent)"]:not(:disabled):hover {
+  background: #4a86ff !important;
+  box-shadow: 0 4px 14px rgba(53, 120, 255, 0.35);
+  filter: none;
+}
+button[style*="background: var(--accent)"]:not(:disabled):active {
+  background: #2b69ea !important;
+  box-shadow: none;
+}
+
+/* Fantasma (fondo transparente con borde): se rellena un poco y el texto se
+   enciende, en vez de solo "brillar". */
+button[style*="background: transparent"]:not(:disabled):hover {
+  background: rgba(255, 255, 255, 0.045) !important;
+  border-color: #33466a !important;
+  color: var(--text) !important;
+  filter: none;
+}
+
+/* Peligro (borde rojo oscuro): el hover se tiñe de rojo, no de blanco. */
+button[style*="rgb(90, 42, 42)"]:not(:disabled):hover,
+button[style*="#5a2a2a"]:not(:disabled):hover {
+  background: var(--danger-soft) !important;
+  border-color: #7a3a3a !important;
+  color: #f0a0a0 !important;
+}
+
+/* ── Campos: inputs, selects y textareas ─────────────────────── */
 input,
 select,
 textarea {
-  transition: outline-color 0.12s ease, border-color 0.12s ease,
+  font-family: inherit;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease,
     background 0.12s ease;
   caret-color: var(--accent);
 }
@@ -99,11 +159,200 @@ input::placeholder,
 textarea::placeholder {
   color: #5d6e88;
 }
+:where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea):hover:not(:disabled):not(:focus) {
+  border-color: #33466a !important;
+}
+:where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea):focus {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+  outline: none;
+}
+input:disabled,
+select:disabled,
+textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
 
-/* Anillo de foco accesible (usa outline, que no se define inline) */
-:where(button, a, input, select, textarea, [tabindex]):focus-visible {
+/* Select: sin la flecha del sistema; una propia, del color del texto tenue.
+   Los !important hacen falta porque el `background: #…` inline (atajo) deja
+   la imagen de fondo en "none" y taparía la flecha. */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238aa0bd' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><path d='m6 9 6 6 6-6'/></svg>") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 10px center !important;
+  background-size: 14px !important;
+  padding-right: 30px !important;
+  cursor: pointer;
+}
+select:hover:not(:disabled) {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23e6edf6' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><path d='m6 9 6 6 6-6'/></svg>") !important;
+}
+select[multiple],
+select[size] {
+  background-image: none !important;
+  padding-right: 0 !important;
+}
+select option,
+select optgroup {
+  background: #0d1320;
+  color: var(--text);
+}
+
+/* Casillas y radios del color de marca, alineados con el texto. */
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--accent);
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  cursor: pointer;
+  vertical-align: -2px;
+}
+input[type="range"] {
+  accent-color: var(--accent);
+}
+
+/* Anillo de foco accesible para lo que no es un campo (los campos ya llevan
+   su borde y su halo). */
+:where(button, a, [tabindex]):focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+/* ── Clases reutilizables (para código nuevo y para ir migrando) ─
+   Botones: .btn + variante (.btn-primary | .btn-ghost | .btn-danger |
+   .btn-soft) + tamaño opcional (.btn-sm | .btn-lg | .btn-icon).
+   Campos: .field (+ .field-sm), .label. Segmentado: .seg > button. */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 9px 16px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+  text-decoration: none;
+}
+.btn-primary {
+  background: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+.btn-primary:not(:disabled):hover {
+  background: #4a86ff;
+  box-shadow: 0 4px 14px rgba(53, 120, 255, 0.35);
+  filter: none;
+}
+.btn-primary:not(:disabled):active {
+  background: #2b69ea;
+  box-shadow: none;
+}
+.btn-ghost {
+  background: transparent;
+  color: var(--text);
+  border-color: var(--border);
+}
+.btn-ghost:not(:disabled):hover {
+  background: rgba(255, 255, 255, 0.045);
+  border-color: #33466a;
+  filter: none;
+}
+.btn-danger {
+  background: transparent;
+  color: var(--danger);
+  border-color: #5a2a2a;
+}
+.btn-danger:not(:disabled):hover {
+  background: var(--danger-soft);
+  border-color: #7a3a3a;
+  color: #f0a0a0;
+  filter: none;
+}
+.btn-soft {
+  background: var(--accent-soft);
+  color: #9ec1ff;
+  border-color: rgba(53, 120, 255, 0.35);
+}
+.btn-soft:not(:disabled):hover {
+  background: rgba(53, 120, 255, 0.22);
+  filter: none;
+}
+.btn-sm {
+  padding: 6px 11px;
+  font-size: 12.5px;
+  border-radius: 7px;
+}
+.btn-lg {
+  padding: 12px 20px;
+  font-size: 15px;
+  border-radius: 10px;
+}
+.btn-icon {
+  padding: 0;
+  width: 34px;
+  height: 34px;
+}
+
+.field {
+  width: 100%;
+  padding: 9px 11px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--field);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+}
+.field-sm {
+  padding: 7px 10px;
+  font-size: 13px;
+  border-radius: 7px;
+}
+.label {
+  display: block;
+  font-size: 12.5px;
+  color: var(--muted);
+  margin-bottom: 5px;
+}
+
+.seg {
+  display: inline-flex;
+  padding: 3px;
+  gap: 2px;
+  border-radius: 9px;
+  background: var(--field);
+  border: 1px solid var(--border);
+}
+.seg > button {
+  padding: 6px 12px;
+  border-radius: 7px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.seg > button:not(:disabled):hover {
+  color: var(--text);
+  filter: none;
+}
+.seg > button[aria-selected="true"],
+.seg > button.is-active {
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 
 /* Chips de código (URLs de webhook, claves, etc.) */
@@ -500,4 +749,27 @@ code {
     transition-duration: 0.001ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* ── Constructor de flujos ─────────────────────────────────────
+   Herramientas de una conexión (+ insertar, × quitar): aparecen al pasar por
+   el punto medio o al seleccionarla, para no ensuciar el lienzo. */
+.flow-edge-tools {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  border-radius: 999px;
+}
+.flow-edge-tools button {
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.flow-edge-tools:hover,
+.flow-edge-tools.is-selected {
+  background: rgba(13, 19, 32, 0.85);
+}
+.flow-edge-tools:hover button,
+.flow-edge-tools.is-selected button {
+  opacity: 1;
 }

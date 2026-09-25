@@ -1,10 +1,16 @@
 "use client";
 
-import { useContext, useState } from "react";
-import { Handle, Position, type NodeProps } from "@xyflow/react";
-import type { FlowBranch } from "@crm/shared";
-import { NavIcon, type IconName } from "@/components/NavIcons";
-import { FlowActionsContext, NODE_PALETTE } from "./flowShared";
+import { useContext, useEffect } from "react";
+import {
+  Handle,
+  NodeToolbar,
+  Position,
+  useUpdateNodeInternals,
+  type NodeProps,
+} from "@xyflow/react";
+import type { FlowBranch, FlowNodeData } from "@crm/shared";
+import { NavIcon } from "@/components/NavIcons";
+import { FlowActionsContext, NODE_META } from "./flowShared";
 
 const ACTION_LABEL: Record<string, string> = {
   ai: "Pasar a agente IA",
@@ -13,282 +19,273 @@ const ACTION_LABEL: Record<string, string> = {
   move_deal: "Mover en pipeline",
 };
 
-// Cabecera de nodo con icono de línea (línea gráfica unificada).
-function Head({
-  icon,
-  color,
+/** "+" en una salida: abre el menú de bloques anclado al botón. */
+function AddNextButton({
+  sourceId,
+  sourceHandle,
+  placement = "bottom",
+}: {
+  sourceId: string;
+  sourceHandle?: string;
+  placement?: "bottom" | "right";
+}) {
+  const actions = useContext(FlowActionsContext);
+  // Una salida solo puede enlazar un bloque: si ya tiene conexión, no hay "+".
+  if (!actions || actions.isOutgoingTaken(sourceId, sourceHandle)) return null;
+
+  const anchor: React.CSSProperties =
+    placement === "right"
+      ? { right: -24, top: "50%", transform: "translateY(-50%)" }
+      : { bottom: -26, left: "50%", transform: "translateX(-50%)" };
+
+  return (
+    <button
+      className="nodrag nopan"
+      style={{ ...plusBtn, position: "absolute", ...anchor }}
+      title="Añadir el siguiente bloque"
+      onClick={(e) => {
+        e.stopPropagation();
+        actions.openAddMenu({
+          sourceId,
+          sourceHandle,
+          anchor: { x: e.clientX, y: e.clientY },
+        });
+      }}
+    >
+      +
+    </button>
+  );
+}
+
+/**
+ * Marco común de todos los bloques: borde por tipo, barra de herramientas al
+ * seleccionar (duplicar / eliminar) y el aviso de que algo falta.
+ */
+function Shell({
+  id,
+  type,
+  selected,
+  minWidth,
   children,
 }: {
-  icon: IconName;
-  color: string;
+  id: string;
+  type: string;
+  selected?: boolean;
+  minWidth?: number;
   children: React.ReactNode;
 }) {
+  const actions = useContext(FlowActionsContext);
+  const meta = NODE_META[type];
+  const issues = actions?.issuesFor(id) ?? [];
   return (
-    <div style={{ ...head, color, display: "flex", alignItems: "center", gap: 7 }}>
-      <NavIcon name={icon} size={15} />
+    <div style={shell(!!selected, meta?.color ?? "#3a4c6a", minWidth)}>
+      {type !== "start" && (
+        <NodeToolbar isVisible={!!selected} position={Position.Top} offset={8}>
+          <div style={toolbar}>
+            <button style={toolBtn} title="Duplicar (Ctrl+D)" onClick={() => actions?.duplicateNode(id)}>
+              <NavIcon name="copy" size={13} /> Duplicar
+            </button>
+            <button
+              style={{ ...toolBtn, color: "#e08a8a" }}
+              title="Eliminar (Supr)"
+              onClick={() => actions?.deleteNode(id)}
+            >
+              <NavIcon name="x" size={13} /> Eliminar
+            </button>
+          </div>
+        </NodeToolbar>
+      )}
+      {issues.length > 0 && (
+        <span style={issueDot} title={issues.join("\n")}>
+          !
+        </span>
+      )}
       {children}
     </div>
   );
 }
 
-// Botón "+" que crea un bloque nuevo conectado a esta salida y abre su panel.
-function AddNextButton({
-  sourceId,
-  pos,
-  sourceHandle,
-  placement = "bottom",
-}: {
-  sourceId: string;
-  pos: { x: number; y: number };
-  sourceHandle?: string;
-  placement?: "bottom" | "right";
-}) {
-  const actions = useContext(FlowActionsContext);
-  const [open, setOpen] = useState(false);
-  // Una salida solo puede enlazar un bloque: si ya tiene arista, no hay "+".
-  if (!actions || actions.isOutgoingTaken(sourceId, sourceHandle)) return null;
-  const addNext = actions.addNext;
-
-  const anchor: React.CSSProperties =
-    placement === "right"
-      ? { position: "absolute", right: -22, top: "50%", transform: "translateY(-50%)" }
-      : { position: "absolute", bottom: -24, left: "50%", transform: "translateX(-50%)" };
-
+function Head({ type }: { type: string }) {
+  const meta = NODE_META[type];
   return (
-    <div className="nodrag nopan" style={{ ...anchor, zIndex: 20 }}>
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          setOpen((v) => !v);
-        }}
-        style={plusBtn}
-        title="Añadir siguiente bloque"
-      >
-        +
-      </button>
-      {open && (
-        <>
-          <div style={addBackdrop} onClick={() => setOpen(false)} />
-          <div style={addMenu} onClick={(e) => e.stopPropagation()}>
-            {NODE_PALETTE.map((p) => (
-              <button
-                key={p.type}
-                style={addMenuItem}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  addNext({ sourceId, sourceHandle, pos, type: p.type });
-                  setOpen(false);
-                }}
-              >
-                <NavIcon name={p.icon} size={14} />
-                {p.label}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
+    <div style={{ ...head, color: meta.accent }}>
+      <NavIcon name={meta.icon} size={15} />
+      {meta.label}
     </div>
   );
 }
 
-const handleStyle = { width: 9, height: 9, background: "#3578ff", border: "none" };
-const targetStyle = { width: 9, height: 9, background: "#5a6b85", border: "none" };
-
-function shell(selected: boolean, color: string): React.CSSProperties {
-  return {
-    position: "relative",
-    minWidth: 180,
-    maxWidth: 240,
-    borderRadius: 10,
-    border: `1.5px solid ${selected ? "#3578ff" : color}`,
-    background: "#0f1726",
-    color: "#e6edf6",
-    fontSize: 12,
-    boxShadow: selected ? "0 0 0 2px rgba(53,120,255,0.3)" : "none",
-  };
-}
-
-const head: React.CSSProperties = {
-  padding: "7px 10px",
-  borderBottom: "1px solid rgba(255,255,255,0.07)",
-  fontWeight: 700,
-  fontSize: 12,
-};
-
-const body: React.CSSProperties = {
-  padding: "8px 10px",
-  color: "#aebfd6",
-  whiteSpace: "pre-wrap",
-  wordBreak: "break-word",
-};
-
-function nodePos(p: NodeProps): { x: number; y: number } {
-  return { x: p.positionAbsoluteX, y: p.positionAbsoluteY };
-}
-
-export function StartNode(props: NodeProps) {
-  const { id, selected } = props;
+/** Texto del bloque recortado a tres líneas: el detalle va en el inspector. */
+function Clamp({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ ...shell(!!selected, "#1f6f46"), minWidth: 120 }}>
-      <div style={{ ...head, color: "#7ee2a8", borderBottom: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+    <div
+      style={{
+        display: "-webkit-box",
+        WebkitLineClamp: 3,
+        WebkitBoxOrient: "vertical",
+        overflow: "hidden",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+const placeholder: React.CSSProperties = { opacity: 0.5, fontStyle: "italic" };
+
+export function StartNode({ id, selected }: NodeProps) {
+  return (
+    <Shell id={id} type="start" selected={selected} minWidth={130}>
+      <div style={{ ...head, color: NODE_META.start.accent, borderBottom: "none", justifyContent: "center" }}>
         <NavIcon name="play" size={14} />
         Inicio
       </div>
       <Handle type="source" position={Position.Bottom} style={handleStyle} />
-      <AddNextButton sourceId={id} pos={nodePos(props)} />
-    </div>
+      <AddNextButton sourceId={id} />
+    </Shell>
   );
 }
 
-export function SendMessageNode(props: NodeProps) {
-  const { id, data, selected } = props;
-  const text = (data as { text?: string }).text;
+export function SendMessageNode({ id, data, selected }: NodeProps) {
+  const d = data as FlowNodeData;
   return (
-    <div style={shell(!!selected, "#2c4b7a")}>
+    <Shell id={id} type="sendMessage" selected={selected}>
       <Handle type="target" position={Position.Top} style={targetStyle} />
-      <Head icon="message" color="#9ec1ff">Enviar mensaje</Head>
-      <div style={body}>{text || <i style={{ opacity: 0.5 }}>Sin texto…</i>}</div>
+      <Head type="sendMessage" />
+      <div style={body}>{d.text ? <Clamp>{d.text}</Clamp> : <i style={placeholder}>Sin texto…</i>}</div>
       <Handle type="source" position={Position.Bottom} style={handleStyle} />
-      <AddNextButton sourceId={id} pos={nodePos(props)} />
-    </div>
+      <AddNextButton sourceId={id} />
+    </Shell>
   );
 }
 
-export function AskQuestionNode(props: NodeProps) {
-  const { id, data, selected } = props;
-  const d = data as { text?: string; variable?: string };
+export function AskQuestionNode({ id, data, selected }: NodeProps) {
+  const d = data as FlowNodeData;
   return (
-    <div style={shell(!!selected, "#7a5fb0")}>
+    <Shell id={id} type="askQuestion" selected={selected}>
       <Handle type="target" position={Position.Top} style={targetStyle} />
-      <Head icon="question" color="#cbb6ff">Preguntar y guardar</Head>
+      <Head type="askQuestion" />
       <div style={body}>
-        {d.text || <i style={{ opacity: 0.5 }}>Sin pregunta…</i>}
+        {d.text ? <Clamp>{d.text}</Clamp> : <i style={placeholder}>Sin pregunta…</i>}
         {d.variable && (
-          <div style={{ marginTop: 4, color: "#7ee2a8" }}>→ {`{{${d.variable}}}`}</div>
+          <div style={{ marginTop: 5, color: "#7ee2a8", fontFamily: "ui-monospace, monospace" }}>
+            → {`{{${d.variable}}}`}
+          </div>
         )}
       </div>
       <Handle type="source" position={Position.Bottom} style={handleStyle} />
-      <AddNextButton sourceId={id} pos={nodePos(props)} />
-    </div>
+      <AddNextButton sourceId={id} />
+    </Shell>
   );
 }
 
-export function ConditionNode(props: NodeProps) {
-  const { id, data, selected } = props;
-  const branches = ((data as { branches?: FlowBranch[] }).branches ?? []) as FlowBranch[];
-  const rowH = 26;
-  const pos = nodePos(props);
+export function ConditionNode({ id, data, selected }: NodeProps) {
+  const branches = ((data as FlowNodeData).branches ?? []) as FlowBranch[];
+  // Cada rama es un handle: al añadir o quitar ramas hay que decirle a React
+  // Flow que vuelva a medir dónde están, o las conexiones se quedan colgando
+  // del sitio antiguo.
+  const updateInternals = useUpdateNodeInternals();
+  useEffect(() => {
+    updateInternals(id);
+  }, [branches.length, id, updateInternals]);
+
+  const rowH = 28;
   return (
-    <div style={shell(!!selected, "#b08a3f")}>
+    <Shell id={id} type="condition" selected={selected}>
       <Handle type="target" position={Position.Top} style={targetStyle} />
-      <Head icon="branch" color="#ffd98a">Condición</Head>
-      <div style={{ padding: "6px 10px" }}>
-        {branches.length === 0 && (
-          <i style={{ opacity: 0.5 }}>Añade ramas en el panel…</i>
-        )}
+      <Head type="condition" />
+      <div style={{ padding: "6px 10px 8px" }}>
+        {branches.length === 0 && <i style={{ ...placeholder, fontSize: 11.5 }}>Añade ramas en el panel…</i>}
         {branches.map((b) => (
-          <div
-            key={b.id}
-            style={{ position: "relative", height: rowH, display: "flex", alignItems: "center" }}
-          >
-            <span style={{ fontSize: 11 }}>{b.label || b.keywords.join(", ") || "rama"}</span>
-            <Handle
-              type="source"
-              position={Position.Right}
-              id={b.id}
-              style={{ ...handleStyle, top: rowH / 2 }}
-            />
-            <AddNextButton sourceId={id} pos={pos} sourceHandle={b.id} placement="right" />
+          <div key={b.id} style={{ position: "relative", height: rowH, display: "flex", alignItems: "center" }}>
+            <span style={branchText}>{b.label || b.keywords.join(", ") || "rama"}</span>
+            <Handle type="source" position={Position.Right} id={b.id} style={{ ...handleStyle, top: rowH / 2 }} />
+            <AddNextButton sourceId={id} sourceHandle={b.id} placement="right" />
           </div>
         ))}
         <div style={{ position: "relative", height: rowH, display: "flex", alignItems: "center" }}>
-          <span style={{ fontSize: 11, color: "#8aa0bd" }}>en otro caso</span>
+          <span style={{ ...branchText, color: "#8aa0bd" }}>en otro caso</span>
           <Handle
             type="source"
             position={Position.Right}
             id="else"
             style={{ ...handleStyle, background: "#5a6b85", top: rowH / 2 }}
           />
-          <AddNextButton sourceId={id} pos={pos} sourceHandle="else" placement="right" />
+          <AddNextButton sourceId={id} sourceHandle="else" placement="right" />
         </div>
       </div>
-    </div>
+    </Shell>
   );
 }
 
-export function ActionNode(props: NodeProps) {
-  const { id, data, selected } = props;
-  const d = data as { action?: string; tag?: string };
-  const label = d.action ? ACTION_LABEL[d.action] ?? d.action : "Sin acción";
+export function ActionNode({ id, data, selected }: NodeProps) {
+  const d = data as FlowNodeData;
+  const label = d.action ? (ACTION_LABEL[d.action] ?? d.action) : "Sin acción";
   return (
-    <div style={shell(!!selected, "#3f8c6e")}>
+    <Shell id={id} type="action" selected={selected}>
       <Handle type="target" position={Position.Top} style={targetStyle} />
-      <Head icon="bolt" color="#8fe6c0">Acción</Head>
+      <Head type="action" />
       <div style={body}>
         {label}
         {d.action === "tag" && d.tag ? ` · ${d.tag}` : ""}
       </div>
       <Handle type="source" position={Position.Bottom} style={handleStyle} />
-      <AddNextButton sourceId={id} pos={nodePos(props)} />
-    </div>
+      <AddNextButton sourceId={id} />
+    </Shell>
   );
 }
 
-export function DelayNode(props: NodeProps) {
-  const { id, data, selected } = props;
-  const d = data as { delayValue?: number; delayUnit?: string };
+export function DelayNode({ id, data, selected }: NodeProps) {
+  const d = data as FlowNodeData;
   const unit = d.delayUnit === "hours" ? "h" : "min";
   return (
-    <div style={shell(!!selected, "#7a6f4a")}>
+    <Shell id={id} type="delay" selected={selected}>
       <Handle type="target" position={Position.Top} style={targetStyle} />
-      <Head icon="clock" color="#e8d79a">Esperar</Head>
+      <Head type="delay" />
+      <div style={body}>{d.delayValue ? `${d.delayValue} ${unit}` : <i style={placeholder}>Sin tiempo…</i>}</div>
+      <Handle type="source" position={Position.Bottom} style={handleStyle} />
+      <AddNextButton sourceId={id} />
+    </Shell>
+  );
+}
+
+export function HttpNode({ id, data, selected }: NodeProps) {
+  const d = data as FlowNodeData;
+  return (
+    <Shell id={id} type="http" selected={selected}>
+      <Handle type="target" position={Position.Top} style={targetStyle} />
+      <Head type="http" />
       <div style={body}>
-        {d.delayValue ? `${d.delayValue} ${unit}` : <i style={{ opacity: 0.5 }}>Sin tiempo…</i>}
+        <strong>{d.method ?? "POST"}</strong>{" "}
+        {d.url ? <Clamp>{d.url}</Clamp> : <i style={placeholder}>Sin URL…</i>}
       </div>
       <Handle type="source" position={Position.Bottom} style={handleStyle} />
-      <AddNextButton sourceId={id} pos={nodePos(props)} />
-    </div>
+      <AddNextButton sourceId={id} />
+    </Shell>
   );
 }
 
-export function HttpNode(props: NodeProps) {
-  const { id, data, selected } = props;
-  const d = data as { method?: string; url?: string };
+export function AssignNode({ id, data, selected }: NodeProps) {
+  const d = data as FlowNodeData;
   return (
-    <div style={shell(!!selected, "#4a6f7a")}>
+    <Shell id={id} type="assign" selected={selected}>
       <Handle type="target" position={Position.Top} style={targetStyle} />
-      <Head icon="globe" color="#9ad8e8">Petición HTTP</Head>
-      <div style={body}>
-        <strong>{d.method ?? "POST"}</strong> {d.url || <i style={{ opacity: 0.5 }}>Sin URL…</i>}
-      </div>
+      <Head type="assign" />
+      <div style={body}>{d.agentName || <i style={placeholder}>Elige un agente…</i>}</div>
       <Handle type="source" position={Position.Bottom} style={handleStyle} />
-      <AddNextButton sourceId={id} pos={nodePos(props)} />
-    </div>
+      <AddNextButton sourceId={id} />
+    </Shell>
   );
 }
 
-export function AssignNode(props: NodeProps) {
-  const { id, data, selected } = props;
-  const d = data as { agentName?: string };
+export function JumpToFlowNode({ id, data, selected }: NodeProps) {
+  const d = data as FlowNodeData;
   return (
-    <div style={shell(!!selected, "#6a4a7a")}>
+    <Shell id={id} type="jumpToFlow" selected={selected}>
       <Handle type="target" position={Position.Top} style={targetStyle} />
-      <Head icon="user" color="#d6b6e8">Asignar a agente</Head>
-      <div style={body}>{d.agentName || <i style={{ opacity: 0.5 }}>Elige un agente…</i>}</div>
-      <Handle type="source" position={Position.Bottom} style={handleStyle} />
-      <AddNextButton sourceId={id} pos={nodePos(props)} />
-    </div>
-  );
-}
-
-export function JumpToFlowNode({ data, selected }: NodeProps) {
-  const d = data as { flowName?: string };
-  return (
-    <div style={shell(!!selected, "#3f8c6e")}>
-      <Handle type="target" position={Position.Top} style={targetStyle} />
-      <Head icon="jump" color="#8fe6c0">Ir a otro flujo</Head>
-      <div style={body}>{d.flowName || <i style={{ opacity: 0.5 }}>Elige un flujo…</i>}</div>
-    </div>
+      <Head type="jumpToFlow" />
+      <div style={body}>{d.flowName || <i style={placeholder}>Elige un flujo…</i>}</div>
+    </Shell>
   );
 }
 
@@ -302,6 +299,52 @@ export const nodeTypes = {
   http: HttpNode,
   assign: AssignNode,
   jumpToFlow: JumpToFlowNode,
+};
+
+// ── Estilos ───────────────────────────────────────────────────
+
+const handleStyle: React.CSSProperties = { width: 11, height: 11, background: "#3578ff", border: "2px solid #0f1726" };
+const targetStyle: React.CSSProperties = { width: 11, height: 11, background: "#5a6b85", border: "2px solid #0f1726" };
+
+function shell(selected: boolean, color: string, minWidth = 190): React.CSSProperties {
+  return {
+    position: "relative",
+    minWidth,
+    maxWidth: 250,
+    borderRadius: 10,
+    border: `1.5px solid ${selected ? "#3578ff" : color}`,
+    background: "#0f1726",
+    color: "#e6edf6",
+    fontSize: 12,
+    boxShadow: selected ? "0 0 0 3px rgba(53,120,255,0.28), 0 8px 24px rgba(0,0,0,0.35)" : "0 2px 10px rgba(0,0,0,0.25)",
+    transition: "box-shadow 0.12s ease, border-color 0.12s ease",
+  };
+}
+
+const head: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 7,
+  padding: "7px 10px",
+  borderBottom: "1px solid rgba(255,255,255,0.07)",
+  fontWeight: 700,
+  fontSize: 12,
+};
+
+const body: React.CSSProperties = {
+  padding: "8px 10px",
+  color: "#aebfd6",
+  whiteSpace: "pre-wrap",
+  wordBreak: "break-word",
+  lineHeight: 1.45,
+};
+
+const branchText: React.CSSProperties = {
+  fontSize: 11,
+  whiteSpace: "nowrap",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  paddingRight: 10,
 };
 
 const plusBtn: React.CSSProperties = {
@@ -319,41 +362,48 @@ const plusBtn: React.CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   boxShadow: "0 1px 4px rgba(0,0,0,0.4)",
+  zIndex: 20,
+  padding: 0,
 };
 
-const addBackdrop: React.CSSProperties = {
-  position: "fixed",
-  inset: 0,
-  zIndex: 10,
-};
-
-const addMenu: React.CSSProperties = {
-  position: "absolute",
-  top: 26,
-  left: "50%",
-  transform: "translateX(-50%)",
-  zIndex: 30,
+const toolbar: React.CSSProperties = {
+  display: "flex",
+  gap: 4,
+  padding: 4,
+  borderRadius: 8,
   background: "#0d1320",
   border: "1px solid #233047",
-  borderRadius: 10,
-  padding: 4,
-  display: "flex",
-  flexDirection: "column",
-  gap: 2,
-  width: 190,
   boxShadow: "0 6px 20px rgba(0,0,0,0.45)",
 };
 
-const addMenuItem: React.CSSProperties = {
-  display: "flex",
+const toolBtn: React.CSSProperties = {
+  display: "inline-flex",
   alignItems: "center",
-  gap: 8,
-  padding: "7px 9px",
-  borderRadius: 7,
+  gap: 5,
+  padding: "5px 8px",
+  borderRadius: 6,
   border: "none",
   background: "transparent",
   color: "#e6edf6",
-  fontSize: 12.5,
+  fontSize: 12,
   cursor: "pointer",
-  textAlign: "left",
+};
+
+const issueDot: React.CSSProperties = {
+  position: "absolute",
+  top: -8,
+  right: -8,
+  width: 18,
+  height: 18,
+  borderRadius: "50%",
+  background: "#b8562e",
+  color: "#fff",
+  fontSize: 12,
+  fontWeight: 800,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  border: "2px solid #0f1726",
+  zIndex: 5,
+  cursor: "help",
 };

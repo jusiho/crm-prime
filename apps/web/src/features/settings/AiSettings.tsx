@@ -14,6 +14,9 @@ import {
 } from "@crm/shared";
 import { fetchAiSettings, testAiConnection, updateAiSettings } from "@/lib/bff";
 import { toast } from "@/lib/toast";
+import { ghostBtn as ghostBase, primaryBtn, smBtn } from "@/components/ui";
+
+const ghostBtn: React.CSSProperties = { ...ghostBase, ...smBtn };
 
 /**
  * Ajustes › Inteligencia Artificial.
@@ -82,10 +85,21 @@ export function AiSettings() {
     openaiKey !== undefined ||
     anthropicKey !== undefined;
 
+  // SaaS: las keys son de cada empresa; el "respaldo" es la key de la
+  // plataforma solo si el operador la presta (`platformKeys`).
+  const saas = data.saas;
+  const sinRespaldo = saas && !data.platformKeys;
+  const fallbackDe = (envVar: string) =>
+    saas ? (data.platformKeys ? "la key de la plataforma" : null) : envVar;
+
   return (
     <Panel
       title="Inteligencia Artificial"
-      subtitle="La API key que usarán los agentes IA, el copilot del inbox y el asistente de flujos. Se guarda cifrada; si la dejas vacía se usa la del archivo .env."
+      subtitle={
+        saas
+          ? "Las API keys con las que trabajan tus agentes, el copilot del inbox y el asistente de flujos. Son tuyas: se guardan cifradas, solo las usa tu empresa y el consumo se carga a tu cuenta del proveedor."
+          : "La API key que usarán los agentes IA, el copilot del inbox y el asistente de flujos. Se guarda cifrada; si la dejas vacía se usa la del archivo .env."
+      }
     >
       {/* Estado actual */}
       <div style={card}>
@@ -97,7 +111,9 @@ export function AiSettings() {
           />
           <strong style={{ fontSize: 14 }}>
             {data.activeProvider === "fake"
-              ? "Sin API key — respuestas simuladas"
+              ? sinRespaldo
+                ? "Sin API key — tus agentes no responderán hasta que introduzcas una"
+                : "Sin API key — respuestas simuladas"
               : `Activo: ${llmProviderLabels[data.activeProvider]}`}
           </strong>
           {data.activeProvider !== "fake" && (
@@ -126,6 +142,16 @@ export function AiSettings() {
             )}
           </div>
         )}
+
+        {sinRespaldo && data.activeProvider === "fake" && (
+          <div style={{ ...testBox(false), borderColor: "#7a6f4a", background: "rgba(224,183,102,0.08)", color: "#e0b766" }}>
+            <strong>Para activar la IA necesitas una API key tuya.</strong> Crea una
+            en <em>platform.openai.com</em> (OpenAI) o en <em>console.anthropic.com</em>{" "}
+            (Claude), pégala abajo, guarda y pulsa «Probar conexión». Cada respuesta
+            se cobra en tu cuenta de ese proveedor; en cada agente ves cuántos
+            tokens gasta y puedes ponerle un tope mensual.
+          </div>
+        )}
       </div>
 
       {/* Proveedor */}
@@ -152,7 +178,7 @@ export function AiSettings() {
       <ProviderCard
         title="OpenAI"
         state={data.openaiKey}
-        envVar="OPENAI_API_KEY"
+        fallback={fallbackDe("OPENAI_API_KEY")}
         placeholder="sk-proj-…"
         value={openaiKey}
         onChange={setOpenaiKey}
@@ -167,14 +193,18 @@ export function AiSettings() {
           placeholder="https://api.openai.com/v1"
           onChange={(e) => setOpenaiBaseUrl(e.target.value)}
         />
-        <p style={hint}>Solo si usas un gateway compatible con OpenAI.</p>
+        <p style={hint}>
+          Solo si usas un servicio compatible con la API de OpenAI (Groq,
+          DeepSeek, OpenRouter, Ollama…): la key y el modelo son entonces los de
+          ese servicio.
+        </p>
       </ProviderCard>
 
       {/* Anthropic */}
       <ProviderCard
         title="Anthropic (Claude)"
         state={data.anthropicKey}
-        envVar="ANTHROPIC_API_KEY"
+        fallback={fallbackDe("ANTHROPIC_API_KEY")}
         placeholder="sk-ant-…"
         value={anthropicKey}
         onChange={setAnthropicKey}
@@ -200,7 +230,7 @@ export function AiSettings() {
 function ProviderCard({
   title,
   state,
-  envVar,
+  fallback,
   placeholder,
   value,
   onChange,
@@ -211,7 +241,8 @@ function ProviderCard({
 }: {
   title: string;
   state: ApiKeyState;
-  envVar: string;
+  /** De dónde sale la key si no hay una guardada; null = no hay respaldo. */
+  fallback: string | null;
   placeholder: string;
   value: string | undefined;
   onChange: (v: string | undefined) => void;
@@ -230,7 +261,9 @@ function ProviderCard({
           {state.source === "db"
             ? "Key guardada"
             : state.source === "env"
-              ? `Desde ${envVar}`
+              ? fallback === "la key de la plataforma"
+                ? "Incluida por la plataforma"
+                : `Desde ${fallback}`
               : "Sin key"}
         </span>
         {state.masked && (
@@ -260,7 +293,9 @@ function ProviderCard({
           </button>
           {state.source === "db" && (
             <span style={hint}>
-              Deja el campo vacío al guardar para borrarla y volver a {envVar}.
+              {fallback
+                ? `Deja el campo vacío al guardar para borrarla y volver a ${fallback}.`
+                : "Deja el campo vacío al guardar para borrarla."}
             </span>
           )}
         </div>
@@ -337,27 +372,6 @@ const hint: React.CSSProperties = {
   fontSize: 12,
   margin: "6px 0 0",
   lineHeight: 1.45,
-};
-
-const primaryBtn: React.CSSProperties = {
-  padding: "9px 16px",
-  borderRadius: 8,
-  border: "none",
-  background: "var(--accent)",
-  color: "#f3f8ff",
-  fontWeight: 600,
-  cursor: "pointer",
-};
-
-const ghostBtn: React.CSSProperties = {
-  padding: "8px 13px",
-  borderRadius: 8,
-  border: "1px solid var(--border)",
-  background: "transparent",
-  color: "var(--text)",
-  cursor: "pointer",
-  fontSize: 13,
-  whiteSpace: "nowrap",
 };
 
 const chip: React.CSSProperties = {

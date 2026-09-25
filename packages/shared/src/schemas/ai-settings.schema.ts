@@ -37,6 +37,10 @@ export const aiSettingsSchema = z.object({
   // Lo que realmente se usará en la próxima llamada.
   activeProvider: z.enum(llmProviderNames),
   activeModel: z.string(),
+  // SaaS: cada empresa trae sus keys. `platformKeys` dice si, a falta de key
+  // propia, se usan las de la plataforma (AI_SHARED_KEYS) o no hay respaldo.
+  saas: z.boolean(),
+  platformKeys: z.boolean(),
 });
 export type AiSettingsDto = z.infer<typeof aiSettingsSchema>;
 

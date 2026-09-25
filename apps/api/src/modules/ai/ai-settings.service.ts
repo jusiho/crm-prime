@@ -7,6 +7,7 @@ import type {
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { TenantService } from "../../infra/tenant/tenant.service";
+import { tenancyMode } from "../../infra/tenant/tenant.context";
 import { env } from "../../common/utils/env";
 import {
   decryptSecret,
@@ -33,11 +34,23 @@ interface KeySource {
  * Prioridad para cada key: la guardada en BD (cifrada) y, si no hay, la
  * variable de entorno. Así el .env sigue funcionando sin configurar nada.
  *
+ * En SaaS el .env es de la **plataforma**, no de la empresa: cada empresa
+ * pone su propia key en Ajustes › IA y paga su consumo a su proveedor. Las
+ * keys del entorno solo se prestan si el operador lo decide
+ * (`AI_SHARED_KEYS=true`), y aun así el tope mensual por agente sigue
+ * aplicando. Sin key y sin préstamo, el proveedor es "fake": el agente no
+ * responde, y la UI lo dice en vez de simular.
+ *
  * Se cachea unos segundos para no golpear la BD en cada llamada al LLM;
  * al guardar desde Ajustes la caché se invalida al instante.
  */
 @Injectable()
 export class AiSettingsService {
+  /** Con una sola empresa el .env es suyo; en SaaS, solo si el operador comparte sus keys. */
+  static platformKeysShared(): boolean {
+    return tenancyMode !== "multi" || env("AI_SHARED_KEYS") === "true";
+  }
+
   private readonly logger = new Logger("AiSettings");
   // Caché por organización. Una sola entrada global serviría la configuración
   // de una empresa a otra en cuanto haya más de una.
@@ -68,6 +81,8 @@ export class AiSettingsService {
       anthropicKey: this.toState(anthropic),
       activeProvider: active.provider,
       activeModel: active.model,
+      saas: tenancyMode === "multi",
+      platformKeys: AiSettingsService.platformKeysShared(),
     };
   }
 
@@ -196,6 +211,9 @@ export class AiSettingsService {
         `No se pudo descifrar la key de ${which} (¿cambió APP_ENCRYPTION_KEY?). Se usa el entorno.`,
       );
     }
+    // En SaaS la variable de entorno es la key de la plataforma: no se
+    // presta a las empresas salvo que el operador lo haya pedido.
+    if (!AiSettingsService.platformKeysShared()) return { key: null, source: "none" };
     const fromEnv =
       which === "openai" ? env("OPENAI_API_KEY") : env("ANTHROPIC_API_KEY");
     if (fromEnv) return { key: fromEnv, source: "env" };

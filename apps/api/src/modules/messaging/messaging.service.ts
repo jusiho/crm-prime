@@ -174,6 +174,16 @@ export class MessagingService {
     const optOut =
       !!text && OPT_OUT_KEYWORDS.includes(text.trim().toUpperCase());
 
+    // Fuente automática: "WhatsApp", o "Anuncio de Meta" si trae referral.
+    // Las fuentes son de la empresa (Ajustes › Fuentes), pero un contacto que
+    // entra por WhatsApp tiene que decir de dónde vino sin que nadie lo
+    // etiquete a mano.
+    const sourceId = await fuenteAutomatica(
+      this.prisma,
+      orgId,
+      referral ? "ad" : "whatsapp",
+    );
+
     const contact = await this.prisma.contact.upsert({
       where: { orgId_phone: { orgId, phone: msg.from } },
       create: {
@@ -188,6 +198,7 @@ export class MessagingService {
         originDetail: referral
           ? adReferralLabel(referral)
           : (msg.channelPhoneNumberId ?? null),
+        sourceId,
         ...(hasUtms ? { metadata: utms as Prisma.InputJsonObject } : {}),
       },
       update: {
@@ -196,6 +207,18 @@ export class MessagingService {
         ...(optOut ? { optIn: false } : {}),
       },
     });
+
+    // Contacto anterior a la fuente automática: se le pone ahora, solo si no
+    // tiene ninguna y entró por WhatsApp. Una fuente puesta a mano se respeta.
+    if (
+      !contact.sourceId &&
+      (contact.origin === "whatsapp" || contact.origin === "ad")
+    ) {
+      await this.prisma.contact.update({
+        where: { id: contact.id },
+        data: { sourceId },
+      });
+    }
 
     // Contacto ya existente: fusionar los utm_* nuevos sin pisar los previos
     // (interesa la PRIMERA campaña que lo trajo, no la última).
@@ -319,6 +342,7 @@ export class MessagingService {
         lastMessageAt: now,
         origin: "whatsapp",
         originDetail: echo.channelPhoneNumberId ?? null,
+        sourceId: await fuenteAutomatica(this.prisma, orgId, "whatsapp"),
       },
       update: { lastMessageAt: now },
     });
@@ -437,6 +461,7 @@ export class MessagingService {
         lastMessageAt: when,
         origin: "whatsapp",
         originDetail: job.channelPhoneNumberId ?? null,
+        sourceId: await fuenteAutomatica(this.prisma, orgId, "whatsapp"),
       },
       update: {},
     });
@@ -499,6 +524,7 @@ export class MessagingService {
               name: it.name,
               origin: "import",
               originDetail: "Sincronización de WhatsApp",
+              sourceId: await fuenteAutomatica(this.prisma, orgId, "whatsapp"),
             },
             update: it.name ? { name: it.name } : {},
           });
@@ -1105,4 +1131,27 @@ export class MessagingService {
       createdAt: m.createdAt.toISOString(),
     };
   }
+}
+
+/**
+ * Fuente automática de los contactos que llegan por WhatsApp ("WhatsApp") o
+ * por un anuncio de Meta ("Anuncio de Meta"). Se crea una vez por empresa y
+ * se reutiliza; si la empresa la renombra, se crea otra antes que pisar la
+ * suya. Sirve para que el vendedor asignado a esa fuente vea al contacto sin
+ * que nadie lo etiquete a mano.
+ */
+async function fuenteAutomatica(
+  prisma: PrismaService,
+  orgId: string,
+  kind: "whatsapp" | "ad",
+): Promise<string> {
+  const name = kind === "ad" ? "Anuncio de Meta" : "WhatsApp";
+  const color = kind === "ad" ? "#1877f2" : "#25d366";
+  const s = await prisma.source.upsert({
+    where: { orgId_name: { orgId, name } },
+    create: { orgId, name, color },
+    update: {},
+    select: { id: true },
+  });
+  return s.id;
 }
