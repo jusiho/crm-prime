@@ -713,6 +713,114 @@
   color: var(--ink);
 }
 
+/* ── Ediciones (open source / nube) ─────────────────────────── */
+.lp-editions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.lp-edition {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  padding: 30px 28px;
+}
+.lp-edition--cloud {
+  background:
+    radial-gradient(90% 100% at 100% 0%, rgba(53, 120, 255, 0.16), transparent 60%),
+    var(--surface);
+  border-color: var(--accent-line);
+}
+.lp-edition__tag {
+  align-self: flex-start;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 5px 11px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--border-soft);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ink-dim);
+}
+.lp-edition--cloud .lp-edition__tag {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--accent-bright);
+}
+.lp-edition h3 {
+  color: var(--ink);
+  font-size: clamp(1.35rem, 1.1rem + 1vw, 1.75rem);
+}
+.lp-edition__price {
+  color: var(--accent-bright);
+  font-weight: 600;
+  font-size: 15px;
+}
+.lp-edition > p {
+  color: var(--muted);
+  font-size: 15px;
+}
+.lp-edition > p b {
+  color: var(--ink-dim);
+}
+.lp-edition__rows {
+  margin-top: 6px;
+}
+.lp-edition .lp-row {
+  font-size: 14.5px;
+}
+.lp-edition .lp-row__ic {
+  color: var(--ok);
+}
+.lp-edition__cta {
+  margin-top: auto;
+  padding-top: 14px;
+}
+.lp-editions__note {
+  margin-top: 22px;
+  color: var(--muted);
+  font-size: 14px;
+  text-align: center;
+}
+
+/* Medidor de gasto: la ilustración de la tarjeta de tokens */
+.lp-meter {
+  margin-top: auto;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-2);
+}
+.lp-meter__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.lp-meter__head b {
+  color: var(--ink);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.lp-meter__bar {
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+.lp-meter__bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent), var(--accent-bright));
+}
+
 /* ── Reveal (solo cuando hay JS; sin JS el contenido es visible) ─ */
 .lp-js .lp-reveal {
   opacity: 0;
@@ -767,7 +875,8 @@
   .lp-steps {
     grid-template-columns: 1fr;
   }
-  .lp-compare {
+  .lp-compare,
+  .lp-editions {
     grid-template-columns: 1fr;
   }
 }

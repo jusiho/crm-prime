@@ -90,14 +90,27 @@ export interface InboundTemplateStatusJob {
   category?: string;
 }
 
-export type InboundJob =
+/**
+ * Por dónde entró el evento. Si llegó por la ruta de una empresa
+ * (`acme.trimmo.lat/api/v1/webhooks/whatsapp`, su propia app de Meta) lleva
+ * su `orgId`, y el worker exige que el número sea de esa empresa: una app
+ * ajena, aunque firme bien lo suyo, no puede meter mensajes en otra. Por el
+ * webhook de la plataforma no hay `orgId`: la empresa sale del número.
+ */
+export interface InboundOrigin {
+  orgId?: string;
+}
+
+export type InboundJob = (
   | InboundMessageJob
   | InboundStatusJob
   | InboundEchoJob
   | InboundReactionJob
   | InboundHistoryJob
   | InboundStateSyncJob
-  | InboundTemplateStatusJob;
+  | InboundTemplateStatusJob
+) &
+  InboundOrigin;
 
 // ── Forma (parcial) del webhook de Meta ──────────────────────
 interface MetaContact {

@@ -49,6 +49,18 @@ export class InboundProcessor extends WorkerHost {
 
     const orgId = channel?.orgId ?? porWaba?.orgId ?? null;
 
+    // Entró por la ruta de una empresa (su propia app de Meta): el número
+    // tiene que ser suyo. Se descarta sin reintentos: no es un fallo
+    // transitorio, es alguien hablando de un número que no es suyo.
+    if (job.data.orgId && orgId && orgId !== job.data.orgId) {
+      const wabaId = job.data.kind === "template_status" ? job.data.wabaId : undefined;
+      this.logger.warn(
+        `Descartado: el webhook entró por la empresa ${job.data.orgId} pero el número ` +
+          `${phoneNumberId ?? wabaId ?? "?"} pertenece a otra.`,
+      );
+      return;
+    }
+
     if (!orgId) {
       if (tenancyMode === "multi") {
         throw new Error(

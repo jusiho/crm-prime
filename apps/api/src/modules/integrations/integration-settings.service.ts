@@ -7,7 +7,7 @@ import type {
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { TenantService } from "../../infra/tenant/tenant.service";
-import { tenancyMode } from "../../infra/tenant/tenant.context";
+import { runUnscoped, tenancyMode } from "../../infra/tenant/tenant.context";
 import { env } from "../../common/utils/env";
 import {
   decryptSecret,
@@ -48,23 +48,26 @@ export class IntegrationSettingsService {
   async getSettings(): Promise<IntegrationSettingsDto> {
     const row = await this.load();
     const voyage = this.secret(row.voyageKeyEnc, "VOYAGE_API_KEY");
-    const appSecret = this.secret(
-      row.whatsappAppSecretEnc,
-      "WHATSAPP_APP_SECRET",
-    );
-    const verifyToken = this.secret(
-      row.whatsappVerifyTokenEnc,
-      "WHATSAPP_VERIFY_TOKEN",
-    );
+    // En SaaS lo de WhatsApp es la app PROPIA de la empresa, si la tiene: el
+    // entorno es de la plataforma y no cuenta como "configurado" para ella.
+    const saas = tenancyMode === "multi";
+    const appSecret = saas
+      ? this.secretDb(row.whatsappAppSecretEnc)
+      : this.secret(row.whatsappAppSecretEnc, "WHATSAPP_APP_SECRET");
+    const verifyToken = saas
+      ? this.secretDb(row.whatsappVerifyTokenEnc)
+      : this.secret(row.whatsappVerifyTokenEnc, "WHATSAPP_VERIFY_TOKEN");
 
     return {
       voyageKey: this.toState(voyage),
       voyageModel: row.voyageModel,
       embeddingsProvider: voyage.value ? "voyage" : "fake",
-      whatsappAppId: row.whatsappAppId ?? env("WHATSAPP_APP_ID") ?? null,
+      whatsappAppId:
+        row.whatsappAppId ?? (saas ? null : (env("WHATSAPP_APP_ID") ?? null)),
       whatsappAppSecret: this.toState(appSecret),
       whatsappVerifyToken: this.toState(verifyToken),
       whatsappGraphVersion: row.whatsappGraphVersion,
+      whatsappWebhookUrl: saas ? await this.ownWebhookUrl() : null,
       webhookSignatureVerified: !!appSecret.value,
     };
   }
@@ -154,6 +157,73 @@ export class IntegrationSettingsService {
     };
   }
 
+  // ── La app de Meta PROPIA de una empresa (SaaS) ────────────────
+  //
+  // El Embedded Signup solo incorpora clientes cuando Meta ha dado a la
+  // plataforma acceso avanzado a los permisos de WhatsApp. Mientras tanto —o
+  // si lo prefiere— una empresa puede usar su propia app de Meta: guarda aquí
+  // su App ID, App secret y verify token, apunta el webhook de su app a
+  // `acme.trimmo.lat/api/v1/webhooks/whatsapp` y añade el número a mano con
+  // su token. Solo cuenta lo guardado en la base: el entorno es de la
+  // plataforma.
+
+  /**
+   * La app propia de la empresa, o null si no la configuró. Con `orgId` no
+   * hace falta contexto: el webhook llega antes de tenerlo.
+   */
+  async ownWhatsappApp(orgId?: string): Promise<OwnWhatsappApp | null> {
+    if (tenancyMode !== "multi") {
+      const { appId, appSecret, graphVersion } = await this.whatsappApp();
+      return { appId, appSecret, verifyToken: await this.whatsappVerifyToken(), graphVersion };
+    }
+    const row = orgId ? await this.loadFor(orgId) : await this.load();
+    if (!row) return null;
+    const appSecret = this.secretDb(row.whatsappAppSecretEnc).value;
+    const verifyToken = this.secretDb(row.whatsappVerifyTokenEnc).value;
+    if (!appSecret && !verifyToken && !row.whatsappAppId) return null;
+    return {
+      appId: row.whatsappAppId,
+      appSecret,
+      verifyToken,
+      graphVersion:
+        row.whatsappGraphVersion || env("WHATSAPP_GRAPH_VERSION") || "v21.0",
+    };
+  }
+
+  /**
+   * La app con la que opera esta empresa: la propia si la tiene completa
+   * (id y secreto); si no, la de la plataforma. Para lo que se hace con el
+   * token de un número —subir el ejemplo de una plantilla— y debe ir por la
+   * misma app que emitió ese token. El canje del Embedded Signup NO pasa por
+   * aquí: ese code lo emitió la app de la plataforma.
+   */
+  async whatsappAppForOrg(): Promise<{
+    appId: string | null;
+    appSecret: string | null;
+    graphVersion: string;
+  }> {
+    if (tenancyMode === "multi") {
+      const propia = await this.ownWhatsappApp();
+      if (propia?.appId && propia.appSecret) {
+        return { appId: propia.appId, appSecret: propia.appSecret, graphVersion: propia.graphVersion };
+      }
+    }
+    return this.whatsappApp();
+  }
+
+  /** `https://acme.trimmo.lat/api/v1/webhooks/whatsapp`, o null sin dominio base. */
+  private async ownWebhookUrl(): Promise<string | null> {
+    const base = env("SAAS_BASE_DOMAIN");
+    if (!base) return null;
+    const org = await this.prisma.organization.findUnique({
+      where: { id: this.tenant.orgId() },
+      select: { slug: true },
+    });
+    if (!org) return null;
+    const protocolo = base.startsWith("localhost") ? "http" : "https";
+    return `${protocolo}://${org.slug}.${base}/api/v1/webhooks/whatsapp`;
+  }
+
   // Llamada mínima real a Voyage para confirmar que la key sirve.
   async test(): Promise<IntegrationTestResult> {
     const { apiKey, model } = await this.voyage();
@@ -221,12 +291,38 @@ export class IntegrationSettingsService {
     return { value: null, source: "none" };
   }
 
+  /** Solo lo guardado por la empresa: sin respaldo en el entorno. */
+  private secretDb(enc: string | null): SecretSource {
+    if (!enc) return { value: null, source: "none" };
+    const plain = decryptSecret(enc);
+    if (plain) return { value: plain, source: "db" };
+    this.logger.warn("No se pudo descifrar un secreto de WhatsApp (¿cambió APP_ENCRYPTION_KEY?).");
+    return { value: null, source: "none" };
+  }
+
   private toState(src: SecretSource): ApiKeyState {
     return {
       configured: !!src.value,
       source: src.source,
       masked: src.value ? maskSecret(src.value) : null,
     };
+  }
+
+  /**
+   * Ajustes de una empresa concreta, sin contexto y sin crear la fila: es lo
+   * que consulta el webhook de su app propia, que llega antes de saber nada.
+   */
+  private async loadFor(orgId: string): Promise<SettingsRow | null> {
+    const now = Date.now();
+    const hit = this.cache.get(orgId);
+    if (hit && now - hit.at < IntegrationSettingsService.TTL_MS) {
+      return hit.row;
+    }
+    const row = await runUnscoped("webhook propio: ajustes de la empresa", () =>
+      this.prisma.integrationSetting.findUnique({ where: { orgId } }),
+    );
+    if (row) this.cache.set(orgId, { row, at: now });
+    return row;
   }
 
   private async load(): Promise<SettingsRow> {
@@ -244,6 +340,13 @@ export class IntegrationSettingsService {
     this.cache.set(orgId, { row, at: now });
     return row;
   }
+}
+
+export interface OwnWhatsappApp {
+  appId: string | null;
+  appSecret: string | null;
+  verifyToken: string | null;
+  graphVersion: string;
 }
 
 type SettingsRow = {

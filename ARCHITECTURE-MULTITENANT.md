@@ -324,6 +324,22 @@ Eso también explica por qué el Embedded Signup existe: es lo que permite que e
 cliente autorice tu app sin darte su token, y que su WABA quede suscrita a la
 tuya. En SaaS deja de ser un lujo y pasa a ser el camino principal.
 
+**La app propia del cliente, como camino alternativo.** El Embedded Signup
+solo incorpora clientes cuando Meta ha dado a la plataforma *acceso avanzado*
+a `whatsapp_business_management` y `whatsapp_business_messaging` (revisión de
+app + verificación de negocio); hasta entonces, a cualquiera sin rol en la app
+le sale el error `#2655111`. Para no depender de ese plazo —y para quien
+prefiera su propia app— el campo por organización sigue vivo con otro
+significado: es la app **propia** de esa empresa. Guarda su App ID, App secret
+y verify token en Ajustes › Integraciones, apunta el webhook de su app a
+`acme.trimmo.lat/api/v1/webhooks/whatsapp` (`OrgWebhookController`) y añade el
+número a mano con un token permanente. El subdominio elige la empresa; la
+firma con **su** secreto autentica (sin secreto no entra nada: la ruta es
+pública); y el worker exige que el número del evento sea de esa empresa
+(`InboundOrigin.orgId`), porque una app ajena que firme bien lo suyo no puede
+meter mensajes en otra. El webhook de la plataforma sigue en
+`whatsapp/webhook`, con el secreto del entorno.
+
 ### Las colas también necesitan la organización
 
 **Estado (24/09/2026): hecho, y con una lección.** Al revisar "¿cada empresa

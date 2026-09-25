@@ -65,7 +65,8 @@ export const en = {
     waiting: "Waiting for Meta…",
     saving: "Saving your number…",
     done: "Done! Number connected.",
-    notCompleted: "The connection wasn't completed. You can try again.",
+    notCompleted:
+      "The connection wasn't completed. You can try again. If Meta said advanced permissions are missing (#2655111), the platform isn't approved yet: meanwhile you can connect with your own Meta app from Settings › Integrations.",
     missingConfig: "WhatsApp connection is not configured on this platform yet.",
     backHint: "If nothing happens, close this window and press \"Connect WhatsApp\" again from your dashboard.",
     expired: "This link has expired",

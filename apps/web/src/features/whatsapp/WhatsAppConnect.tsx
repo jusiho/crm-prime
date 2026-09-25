@@ -321,6 +321,7 @@ export function WhatsAppConnect({ hub = false }: { hub?: boolean }) {
         {manualOpen && (
           <ManualConnect
             channel={editing}
+            hub={hub}
             onDone={() => {
               setEditing(null);
               queryClient.invalidateQueries({ queryKey: ["wa-channels"] });
@@ -329,7 +330,7 @@ export function WhatsAppConnect({ hub = false }: { hub?: boolean }) {
         )}
       </div>
 
-      <WebhookInfo />
+      <WebhookInfo hub={hub} />
 
       {hubUrl && (
         <div className="confirm-backdrop" onClick={cerrarConector}>
@@ -401,10 +402,13 @@ const hubFrame: React.CSSProperties = {
  */
 function ManualConnect({
   channel,
+  hub,
   onDone,
 }: {
   /** Canal existente: solo hay que renovarle el token. */
   channel: WhatsappChannel | null;
+  /** SaaS: el token viene de la app de Meta PROPIA de la empresa. */
+  hub: boolean;
   onDone: () => void;
 }) {
   const renewing = !!channel;
@@ -454,6 +458,15 @@ function ManualConnect({
             <strong>Phone number ID</strong> y un <strong>token temporal</strong>{" "}
             (caduca en 24 h; para algo permanente, un token de usuario de
             sistema).
+            {hub && (
+              <>
+                {" "}
+                Aquí la app es <strong>la tuya</strong>: antes guarda su App
+                secret y verify token en Ajustes › Integraciones y apunta el
+                webhook de tu app a la URL de más abajo; si no, enviarás pero
+                no recibirás.
+              </>
+            )}
           </>
         )}
       </p>
@@ -518,11 +531,29 @@ function ManualConnect({
             value={mode}
             onChange={(e) => setMode(e.target.value as "api" | "coexistence")}
           >
-            <option value="api">API (número de prueba)</option>
-            <option value="coexistence">Coexistencia (app del celular)</option>
+            <option value="api">API (solo desde el CRM)</option>
+            <option value="coexistence">Coexistencia (también desde el celular)</option>
           </select>
         </div>
       </div>
+
+      {/* Con app propia no hay Embedded Signup, y sin él no hay Coexistencia:
+          que se sepa antes de elegir, no después de que no llegue nada. */}
+      {hub && !renewing && (
+        <p style={{ ...avisoModo, display: "flex", alignItems: "flex-start", gap: 6 }}>
+          <span style={{ flexShrink: 0, marginTop: 1 }}>
+            <NavIcon name="alert" size={14} />
+          </span>
+          <span>
+            Un número añadido con tu propia app trabaja en <strong>modo API</strong>:
+            se atiende solo desde el CRM. La <strong>Coexistencia</strong> (seguir
+            usando el número en la app de WhatsApp Business del celular) solo la da
+            el botón «Conectar WhatsApp», con la app de la plataforma, y Meta la
+            habilita cuando aprueba el acceso avanzado. Si Meta te mostró el error
+            #2655111 al pulsarlo, es eso: aún no está aprobado.
+          </span>
+        </p>
+      )}
 
       {save.isError && (
         <p style={{ color: "#ff6b6b", fontSize: 13 }}>
@@ -555,9 +586,34 @@ function ManualConnect({
  * Lo que hay que pegar en Meta para recibir mensajes. En localhost la URL no
  * es accesible desde fuera, así que se avisa de que hace falta un túnel.
  */
-function WebhookInfo() {
+function WebhookInfo({ hub }: { hub: boolean }) {
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const isLocal = /localhost|127\.0\.0\.1/.test(origin);
+
+  // SaaS: la plataforma ya recibe los mensajes de los números conectados con
+  // el botón. Esta URL, bajo el subdominio de la empresa, es solo para quien
+  // añadió un número a mano con su PROPIA app de Meta.
+  if (hub) {
+    return (
+      <div style={syncNote}>
+        <strong style={{ color: "var(--text)" }}>
+          URL del webhook (solo si usas tu propia app de Meta)
+        </strong>
+        <p style={{ margin: "6px 0 0" }}>
+          Con el botón «Conectar WhatsApp» no hace falta nada de esto: la
+          plataforma ya recibe tus mensajes. Si añadiste un número a mano con tu
+          propia app, en tu app → WhatsApp → Configuración → Webhooks pon como{" "}
+          <strong>Callback URL</strong>:
+        </p>
+        <code style={urlBox}>{origin}/api/v1/webhooks/whatsapp</code>
+        <p style={{ margin: "8px 0 0" }}>
+          El <strong>Verify token</strong> es el que guardaste en Ajustes ›
+          Integraciones. Suscribe los campos <code>messages</code> y{" "}
+          <code>message_echoes</code>.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div style={{ ...syncNote, borderColor: isLocal ? "#7a6f4a" : "#1f6f46" }}>
@@ -591,6 +647,17 @@ function WebhookInfo() {
     </div>
   );
 }
+
+const avisoModo: React.CSSProperties = {
+  marginTop: 12,
+  padding: "8px 10px",
+  borderRadius: 7,
+  border: "1px solid #7a6f4a",
+  background: "rgba(224,183,102,0.08)",
+  color: "#e0b766",
+  fontSize: 12.5,
+  lineHeight: 1.5,
+};
 
 const urlBox: React.CSSProperties = {
   display: "block",

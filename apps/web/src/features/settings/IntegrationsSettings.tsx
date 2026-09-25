@@ -91,6 +91,10 @@ export function IntegrationsSettings() {
     appSecret !== undefined ||
     verifyToken !== undefined;
 
+  // SaaS: lo de WhatsApp aquí es la app de Meta PROPIA de la empresa, un
+  // camino opcional; la app de la plataforma no se configura desde aquí.
+  const saas = data.whatsappWebhookUrl != null;
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <header>
@@ -163,39 +167,114 @@ export function IntegrationsSettings() {
       {/* ── WhatsApp a nivel de app ────────────────────────── */}
       <div style={card}>
         <div style={rowHead}>
-          <strong style={{ fontSize: 14 }}>WhatsApp (nivel de app)</strong>
-          <span style={badge(data.webhookSignatureVerified ? "#1f4d38" : "#5a4a2a")}>
-            {data.webhookSignatureVerified
-              ? "Firma verificada"
-              : "Firma SIN verificar"}
+          <strong style={{ fontSize: 14 }}>
+            {saas ? "Tu propia app de Meta (opcional)" : "WhatsApp (nivel de app)"}
+          </strong>
+          <span
+            style={badge(
+              data.webhookSignatureVerified ? "#1f4d38" : saas ? "#3a3a3a" : "#5a4a2a",
+            )}
+          >
+            {saas
+              ? data.webhookSignatureVerified
+                ? "App propia activa"
+                : "Usando la app de la plataforma"
+              : data.webhookSignatureVerified
+                ? "Firma verificada"
+                : "Firma SIN verificar"}
           </span>
         </div>
-        <p style={hint}>
-          El token para <em>enviar</em> mensajes va en cada número, en la
-          pestaña Canales. Esto es lo de la app de Meta, común a todos.
-        </p>
 
-        {!data.webhookSignatureVerified && (
-          <div style={testBox(false)}>
-            Sin app secret, cualquiera que conozca tu URL puede enviarte
-            webhooks falsos. Configúralo antes de salir a producción.
-          </div>
+        {saas ? (
+          <>
+            <p style={hint}>
+              Lo normal es conectar tu número con el botón de la pestaña
+              WhatsApp: usa la app de Meta de la plataforma y aquí no hay que
+              tocar nada. Si prefieres usar <strong>tu propia app de Meta</strong>{" "}
+              —o mientras la plataforma no tenga aprobado el acceso avanzado de
+              Meta—, sigue estos pasos:
+            </p>
+            <ol style={{ ...hint, paddingLeft: 18, lineHeight: 1.6 }}>
+              <li>
+                En <strong>developers.facebook.com</strong> crea una app de tipo
+                Negocio y añádele el producto <strong>WhatsApp</strong>.
+              </li>
+              <li>
+                Pega aquí su <strong>App ID</strong>, su <strong>App secret</strong>{" "}
+                (Configuración › Básica) y un <strong>verify token</strong> que
+                elijas tú. Guarda.
+              </li>
+              <li>
+                En tu app → WhatsApp → Configuración → <strong>Webhooks</strong>:
+                URL de devolución de llamada = la de abajo; verify token = el que
+                guardaste. Suscribe <code>messages</code> (y{" "}
+                <code>message_echoes</code> si también usarás el número desde el
+                celular).
+              </li>
+              <li>
+                En la pestaña WhatsApp → «Añadir un número a mano»: Phone number
+                ID, WABA ID y un token <strong>permanente</strong> (usuario del
+                sistema con los permisos de WhatsApp).
+              </li>
+            </ol>
+            <p style={{ ...hint, color: "#e0b766", display: "flex", alignItems: "flex-start", gap: 6 }}>
+              <NavIcon name="alert" size={14} />
+              <span>
+                Ten en cuenta: con tu propia app el número trabaja en{" "}
+                <strong>modo API</strong> (se atiende solo desde el CRM). La{" "}
+                <strong>Coexistencia</strong> con la app del celular solo la da el
+                botón «Conectar WhatsApp» de la pestaña WhatsApp, y Meta la habilita
+                cuando aprueba a la plataforma. Si al pulsarlo Meta muestra el error
+                #2655111, es que esa aprobación aún no ha llegado: mientras tanto,
+                este es el camino.
+              </span>
+            </p>
+            <label style={{ ...label, marginTop: 10 }}>URL del webhook de tu app</label>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <code style={{ ...chip, wordBreak: "break-all" }}>{data.whatsappWebhookUrl}</code>
+              <button
+                style={ghostBtn}
+                onClick={() => {
+                  void navigator.clipboard?.writeText(data.whatsappWebhookUrl ?? "");
+                  toast.success("URL copiada");
+                }}
+              >
+                Copiar
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p style={hint}>
+              El token para <em>enviar</em> mensajes va en cada número, en la
+              pestaña Canales. Esto es lo de la app de Meta, común a todos.
+            </p>
+
+            {!data.webhookSignatureVerified && (
+              <div style={testBox(false)}>
+                Sin app secret, cualquiera que conozca tu URL puede enviarte
+                webhooks falsos. Configúralo antes de salir a producción.
+              </div>
+            )}
+          </>
         )}
 
-        <SecretField
-          label="App secret"
-          state={data.whatsappAppSecret}
-          envVar="WHATSAPP_APP_SECRET"
-          placeholder="32 caracteres hex"
-          value={appSecret}
-          onChange={setAppSecret}
-        />
+        <div style={{ marginTop: 12 }}>
+          <SecretField
+            label="App secret"
+            state={data.whatsappAppSecret}
+            envVar={saas ? "la app de la plataforma" : "WHATSAPP_APP_SECRET"}
+            placeholder="32 caracteres hex"
+            value={appSecret}
+            onChange={setAppSecret}
+          />
+        </div>
 
         <div style={{ marginTop: 12 }}>
           <SecretField
             label="Verify token (el que pones en Meta al dar de alta el webhook)"
             state={data.whatsappVerifyToken}
-            envVar="WHATSAPP_VERIFY_TOKEN"
+            envVar={saas ? "la app de la plataforma" : "WHATSAPP_VERIFY_TOKEN"}
             placeholder="una cadena que elijas tú"
             value={verifyToken}
             onChange={setVerifyToken}

@@ -65,7 +65,8 @@ export const es: Messages = {
     waiting: "Esperando a Meta…",
     saving: "Guardando tu número…",
     done: "¡Listo! Número conectado.",
-    notCompleted: "No se completó la conexión. Puedes intentarlo otra vez.",
+    notCompleted:
+      "No se completó la conexión. Puedes intentarlo otra vez. Si Meta indicó que faltan permisos avanzados (#2655111), la plataforma aún no está aprobada: mientras tanto puedes conectar con tu propia app de Meta desde Ajustes › Integraciones.",
     missingConfig: "La conexión de WhatsApp aún no está configurada en esta plataforma.",
     backHint: "Si no pasa nada, cierra esta ventana y pulsa \"Conectar WhatsApp\" otra vez desde tu panel.",
     expired: "Este enlace ha caducado",

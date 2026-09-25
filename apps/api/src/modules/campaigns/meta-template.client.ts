@@ -228,7 +228,10 @@ export class MetaTemplateClient {
     mimeType: string,
     fileName: string,
   ): Promise<string> {
-    const { appId, appSecret, graphVersion } = await this.settings.whatsappApp();
+    // La app que emitió el token del número: la propia de la empresa si la
+    // tiene, si no la de la plataforma. El handle que devuelve Meta solo vale
+    // con un token de esa misma app.
+    const { appId, appSecret, graphVersion } = await this.settings.whatsappAppForOrg();
     if (!appId || !appSecret) {
       throw new BadRequestException(
         "Faltan el App ID o el App secret de Meta (Ajustes › Integraciones) para subir el archivo de ejemplo.",

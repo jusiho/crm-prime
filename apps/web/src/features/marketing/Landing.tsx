@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import "./landing.css";
 
+const GITHUB = "https://github.com/jusiho/crm-prime";
+
 export function Landing() {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const [scrolled, setScrolled] = useState(false);
@@ -51,6 +53,7 @@ export function Landing() {
             <a href="#capacidades">Producto</a>
             <a href="#como">Cómo funciona</a>
             <a href="#porque">Por qué</a>
+            <a href="#ediciones">Open source</a>
           </nav>
           <div className="lp-nav__cta">
             <Link href="/login" className="lp-nav__login">Iniciar sesión</Link>
@@ -73,6 +76,7 @@ export function Landing() {
               <a href="#capacidades" onClick={() => setMenuOpen(false)}>Producto</a>
               <a href="#como" onClick={() => setMenuOpen(false)}>Cómo funciona</a>
               <a href="#porque" onClick={() => setMenuOpen(false)}>Por qué</a>
+              <a href="#ediciones" onClick={() => setMenuOpen(false)}>Open source</a>
               <Link href="/login">Iniciar sesión</Link>
             </div>
           </div>
@@ -85,7 +89,7 @@ export function Landing() {
         <div className="lp-wrap lp-hero__grid">
           <div>
             <span className="lp-pill lp-anim" style={{ animationDelay: "0.02s" }}>
-              <span className="lp-pill__dot" /> Agentes de IA · WhatsApp Business
+              <span className="lp-pill__dot" /> Agentes de IA · WhatsApp Business · Open source
             </span>
             <h1 className="lp-anim" style={{ animationDelay: "0.08s" }}>
               Convierte WhatsApp en tu mejor{" "}
@@ -104,7 +108,10 @@ export function Landing() {
               </a>
             </div>
             <div className="lp-hero__trust lp-anim" style={{ animationDelay: "0.32s" }}>
-              <Check /> Sin tarjeta · <b>Conecta tu número en minutos</b>
+              <Check />
+              <span>
+                Sin tarjeta · <b>Trae tu propio modelo de IA</b> · Código abierto (AGPL)
+              </span>
             </div>
           </div>
 
@@ -119,9 +126,9 @@ export function Landing() {
         <div className="lp-wrap lp-strip__inner">
           <span><b>Tiempo real</b></span>
           <span><b>Multi-número</b></span>
-          <span><b>Agentes con IA</b></span>
-          <span><b>Difusiones masivas</b></span>
-          <span><b>Sin código</b></span>
+          <span><b>Tu propio modelo de IA</b></span>
+          <span><b>Gasto bajo control</b></span>
+          <span><b>Open source</b></span>
         </div>
       </div>
 
@@ -181,6 +188,41 @@ export function Landing() {
               <h3>Flujos sin código</h3>
               <p>Automatiza la conversación con un constructor visual de arrastrar.</p>
             </article>
+
+            <article className="lp-card lp-card--half lp-reveal">
+              <span className="lp-card__ic"><IconModel /></span>
+              <h3>Trae tu propio modelo</h3>
+              <p>
+                OpenAI, Claude o cualquier API compatible con OpenAI, con{" "}
+                <b>tu</b> API key. Y el modelo se elige <b>por agente</b>: uno
+                rápido y barato para las preguntas de siempre, uno potente para
+                la venta que lo merece.
+              </p>
+              <div className="lp-mini">
+                <span className="lp-chip">OpenAI</span>
+                <span className="lp-chip">Claude</span>
+                <span className="lp-chip">API compatible</span>
+                <span className="lp-chip">Modelo por agente</span>
+              </div>
+            </article>
+
+            <article className="lp-card lp-card--half lp-reveal">
+              <span className="lp-card__ic"><IconGauge /></span>
+              <h3>Sabes cuánto gasta cada agente</h3>
+              <p>
+                Cada respuesta registra sus tokens y su coste en dólares. Ves el
+                gasto del mes por agente y le pones un <b>tope</b>: al llegar,
+                la IA se detiene y la conversación pasa a tu equipo. Sin
+                sorpresas en la factura.
+              </p>
+              <div className="lp-meter" aria-hidden="true">
+                <div className="lp-meter__head">
+                  <span>Agente Ventas · este mes</span>
+                  <b>31.200 / 50.000 tok · $0,21</b>
+                </div>
+                <div className="lp-meter__bar"><span style={{ width: "62%" }} /></div>
+              </div>
+            </article>
           </div>
         </div>
       </section>
@@ -229,6 +271,7 @@ export function Landing() {
                 "Mensajes que se pierden entre vendedores",
                 "Responder uno por uno, todo el día",
                 "Sin saber en qué quedó cada conversación",
+                "Sin idea de cuánto cuesta cada respuesta de IA",
               ].map((t) => (
                 <div className="lp-row" key={t}>
                   <span className="lp-row__ic"><Dot /></span>
@@ -243,6 +286,7 @@ export function Landing() {
                 "Todo en una bandeja, con dueño claro",
                 "La IA responde y califica por ti",
                 "Cada lead con su historial, etapa y notas",
+                "Gasto de IA por agente, con tope mensual",
               ].map((t) => (
                 <div className="lp-row" key={t}>
                   <span className="lp-row__ic"><Check /></span>
@@ -251,6 +295,89 @@ export function Landing() {
               ))}
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* ── Ediciones: open source / nube ── */}
+      <section className="lp-section" id="ediciones" style={{ paddingTop: 0 }}>
+        <div className="lp-wrap">
+          <div className="lp-head lp-reveal">
+            <h2>Dos formas de tener Trimmo.</h2>
+            <p className="lp-lede">
+              El mismo CRM, con el mismo código abierto en el núcleo. Elige si lo
+              instalas tú o si lo alojamos nosotros.
+            </p>
+          </div>
+          <div className="lp-editions">
+            <article className="lp-edition lp-reveal">
+              <div className="lp-edition__tag">Open source · AGPL-3.0</div>
+              <h3>Instálalo en tu servidor</h3>
+              <p className="lp-edition__price">Gratis, para siempre</p>
+              <p>
+                El CRM completo, para una empresa, con tus datos en tu base y
+                tus propias claves. Lo levantas con Docker en tu servidor y no
+                dependes de nadie.
+              </p>
+              <div className="lp-edition__rows">
+                {[
+                  "Código abierto en GitHub",
+                  "Una empresa, usuarios y números sin límite",
+                  "Docker Compose: base de datos, API y web",
+                  "Tu app de Meta y tus API keys de IA",
+                  "Bandeja, agentes, flujos, difusiones: todo incluido",
+                ].map((t) => (
+                  <div className="lp-row" key={t}>
+                    <span className="lp-row__ic"><Check /></span>
+                    {t}
+                  </div>
+                ))}
+              </div>
+              <div className="lp-edition__cta">
+                <a
+                  href={GITHUB}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="lp-btn lp-btn--ghost"
+                >
+                  <IconGit /> Ver en GitHub
+                </a>
+              </div>
+            </article>
+
+            <article className="lp-edition lp-edition--cloud lp-reveal">
+              <div className="lp-edition__tag">Enterprise · en la nube</div>
+              <h3>Nosotros lo alojamos</h3>
+              <p className="lp-edition__price">Empieza gratis, sin tarjeta</p>
+              <p>
+                Tu espacio en <b>tu-empresa.trimmo.lat</b> en dos minutos. Sin
+                servidores ni actualizaciones que hacer, y con tus datos
+                aislados de los de cualquier otra empresa.
+              </p>
+              <div className="lp-edition__rows">
+                {[
+                  "Alta inmediata con tu propio subdominio",
+                  "Conecta WhatsApp desde el panel, en un clic",
+                  "Actualizaciones y copias de seguridad incluidas",
+                  "Aislamiento por empresa, también en la base de datos",
+                  "Soporte de personas que conocen el producto",
+                ].map((t) => (
+                  <div className="lp-row" key={t}>
+                    <span className="lp-row__ic"><Check /></span>
+                    {t}
+                  </div>
+                ))}
+              </div>
+              <div className="lp-edition__cta">
+                <Link href="/register" className="lp-btn lp-btn--primary">
+                  Empezar gratis <Arrow />
+                </Link>
+              </div>
+            </article>
+          </div>
+          <p className="lp-editions__note lp-reveal">
+            ¿Empiezas con la versión open source y luego quieres la nube, o al
+            revés? Es el mismo esquema de datos: se migra, no se rehace.
+          </p>
         </div>
       </section>
 
@@ -286,6 +413,7 @@ export function Landing() {
           <nav className="lp-foot__links">
             <a href="#capacidades">Producto</a>
             <a href="#como">Cómo funciona</a>
+            <a href={GITHUB} target="_blank" rel="noopener noreferrer">GitHub</a>
             <Link href="/login">Iniciar sesión</Link>
             <Link href="/privacy">Privacidad</Link>
           </nav>
@@ -433,5 +561,20 @@ function IconMega() {
 function IconFlow() {
   return (
     <svg {...S} width="22" height="22"><rect x="3" y="3" width="6" height="5" rx="1.5" /><rect x="15" y="16" width="6" height="5" rx="1.5" /><path d="M6 8v5a3 3 0 0 0 3 3h6" /></svg>
+  );
+}
+function IconModel() {
+  return (
+    <svg {...S} width="22" height="22"><rect x="7" y="7" width="10" height="10" rx="2" /><path d="M10 3v4M14 3v4M10 17v4M14 17v4M3 10h4M3 14h4M17 10h4M17 14h4" /></svg>
+  );
+}
+function IconGauge() {
+  return (
+    <svg {...S} width="22" height="22"><path d="M4 15a8 8 0 1 1 16 0" /><path d="M12 15l4-5" /><circle cx="12" cy="15" r="1.5" /></svg>
+  );
+}
+function IconGit() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2.2c-3.3.7-4-1.4-4-1.4-.6-1.4-1.4-1.8-1.4-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .5Z" /></svg>
   );
 }

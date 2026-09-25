@@ -105,6 +105,9 @@ export const ES_TO_EN: Record<string, string> = {
   "Usuario inactivo": "Inactive user",
   "Usuario no encontrado": "User not found",
   "verify_token inválido": "Invalid verify_token",
+  "Esta empresa no tiene configurada su propia app de Meta": "This company has not set up its own Meta app",
+  "Esta ruta solo existe bajo el subdominio de una empresa": "This route only exists under a company subdomain",
+  "Empresa no encontrada": "Company not found",
   "Se requiere code o accessToken": "Either code or accessToken is required",
   "No se pudo renovar tu sesión. Reintenta en unos segundos.":
     "Could not refresh your session. Try again in a few seconds.",

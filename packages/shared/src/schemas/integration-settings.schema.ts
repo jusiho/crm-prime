@@ -21,6 +21,9 @@ export const integrationSettingsSchema = z.object({
   whatsappAppSecret: apiKeyStateSchema,
   whatsappVerifyToken: apiKeyStateSchema,
   whatsappGraphVersion: z.string(),
+  // SaaS: URL a la que la empresa apunta el webhook de su PROPIA app de Meta
+  // (acme.trimmo.lat/api/v1/webhooks/whatsapp). null con una sola empresa.
+  whatsappWebhookUrl: z.string().nullable(),
   // Si no hay app secret, la firma del webhook NO se verifica: hay que avisar.
   webhookSignatureVerified: z.boolean(),
 });
