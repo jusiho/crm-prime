@@ -12,7 +12,7 @@ export const input: CSSProperties = {
   padding: "9px 11px",
   borderRadius: 8,
   border: "1px solid var(--border)",
-  background: "#0d1320",
+  background: "var(--field)",
   color: "var(--text)",
   fontSize: 14,
   width: "100%",
@@ -54,7 +54,7 @@ export function badge(bg: string): CSSProperties {
 }
 
 export const STATUS_COLOR: Record<string, string> = {
-  DRAFT: "#43506a",
+  DRAFT: "var(--surface-3)",
   SCHEDULED: "#caa14a",
   RUNNING: "#2c6fb0",
   COMPLETED: "#1f6f46",

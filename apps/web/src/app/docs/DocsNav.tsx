@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import type { DocEntry } from "@/features/docs/registry";
+import { NavIcon } from "@/components/NavIcons";
 
 /** Índice lateral. En móvil se pliega en un botón. */
 export function DocsNav({ groups }: { groups: { group: string; items: DocEntry[] }[] }) {
@@ -15,7 +16,12 @@ export function DocsNav({ groups }: { groups: { group: string; items: DocEntry[]
     <aside className="docs-nav" data-open={open}>
       <button className="docs-nav__toggle" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
         <span>{current ? current.title : "Índice"}</span>
-        <span aria-hidden>{open ? "▴" : "▾"}</span>
+        <span
+          aria-hidden
+          style={{ display: "inline-flex", transition: "transform 150ms", transform: open ? "rotate(180deg)" : "none" }}
+        >
+          <NavIcon name="chevron-down" size={16} />
+        </span>
       </button>
       <nav className="docs-nav__list">
         {groups.map((g) => (

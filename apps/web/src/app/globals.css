@@ -3,21 +3,36 @@
      se pintan en oscuro: sin esto, un select abre una lista blanca. */
   color-scheme: dark;
 
-  --bg: #0b0f17;
-  --panel: #131a26;
-  --panel-2: #0f1726;
-  --border: #223049;
-  --text: #e6edf6;
-  --muted: #8aa0bd;
-  --accent: #3578ff;
-  --accent-soft: rgba(53, 120, 255, 0.14);
+  /* ── Cristal técnico ─────────────────────────────────────────
+     Fondo casi negro con brillos de color detrás y una rejilla fina; los
+     paneles son translúcidos y dejan pasar ese brillo. Lo estructural (menú,
+     cabecera, cajones, diálogos) además desenfoca lo que tiene detrás. Las
+     tarjetas NO desenfocan: un backdrop-filter convierte al elemento en
+     contenedor de sus hijos `position: fixed`, y hay modales dentro de ellas. */
+  --bg: #07060c;
+  --panel: rgba(20, 14, 34, 0.62);
+  --panel-2: rgba(12, 8, 22, 0.84);
+  --border: rgba(178, 160, 220, 0.16);
+  --border-strong: rgba(178, 160, 220, 0.3);
+  --text: #f1ecfb;
+  --muted: #a49bbd;
+  --accent: #8a2be2;
+  --accent-2: #b26bff;
+  --accent-soft: rgba(138, 43, 226, 0.16);
 
-  /* Superficies de formulario: el fondo hundido de inputs y selects, y el
-     de las tarjetas que flotan sobre el panel. */
-  --field: #0d1320;
-  --surface: #131a26;
-  /* Tinta sobre el acento: el texto que va encima del azul de marca. */
-  --accent-ink: #f3f8ff;
+  /* Superficies de formulario: el fondo hundido de inputs y selects, y las
+     capas que flotan sobre el panel (cada una un poco más clara). */
+  --field: rgba(4, 2, 10, 0.5);
+  --surface: rgba(255, 255, 255, 0.045);
+  --surface-2: rgba(255, 255, 255, 0.075);
+  --surface-3: rgba(178, 160, 220, 0.14);
+  /* Tinta sobre el acento: el texto que va encima del violeta de marca. */
+  --accent-ink: #ffffff;
+  /* Texto de acento sobre fondo oscuro (enlaces, chips suaves). */
+  --accent-text: #d6b8ff;
+  /* Burbujas del chat: la saliente lleva el degradado de marca, tenue. */
+  --bubble-out: linear-gradient(135deg, rgba(138, 43, 226, 0.34), rgba(190, 100, 255, 0.14));
+  --bubble-in: rgba(255, 255, 255, 0.075);
 
   /* Estados. Se usaban en media app sin declararlos, asi que el punto de
      "sin responder" salia invisible: var(--x) sin respaldo no pinta nada. */
@@ -28,18 +43,29 @@
   --danger: #e08a8a;
   --danger-soft: rgba(224, 138, 138, 0.14);
 
-  --sidebar: #0d121d;
-  --sidebar-hover: #16202f;
+  --sidebar: rgba(8, 5, 16, 0.55);
+  --sidebar-hover: rgba(255, 255, 255, 0.05);
 
-  --radius: 10px;
+  --radius: 12px;
   --header-h: 56px;
   --sidebar-w: 226px;
 
-  /* Elevación jerárquica (La Sala de Control): tarjeta < overlay < drawer */
-  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.35), 0 6px 14px rgba(0, 0, 0, 0.22);
-  --shadow-overlay: 0 8px 26px rgba(0, 0, 0, 0.5);
-  --shadow-drawer: -10px 0 30px rgba(0, 0, 0, 0.45);
+  /* Cristal: desenfoque y la línea de luz del borde superior. */
+  --glass-blur: 18px;
+  --glass-line: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --glow-accent: 0 0 0 1px rgba(138, 43, 226, 0.22), 0 10px 28px -10px rgba(138, 43, 226, 0.7);
+
+  /* Elevación jerárquica: tarjeta < overlay < drawer */
+  --shadow-card: var(--glass-line), 0 12px 32px -20px rgba(0, 0, 0, 0.75);
+  --shadow-overlay: var(--glass-line), 0 30px 70px -24px rgba(0, 0, 0, 0.8);
+  --shadow-drawer: -24px 0 70px -24px rgba(0, 0, 0, 0.8);
   --shadow: var(--shadow-overlay); /* alias retro-compatible */
+
+  /* Tipografía: Hanken Grotesk para leer, Bricolage Grotesque para titular y
+     marca (app/fonts.ts pone las variables *-face en <html>). */
+  --font-sans: var(--font-body-face, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif);
+  --font-display: var(--font-display-face, var(--font-sans));
+  --font-mono: ui-monospace, "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
 }
 
 * {
@@ -49,18 +75,53 @@
 
 html {
   scroll-behavior: smooth;
+  background: var(--bg);
 }
 
 html,
 body {
   margin: 0;
   padding: 0;
-  background: var(--bg);
   color: var(--text);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+}
+
+/* Brillos de color detrás de todo: violeta arriba a la izquierda, lila a la
+   derecha, magenta abajo. Los paneles translúcidos los dejan pasar. */
+body {
+  position: relative;
+  isolation: isolate;
+  min-height: 100vh;
+  background:
+    radial-gradient(1100px 620px at 6% -8%, rgba(138, 43, 226, 0.22), transparent 62%),
+    radial-gradient(900px 560px at 104% 12%, rgba(190, 100, 255, 0.11), transparent 60%),
+    radial-gradient(900px 640px at 55% 112%, rgba(200, 40, 200, 0.14), transparent 62%),
+    var(--bg);
+}
+
+/* Rejilla técnica: asoma arriba a la izquierda y se desvanece. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(178, 160, 220, 0.075) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(178, 160, 220, 0.075) 1px, transparent 1px);
+  background-size: 40px 40px;
+  -webkit-mask-image: radial-gradient(1000px 640px at 12% 0%, #000 0%, transparent 72%);
+  mask-image: radial-gradient(1000px 640px at 12% 0%, #000 0%, transparent 72%);
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
 }
 
 a {
@@ -72,28 +133,54 @@ a:hover {
 }
 
 ::selection {
-  background: rgba(53, 120, 255, 0.30);
-  color: #eaf2ff;
+  background: rgba(138, 43, 226, 0.32);
+  color: #f4eeff;
 }
 
-/* ── Scrollbars finos, del color del panel ───────────────────── */
+/* ── Scrollbars finos y translúcidos ─────────────────────────── */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #2a3a57 transparent;
+  scrollbar-color: rgba(178, 160, 220, 0.22) transparent;
 }
 *::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
 *::-webkit-scrollbar-thumb {
-  background: #2a3a57;
+  background: rgba(178, 160, 220, 0.22);
   border-radius: 999px;
   border: 2px solid transparent;
   background-clip: padding-box;
 }
 *::-webkit-scrollbar-thumb:hover {
-  background: #3a4c6a;
+  background: rgba(178, 160, 220, 0.34);
   background-clip: padding-box;
+}
+
+/* ── Cristal ─────────────────────────────────────────────────────
+   Lo que flota sobre contenido que se mueve desenfoca lo de detrás. Las
+   tarjetas se reconocen por su fondo inline (var(--panel)) y solo reciben la
+   línea de luz del borde superior. */
+.glass,
+.side-nav,
+.topbar,
+.sticky-bar,
+aside[role="dialog"],
+[role="menu"],
+.confirm-dialog,
+.toast {
+  backdrop-filter: blur(var(--glass-blur)) saturate(160%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%);
+}
+[style*="background: var(--panel)"],
+[style*="background: var(--panel-2)"] {
+  box-shadow: var(--glass-line);
+}
+/* Los fondos oscuros de los cajones y diálogos también son cristal. */
+[style*="background: var(--panel-2)"][style*="position: fixed"],
+[style*="background: var(--panel-2)"][role="dialog"] {
+  backdrop-filter: blur(var(--glass-blur)) saturate(160%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%);
 }
 
 /* ── Pulido global de controles ──────────────────────────────────
@@ -118,22 +205,37 @@ button:disabled {
   cursor: not-allowed !important;
 }
 
-/* Primario (azul de marca): más luz y una sombra corta al pasar. */
-button[style*="background: var(--accent)"]:not(:disabled):hover {
-  background: #4a86ff !important;
-  box-shadow: 0 4px 14px rgba(53, 120, 255, 0.35);
+/* Primario (violeta de marca): degradado con una luz arriba y halo violeta. El
+   !important pisa la imagen de fondo que el `background: var(--accent)`
+   inline deja en "none". */
+button[style*="background: var(--accent)"],
+.btn-primary,
+.confirm-ok:not(.confirm-danger) {
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0) 55%),
+    linear-gradient(135deg, #9a44f2, #7a1fd6) !important;
+  box-shadow: var(--glow-accent) !important;
+}
+button[style*="background: var(--accent)"]:not(:disabled):hover,
+.btn-primary:not(:disabled):hover,
+.confirm-ok:not(.confirm-danger):not(:disabled):hover {
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0) 55%),
+    linear-gradient(135deg, #a858ff, #8a2be2) !important;
+  box-shadow: 0 0 0 1px rgba(138, 43, 226, 0.35), 0 12px 34px -10px rgba(138, 43, 226, 0.85) !important;
   filter: none;
 }
-button[style*="background: var(--accent)"]:not(:disabled):active {
-  background: #2b69ea !important;
-  box-shadow: none;
+button[style*="background: var(--accent)"]:not(:disabled):active,
+.btn-primary:not(:disabled):active {
+  background-image: linear-gradient(135deg, #7a1fd6, #6614bd) !important;
+  box-shadow: 0 0 0 1px rgba(138, 43, 226, 0.3) !important;
 }
 
 /* Fantasma (fondo transparente con borde): se rellena un poco y el texto se
    enciende, en vez de solo "brillar". */
 button[style*="background: transparent"]:not(:disabled):hover {
-  background: rgba(255, 255, 255, 0.045) !important;
-  border-color: #33466a !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+  border-color: var(--border-strong) !important;
   color: var(--text) !important;
   filter: none;
 }
@@ -157,14 +259,18 @@ textarea {
 }
 input::placeholder,
 textarea::placeholder {
-  color: #5d6e88;
+  color: #6f6690;
+}
+:where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]), select, textarea) {
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 :where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea):hover:not(:disabled):not(:focus) {
-  border-color: #33466a !important;
+  border-color: var(--border-strong) !important;
 }
 :where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea):focus {
   border-color: var(--accent) !important;
-  box-shadow: 0 0 0 3px var(--accent-soft);
+  box-shadow: 0 0 0 3px var(--accent-soft), 0 0 22px -6px rgba(138, 43, 226, 0.6),
+    inset 0 1px 2px rgba(0, 0, 0, 0.35);
   outline: none;
 }
 input:disabled,
@@ -180,7 +286,7 @@ textarea:disabled {
 select {
   appearance: none;
   -webkit-appearance: none;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238aa0bd' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><path d='m6 9 6 6 6-6'/></svg>") !important;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23a49bbd' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><path d='m6 9 6 6 6-6'/></svg>") !important;
   background-repeat: no-repeat !important;
   background-position: right 10px center !important;
   background-size: 14px !important;
@@ -188,16 +294,17 @@ select {
   cursor: pointer;
 }
 select:hover:not(:disabled) {
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23e6edf6' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><path d='m6 9 6 6 6-6'/></svg>") !important;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23f1ecfb' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><path d='m6 9 6 6 6-6'/></svg>") !important;
 }
 select[multiple],
 select[size] {
   background-image: none !important;
   padding-right: 0 !important;
 }
+/* La lista desplegada es nativa: necesita un fondo opaco. */
 select option,
 select optgroup {
-  background: #0d1320;
+  background: #0d0916;
   color: var(--text);
 }
 
@@ -246,16 +353,6 @@ input[type="range"] {
 .btn-primary {
   background: var(--accent);
   color: var(--accent-ink);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-}
-.btn-primary:not(:disabled):hover {
-  background: #4a86ff;
-  box-shadow: 0 4px 14px rgba(53, 120, 255, 0.35);
-  filter: none;
-}
-.btn-primary:not(:disabled):active {
-  background: #2b69ea;
-  box-shadow: none;
 }
 .btn-ghost {
   background: transparent;
@@ -263,8 +360,8 @@ input[type="range"] {
   border-color: var(--border);
 }
 .btn-ghost:not(:disabled):hover {
-  background: rgba(255, 255, 255, 0.045);
-  border-color: #33466a;
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--border-strong);
   filter: none;
 }
 .btn-danger {
@@ -280,11 +377,12 @@ input[type="range"] {
 }
 .btn-soft {
   background: var(--accent-soft);
-  color: #9ec1ff;
-  border-color: rgba(53, 120, 255, 0.35);
+  color: #d6b8ff;
+  border-color: rgba(138, 43, 226, 0.35);
 }
 .btn-soft:not(:disabled):hover {
-  background: rgba(53, 120, 255, 0.22);
+  background: rgba(138, 43, 226, 0.24);
+  box-shadow: 0 0 18px -6px rgba(138, 43, 226, 0.6);
   filter: none;
 }
 .btn-sm {
@@ -332,6 +430,7 @@ input[type="range"] {
   border-radius: 9px;
   background: var(--field);
   border: 1px solid var(--border);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 .seg > button {
   padding: 6px 12px;
@@ -349,18 +448,19 @@ input[type="range"] {
 }
 .seg > button[aria-selected="true"],
 .seg > button.is-active {
-  background: var(--surface);
+  background: var(--surface-2);
   color: var(--text);
   font-weight: 600;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--glass-line), 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 
 /* Chips de código (URLs de webhook, claves, etc.) */
 code {
-  background: #0d1320;
+  background: var(--field);
   border: 1px solid var(--border);
   padding: 1px 6px;
   border-radius: 6px;
+  font-family: var(--font-mono);
   font-size: 0.88em;
   color: #b7c7e0;
 }
@@ -378,7 +478,48 @@ code {
   animation: fadeIn 0.2s ease both;
 }
 
+/* ── Cabecera (AppShell) ─────────────────────────────────────── */
+.topbar {
+  position: relative;
+  z-index: 1;
+  background: rgba(8, 5, 16, 0.45);
+  border-bottom: 1px solid var(--border);
+  box-shadow: var(--glass-line);
+}
+/* Línea de luz que recorre el borde inferior de la cabecera. */
+.topbar::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(138, 43, 226, 0.55), rgba(190, 100, 255, 0.35) 40%, transparent 80%);
+  pointer-events: none;
+}
+.topbar-title {
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
+}
+.avatar {
+  background: linear-gradient(135deg, rgba(138, 43, 226, 0.55), rgba(190, 100, 255, 0.35));
+  box-shadow: var(--glass-line), 0 0 0 1px rgba(178, 160, 220, 0.18);
+}
+
 /* ── Navegación lateral (AppShell) ───────────────────────────── */
+.side-nav {
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.03);
+}
+.brand-mark {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  box-shadow: 0 0 20px -4px rgba(138, 43, 226, 0.85), var(--glass-line);
+}
+.brand-name {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
 .nav-item {
   display: flex;
   align-items: center;
@@ -390,7 +531,7 @@ code {
   font-size: 14px;
   font-weight: 500;
   position: relative;
-  transition: background 0.12s ease, color 0.12s ease;
+  transition: background 0.12s ease, color 0.12s ease, box-shadow 0.12s ease;
 }
 
 .nav-item:hover {
@@ -399,8 +540,9 @@ code {
 }
 
 .nav-item.active {
-  background: var(--accent-soft);
-  color: #eaf2ff;
+  background: linear-gradient(90deg, rgba(138, 43, 226, 0.24), rgba(190, 100, 255, 0.05));
+  color: #f4eeff;
+  box-shadow: var(--glass-line), 0 0 0 1px rgba(138, 43, 226, 0.18);
 }
 
 .nav-item.active::before {
@@ -411,7 +553,8 @@ code {
   bottom: 8px;
   width: 3px;
   border-radius: 0 3px 3px 0;
-  background: var(--accent);
+  background: linear-gradient(180deg, var(--accent), var(--accent-2));
+  box-shadow: 0 0 10px rgba(138, 43, 226, 0.8);
 }
 
 .nav-item svg {
@@ -419,12 +562,15 @@ code {
   height: 18px;
   flex-shrink: 0;
 }
+.nav-item.active svg {
+  filter: drop-shadow(0 0 6px rgba(138, 43, 226, 0.6));
+}
 
 .nav-group {
-  font-size: 11px;
+  font-size: 10.5px;
   text-transform: uppercase;
-  letter-spacing: 0.6px;
-  color: #56688a;
+  letter-spacing: 1.2px;
+  color: #6f6690;
   padding: 0 12px;
   margin: 16px 0 6px;
   font-weight: 600;
@@ -464,10 +610,10 @@ code {
   transition: background 0.12s ease;
 }
 .conv-item:hover {
-  background: #131b29;
+  background: rgba(255, 255, 255, 0.04);
 }
 .conv-item.is-active {
-  background: #1b2536;
+  background: linear-gradient(90deg, rgba(138, 43, 226, 0.16), rgba(138, 43, 226, 0.04));
 }
 .conv-item.is-active::before {
   content: "";
@@ -477,7 +623,8 @@ code {
   bottom: 8px;
   width: 3px;
   border-radius: 0 3px 3px 0;
-  background: var(--accent);
+  background: linear-gradient(180deg, var(--accent), var(--accent-2));
+  box-shadow: 0 0 10px rgba(138, 43, 226, 0.8);
 }
 
 /* Acciones de un mensaje (responder / reaccionar). Aparecen al pasar el
@@ -499,7 +646,7 @@ code {
   height: 26px;
   border-radius: 999px;
   border: 1px solid var(--border);
-  background: var(--field);
+  background: var(--panel-2);
   color: var(--muted);
   cursor: pointer;
   padding: 0;
@@ -528,7 +675,7 @@ code {
 }
 
 .skeleton {
-  background: #1c2738;
+  background: var(--surface-2);
   border-radius: 8px;
   animation: pulse 1.4s ease-in-out infinite;
 }
@@ -542,26 +689,18 @@ code {
   animation: spin 0.8s linear infinite;
 }
 
-/* Scrollbars sutiles */
-::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
-::-webkit-scrollbar-thumb {
-  background: #1f2b40;
-  border-radius: 8px;
-  border: 2px solid var(--bg);
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #2b3a55;
-}
-
-/* Tarjeta elevada reutilizable (La Sala de Control) */
+/* Tarjeta elevada reutilizable */
 .card-lift {
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow-card);
+}
+
+/* Barra pegajosa (acciones de un formulario largo): cristal para que el
+   contenido que pasa por debajo se intuya. */
+.sticky-bar {
+  background: rgba(8, 5, 16, 0.55) !important;
 }
 
 /* ── Toasts ──────────────────────────────────────────────────── */
@@ -581,7 +720,7 @@ code {
   gap: 10px;
   padding: 12px 14px;
   border-radius: 10px;
-  background: #131a26;
+  background: rgba(20, 14, 34, 0.78);
   border: 1px solid var(--border);
   box-shadow: var(--shadow-overlay);
   color: var(--text);
@@ -613,14 +752,14 @@ code {
   color: #1a0608;
 }
 .toast-icon-info {
-  background: #5a8fd6;
+  background: #9a6ee0;
   color: #04121f;
 }
 .toast-error {
   border-color: #5a2a33;
 }
 .toast-success {
-  border-color: #1f6f46;
+  border-color: rgba(138, 43, 226, 0.4);
 }
 @keyframes toastIn {
   from {
@@ -638,7 +777,9 @@ code {
   position: fixed;
   inset: 0;
   z-index: 1000;
-  background: rgba(0, 0, 0, 0.55);
+  background: rgba(4, 2, 10, 0.55);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   display: grid;
   place-items: center;
   padding: 24px;
@@ -767,7 +908,7 @@ code {
 }
 .flow-edge-tools:hover,
 .flow-edge-tools.is-selected {
-  background: rgba(13, 19, 32, 0.85);
+  background: rgba(12, 8, 22, 0.85);
 }
 .flow-edge-tools:hover button,
 .flow-edge-tools.is-selected button {
@@ -797,6 +938,7 @@ code {
     transform: translateX(-104%);
     transition: transform 0.18s ease;
     box-shadow: var(--shadow-drawer);
+    background: rgba(8, 5, 16, 0.82) !important;
   }
   body.nav-open .side-nav {
     transform: none;
@@ -806,7 +948,9 @@ code {
     position: fixed;
     inset: 0;
     z-index: 60;
-    background: rgba(0, 0, 0, 0.5);
+    background: rgba(4, 2, 10, 0.5);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
   }
   /* La bandeja: lista o chat, nunca los dos. */
   .inbox-list {

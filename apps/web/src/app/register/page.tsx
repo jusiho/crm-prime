@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AuthError } from "next-auth";
@@ -7,6 +8,11 @@ import { getTranslator } from "@/i18n/server";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
 const API_URL = process.env.API_URL ?? "http://localhost:3001";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslator();
+  return { title: `Trimmo — ${t("auth.signUpTitle")}` };
+}
 
 export default async function RegisterPage({
   searchParams,
@@ -59,10 +65,19 @@ export default async function RegisterPage({
       <div style={{ position: "absolute", top: 20, right: 20 }}>
         <LanguageSwitcher />
       </div>
-      <form action={register} style={card}>
+      <div style={{ width: 360, maxWidth: "100%" }}>
+        {/* La misma marca que en la landing: el visitante sabe que sigue en Trimmo. */}
+        <Link href="/" style={brandLink} aria-label="Trimmo, inicio">
+          <span className="brand-mark" style={brandMark}>T</span>
+          <span className="brand-name">Trimmo</span>
+        </Link>
+        <form action={register} style={card}>
         <h1 style={{ marginTop: 0 }}>{t("auth.signUpTitle")}</h1>
         <p style={{ color: "var(--muted)", marginTop: -8 }}>
           {t("auth.signUpSubtitle")}
+        </p>
+        <p style={{ color: "var(--accent-text)", fontSize: 13.5, margin: "4px 0 0" }}>
+          {t("auth.signUpReassure")}
         </p>
 
         {error && <p style={{ color: "#ff6b6b" }}>{error}</p>}
@@ -86,13 +101,35 @@ export default async function RegisterPage({
             {t("auth.signIn")}
           </Link>
         </p>
-      </form>
+        </form>
+      </div>
     </main>
   );
 }
 
+const brandLink: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 10,
+  marginBottom: 18,
+  fontSize: 17,
+  fontWeight: 700,
+  color: "var(--text)",
+  textDecoration: "none",
+};
+
+const brandMark: React.CSSProperties = {
+  width: 30,
+  height: 30,
+  borderRadius: 9,
+  color: "#fff",
+  display: "grid",
+  placeItems: "center",
+  fontWeight: 800,
+};
+
 const card: React.CSSProperties = {
-  width: 360,
+  width: "100%",
   padding: 28,
   background: "var(--panel)",
   border: "1px solid var(--border)",
@@ -112,7 +149,7 @@ const input: React.CSSProperties = {
   padding: "10px 12px",
   borderRadius: 8,
   border: "1px solid var(--border)",
-  background: "#0d1320",
+  background: "var(--field)",
   color: "var(--text)",
 };
 
@@ -122,7 +159,7 @@ const btn: React.CSSProperties = {
   borderRadius: 8,
   border: "none",
   background: "var(--accent)",
-  color: "#f3f8ff",
+  color: "var(--accent-ink)",
   fontWeight: 600,
   cursor: "pointer",
 };

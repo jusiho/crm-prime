@@ -1,7 +1,7 @@
 "use client";
 
 import { MessageDirection, MessageType, type ConversationDto } from "@crm/shared";
-import { NavIcon } from "@/components/NavIcons";
+import { NavIcon, type IconName } from "@/components/NavIcons";
 import { useT } from "@/i18n/I18nProvider";
 import type { Translator } from "@/i18n/translate";
 
@@ -24,35 +24,46 @@ export function timeAgo(iso: string | null, t: Translator): string {
   return t("inbox.timeDays", { n: Math.floor(h / 24) });
 }
 
-/** Texto de vista previa del último mensaje: el contenido, o qué tipo de archivo es. */
-export function previewOf(c: ConversationDto, t: Translator): string {
+/** Vista previa del último mensaje: el contenido, o un icono con el tipo de archivo. */
+export interface Preview {
+  icon: IconName | null;
+  text: string;
+}
+
+export function previewOf(c: ConversationDto, t: Translator): Preview {
   const m = c.lastMessage;
-  if (!m) return "";
+  if (!m) return { icon: null, text: "" };
   const mine = m.direction === MessageDirection.OUTBOUND;
+  let icon: IconName | null = null;
   let body: string;
   switch (m.type) {
     case MessageType.TEXT:
       body = (m.text ?? "").replace(/\s+/g, " ").trim();
       break;
     case MessageType.IMAGE:
-      body = `📷 ${t("inbox.previewImage")}`;
+      icon = "image";
+      body = t("inbox.previewImage");
       break;
     case MessageType.VIDEO:
-      body = `🎬 ${t("inbox.previewVideo")}`;
+      icon = "video";
+      body = t("inbox.previewVideo");
       break;
     case MessageType.AUDIO:
-      body = `🎤 ${t("inbox.previewAudio")}`;
+      icon = "mic";
+      body = t("inbox.previewAudio");
       break;
     case MessageType.DOCUMENT:
-      body = `📎 ${m.text?.trim() || t("inbox.previewDocument")}`;
+      icon = "paperclip";
+      body = m.text?.trim() || t("inbox.previewDocument");
       break;
     case MessageType.LOCATION:
-      body = `📍 ${t("inbox.previewLocation")}`;
+      icon = "map-pin";
+      body = t("inbox.previewLocation");
       break;
     default:
       body = m.text?.trim() || t("inbox.previewOther");
   }
-  return mine ? `${t("inbox.you")}: ${body}` : body;
+  return { icon, text: mine ? `${t("inbox.you")}: ${body}` : body };
 }
 
 /** Cuánto lleva esperando el contacto (solo si la conversación está sin responder). */
@@ -147,7 +158,12 @@ export function ConversationList({
                     color: unread > 0 ? "var(--text)" : "var(--muted)",
                   }}
                 >
-                  {preview || c.contact.phone}
+                  {preview.icon && (
+                    <span style={previewIcon}>
+                      <NavIcon name={preview.icon} size={12} />
+                    </span>
+                  )}
+                  {preview.text || c.contact.phone}
                 </span>
                 {unread > 0 && (
                   <span style={unreadBadge} aria-label={t("inbox.unreadCount", { n: unread })}>
@@ -237,6 +253,13 @@ const previewRow: React.CSSProperties = {
   marginTop: 2,
 };
 
+// Icono del tipo de archivo, alineado con el texto recortado de la vista previa.
+const previewIcon: React.CSSProperties = {
+  display: "inline-flex",
+  verticalAlign: "-2px",
+  marginRight: 5,
+};
+
 const metaRow: React.CSSProperties = {
   display: "flex",
   gap: 5,
@@ -313,7 +336,7 @@ const avatar: React.CSSProperties = {
   width: 40,
   height: 40,
   borderRadius: "50%",
-  background: "#1f3a6b",
+  background: "var(--accent-soft)",
   color: "#dbe7ff",
   display: "grid",
   placeItems: "center",

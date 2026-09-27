@@ -154,7 +154,7 @@ export function ContactDrawer({
                 {contactOriginLabels[contact.origin]}
               </span>
               {contact.originDetail && (
-                <span style={badge("#2c3a52")}>{contact.originDetail}</span>
+                <span style={badge("var(--surface-3)")}>{contact.originDetail}</span>
               )}
             </div>
 
@@ -222,7 +222,7 @@ export function ContactDrawer({
             {contact.tags.length > 0 ? (
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                 {contact.tags.map((t) => (
-                  <span key={t.name} style={badge(t.color ?? "#2c3a52")}>
+                  <span key={t.name} style={badge(t.color ?? "var(--surface-3)")}>
                     {t.name}
                   </span>
                 ))}
@@ -368,7 +368,7 @@ const drawer: React.CSSProperties = {
   width: "min(440px, 100vw)",
   display: "flex",
   flexDirection: "column",
-  background: "var(--surface, #131a26)",
+  background: "var(--surface, var(--panel))",
   borderLeft: "1px solid var(--border)",
   boxShadow: "-8px 0 24px rgba(0,0,0,0.4)",
   zIndex: 41,
@@ -429,7 +429,7 @@ const input: React.CSSProperties = {
   padding: "9px 11px",
   borderRadius: 8,
   border: "1px solid var(--border)",
-  background: "var(--field, #0d1320)",
+  background: "var(--field, var(--field))",
   color: "var(--text)",
   fontSize: 14,
   boxSizing: "border-box",
@@ -481,7 +481,7 @@ const adLink: React.CSSProperties = {
   display: "inline-block",
   marginTop: 8,
   fontSize: 12,
-  color: "#9ec1ff",
+  color: "var(--accent-text)",
 };
 
 const utmGrid: React.CSSProperties = { margin: 0, display: "grid", gap: 4 };
@@ -492,7 +492,7 @@ const utmRow: React.CSSProperties = {
   gap: 10,
   padding: "5px 9px",
   borderRadius: 7,
-  background: "var(--field, #0d1320)",
+  background: "var(--field, var(--field))",
 };
 
 const dt: React.CSSProperties = {

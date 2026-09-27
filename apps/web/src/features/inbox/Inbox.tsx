@@ -102,7 +102,7 @@ export function Inbox() {
   }, [shown, selectedId, isMobile]);
 
   const nombreDe = useCallback((c: ConversationDto) => c.contact.name ?? c.contact.phone, []);
-  const previewDe = useCallback((c: ConversationDto) => previewOf(c, t), [t]);
+  const previewDe = useCallback((c: ConversationDto) => previewOf(c, t).text, [t]);
   const notify = useInboxNotifications(conversations, selected?.id ?? null, nombreDe, previewDe);
 
   function select(c: ConversationDto) {

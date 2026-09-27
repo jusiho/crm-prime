@@ -40,6 +40,8 @@ import type {
   UpdateFlowInput,
   FlowAssistantRequest,
   FlowAssistantReply,
+  PromptAssistantRequest,
+  PromptAssistantReply,
   AiSettingsDto,
   UpdateAiSettingsInput,
   AiConnectionTest,
@@ -575,6 +577,21 @@ export async function askFlowAssistant(
   input: FlowAssistantRequest,
 ): Promise<FlowAssistantReply> {
   const res = await bffFetch("/api/bff/flows/assistant", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    throw new Error(await errorMessage(res, "El asistente no pudo responder"));
+  }
+  return res.json();
+}
+
+// Asistente de redacción: propone instrucciones o mensajes para un agente.
+export async function askPromptAssistant(
+  input: PromptAssistantRequest,
+): Promise<PromptAssistantReply> {
+  const res = await bffFetch("/api/bff/bots/prompt-assistant", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),

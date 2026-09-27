@@ -51,10 +51,10 @@ export async function AppShell({
       <SideNav role={role} active={active} initialCollapsed={collapsed} />
 
       <div style={main}>
-        <header style={topbar}>
+        <header className="topbar" style={topbar}>
           <MobileMenuButton />
           <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ fontSize: 16, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            <div className="topbar-title" style={{ fontSize: 16, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
               {t(`pages.${page}.title` as MessageKey)}
             </div>
             <div className="topbar-subtitle" style={{ fontSize: 12.5, color: "var(--muted)" }}>
@@ -71,7 +71,7 @@ export async function AppShell({
               style={{ ...userChip, color: "var(--text)" }}
               title={t("nav.myAccount")}
             >
-              <span style={avatar}>{(email[0] ?? "?").toUpperCase()}</span>
+              <span className="avatar" style={avatar}>{(email[0] ?? "?").toUpperCase()}</span>
               <div className="user-chip__text" style={{ lineHeight: 1.2 }}>
                 <div style={{ fontSize: 13 }}>{email}</div>
                 <div style={{ fontSize: 11, color: "var(--muted)" }}>{role}</div>
@@ -120,11 +120,7 @@ const topbar: React.CSSProperties = {
   alignItems: "center",
   justifyContent: "space-between",
   padding: "0 20px",
-  borderBottom: "1px solid var(--border)",
-  background: "var(--bg)",
-  // La cabecera flota una pizca sobre el contenido que hace scroll bajo ella.
-  boxShadow: "0 4px 16px rgba(0,0,0,0.22)",
-  zIndex: 1,
+  // Fondo, borde y cristal: en .topbar (globals.css).
 };
 
 const content: React.CSSProperties = {
@@ -146,8 +142,7 @@ const avatar: React.CSSProperties = {
   width: 30,
   height: 30,
   borderRadius: "50%",
-  background: "#22304a",
-  color: "#cfe0ff",
+  color: "#eaf2ff",
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",

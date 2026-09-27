@@ -1,58 +1,537 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-06-18T00:00:00Z",
+  "generatedAt": "2026-09-26T18:45:22.902Z",
   "title": "Design System: Trimmo",
   "extensions": {
     "colorMeta": {
-      "accent": {
+      "violet": {
         "role": "primary",
-        "displayName": "Verde Señal",
-        "canonical": "#25d366",
-        "tonalRamp": ["#07140c", "#0c2916", "#114d27", "#167a3c", "#1ba84f", "#25d366", "#5fe08c", "#9eeeb7"]
+        "displayName": "Violeta Eléctrico",
+        "canonical": "oklch(53.4% 0.250 301.4)",
+        "tonalRamp": [
+          "oklch(15.0% 0.138 301.4)",
+          "oklch(25.0% 0.188 301.4)",
+          "oklch(37.0% 0.248 301.4)",
+          "oklch(50.0% 0.250 301.4)",
+          "oklch(62.0% 0.250 301.4)",
+          "oklch(74.0% 0.193 301.4)",
+          "oklch(85.0% 0.138 301.4)",
+          "oklch(95.0% 0.088 301.4)"
+        ]
+      },
+      "violet-bright": {
+        "role": "primary",
+        "displayName": "Lila",
+        "canonical": "oklch(67.2% 0.214 303.2)",
+        "tonalRamp": [
+          "oklch(15.0% 0.118 303.2)",
+          "oklch(25.0% 0.160 303.2)",
+          "oklch(37.0% 0.212 303.2)",
+          "oklch(50.0% 0.214 303.2)",
+          "oklch(62.0% 0.214 303.2)",
+          "oklch(74.0% 0.165 303.2)",
+          "oklch(85.0% 0.118 303.2)",
+          "oklch(95.0% 0.075 303.2)"
+        ]
+      },
+      "violet-text": {
+        "role": "primary",
+        "displayName": "Violeta Texto",
+        "canonical": "oklch(83.3% 0.102 303.6)",
+        "tonalRamp": [
+          "oklch(15.0% 0.056 303.6)",
+          "oklch(25.0% 0.077 303.6)",
+          "oklch(37.0% 0.101 303.6)",
+          "oklch(50.0% 0.102 303.6)",
+          "oklch(62.0% 0.102 303.6)",
+          "oklch(74.0% 0.079 303.6)",
+          "oklch(85.0% 0.056 303.6)",
+          "oklch(95.0% 0.036 303.6)"
+        ]
+      },
+      "violet-deep": {
+        "role": "primary",
+        "displayName": "Violeta Profundo",
+        "canonical": "oklch(49.6% 0.246 298.8)",
+        "tonalRamp": [
+          "oklch(15.0% 0.135 298.8)",
+          "oklch(25.0% 0.184 298.8)",
+          "oklch(37.0% 0.243 298.8)",
+          "oklch(50.0% 0.246 298.8)",
+          "oklch(62.0% 0.246 298.8)",
+          "oklch(74.0% 0.189 298.8)",
+          "oklch(85.0% 0.135 298.8)",
+          "oklch(95.0% 0.086 298.8)"
+        ]
+      },
+      "violet-hot": {
+        "role": "primary",
+        "displayName": "Violeta Caliente",
+        "canonical": "oklch(58.8% 0.245 301.7)",
+        "tonalRamp": [
+          "oklch(15.0% 0.135 301.7)",
+          "oklch(25.0% 0.183 301.7)",
+          "oklch(37.0% 0.242 301.7)",
+          "oklch(50.0% 0.245 301.7)",
+          "oklch(62.0% 0.245 301.7)",
+          "oklch(74.0% 0.188 301.7)",
+          "oklch(85.0% 0.135 301.7)",
+          "oklch(95.0% 0.086 301.7)"
+        ]
+      },
+      "violet-shadow": {
+        "role": "primary",
+        "displayName": "Violeta Sombra",
+        "canonical": "oklch(44.2% 0.227 297.0)",
+        "tonalRamp": [
+          "oklch(15.0% 0.125 297.0)",
+          "oklch(25.0% 0.170 297.0)",
+          "oklch(37.0% 0.225 297.0)",
+          "oklch(50.0% 0.227 297.0)",
+          "oklch(62.0% 0.227 297.0)",
+          "oklch(74.0% 0.175 297.0)",
+          "oklch(85.0% 0.125 297.0)",
+          "oklch(95.0% 0.079 297.0)"
+        ]
+      },
+      "violet-soft": {
+        "role": "primary",
+        "displayName": "Violeta Tenue",
+        "canonical": "oklch(53.4% 0.250 301.4) / 16%",
+        "tonalRamp": [
+          "oklch(15.0% 0.138 301.4)",
+          "oklch(25.0% 0.188 301.4)",
+          "oklch(37.0% 0.248 301.4)",
+          "oklch(50.0% 0.250 301.4)",
+          "oklch(62.0% 0.250 301.4)",
+          "oklch(74.0% 0.193 301.4)",
+          "oklch(85.0% 0.138 301.4)",
+          "oklch(95.0% 0.088 301.4)"
+        ]
+      },
+      "violet-ink": {
+        "role": "primary",
+        "displayName": "Tinta sobre Violeta",
+        "canonical": "oklch(100.0% 0.000 89.9)",
+        "tonalRamp": [
+          "oklch(15.0% 0.000 89.9)",
+          "oklch(25.0% 0.000 89.9)",
+          "oklch(37.0% 0.000 89.9)",
+          "oklch(50.0% 0.000 89.9)",
+          "oklch(62.0% 0.000 89.9)",
+          "oklch(74.0% 0.000 89.9)",
+          "oklch(85.0% 0.000 89.9)",
+          "oklch(95.0% 0.000 89.9)"
+        ]
+      },
+      "whatsapp": {
+        "role": "secondary",
+        "displayName": "Verde WhatsApp",
+        "canonical": "oklch(76.1% 0.201 149.7)",
+        "tonalRamp": [
+          "oklch(15.0% 0.111 149.7)",
+          "oklch(25.0% 0.151 149.7)",
+          "oklch(37.0% 0.199 149.7)",
+          "oklch(50.0% 0.201 149.7)",
+          "oklch(62.0% 0.201 149.7)",
+          "oklch(74.0% 0.155 149.7)",
+          "oklch(85.0% 0.111 149.7)",
+          "oklch(95.0% 0.071 149.7)"
+        ]
       },
       "positive": {
         "role": "secondary",
         "displayName": "Verde Vital",
-        "canonical": "#7ee2a8",
-        "tonalRamp": ["#0f2a1c", "#16442d", "#1d6242", "#2a8559", "#4fae74", "#7ee2a8", "#a6edc4", "#cdf6df"]
+        "canonical": "oklch(83.6% 0.126 156.8)",
+        "tonalRamp": [
+          "oklch(15.0% 0.069 156.8)",
+          "oklch(25.0% 0.094 156.8)",
+          "oklch(37.0% 0.125 156.8)",
+          "oklch(50.0% 0.126 156.8)",
+          "oklch(62.0% 0.126 156.8)",
+          "oklch(74.0% 0.097 156.8)",
+          "oklch(85.0% 0.069 156.8)",
+          "oklch(95.0% 0.044 156.8)"
+        ]
+      },
+      "positive-soft": {
+        "role": "secondary",
+        "displayName": "Verde Tenue",
+        "canonical": "oklch(83.6% 0.126 156.8) / 14%",
+        "tonalRamp": [
+          "oklch(15.0% 0.069 156.8)",
+          "oklch(25.0% 0.094 156.8)",
+          "oklch(37.0% 0.125 156.8)",
+          "oklch(50.0% 0.126 156.8)",
+          "oklch(62.0% 0.126 156.8)",
+          "oklch(74.0% 0.097 156.8)",
+          "oklch(85.0% 0.069 156.8)",
+          "oklch(95.0% 0.044 156.8)"
+        ]
+      },
+      "warning": {
+        "role": "tertiary",
+        "displayName": "Ámbar",
+        "canonical": "oklch(76.1% 0.117 70.9)",
+        "tonalRamp": [
+          "oklch(15.0% 0.064 70.9)",
+          "oklch(25.0% 0.088 70.9)",
+          "oklch(37.0% 0.116 70.9)",
+          "oklch(50.0% 0.117 70.9)",
+          "oklch(62.0% 0.117 70.9)",
+          "oklch(74.0% 0.090 70.9)",
+          "oklch(85.0% 0.064 70.9)",
+          "oklch(95.0% 0.041 70.9)"
+        ]
+      },
+      "warning-soft": {
+        "role": "tertiary",
+        "displayName": "Ámbar Tenue",
+        "canonical": "oklch(76.1% 0.117 70.9) / 14%",
+        "tonalRamp": [
+          "oklch(15.0% 0.064 70.9)",
+          "oklch(25.0% 0.088 70.9)",
+          "oklch(37.0% 0.116 70.9)",
+          "oklch(50.0% 0.117 70.9)",
+          "oklch(62.0% 0.117 70.9)",
+          "oklch(74.0% 0.090 70.9)",
+          "oklch(85.0% 0.064 70.9)",
+          "oklch(95.0% 0.041 70.9)"
+        ]
+      },
+      "danger": {
+        "role": "tertiary",
+        "displayName": "Rojo Suave",
+        "canonical": "oklch(72.3% 0.106 20.0)",
+        "tonalRamp": [
+          "oklch(15.0% 0.058 20.0)",
+          "oklch(25.0% 0.079 20.0)",
+          "oklch(37.0% 0.104 20.0)",
+          "oklch(50.0% 0.106 20.0)",
+          "oklch(62.0% 0.106 20.0)",
+          "oklch(74.0% 0.081 20.0)",
+          "oklch(85.0% 0.058 20.0)",
+          "oklch(95.0% 0.037 20.0)"
+        ]
+      },
+      "danger-soft": {
+        "role": "tertiary",
+        "displayName": "Rojo Tenue",
+        "canonical": "oklch(72.3% 0.106 20.0) / 14%",
+        "tonalRamp": [
+          "oklch(15.0% 0.058 20.0)",
+          "oklch(25.0% 0.079 20.0)",
+          "oklch(37.0% 0.104 20.0)",
+          "oklch(50.0% 0.106 20.0)",
+          "oklch(62.0% 0.106 20.0)",
+          "oklch(74.0% 0.081 20.0)",
+          "oklch(85.0% 0.058 20.0)",
+          "oklch(95.0% 0.037 20.0)"
+        ]
       },
       "bg": {
         "role": "neutral",
-        "displayName": "Fondo Sala",
-        "canonical": "#0b0f17",
-        "tonalRamp": ["#0b0f17", "#0d121d", "#0f1726", "#131a26", "#1c2738", "#223049", "#5a6b85", "#8aa0bd"]
+        "displayName": "Noche",
+        "canonical": "oklch(12.7% 0.015 293.1)",
+        "tonalRamp": [
+          "oklch(15.0% 0.008 293.1)",
+          "oklch(25.0% 0.011 293.1)",
+          "oklch(37.0% 0.015 293.1)",
+          "oklch(50.0% 0.015 293.1)",
+          "oklch(62.0% 0.015 293.1)",
+          "oklch(74.0% 0.011 293.1)",
+          "oklch(85.0% 0.008 293.1)",
+          "oklch(95.0% 0.005 293.1)"
+        ]
+      },
+      "panel": {
+        "role": "neutral",
+        "displayName": "Cristal",
+        "canonical": "oklch(18.3% 0.040 296.0) / 62%",
+        "tonalRamp": [
+          "oklch(15.0% 0.022 296.0)",
+          "oklch(25.0% 0.030 296.0)",
+          "oklch(37.0% 0.040 296.0)",
+          "oklch(50.0% 0.040 296.0)",
+          "oklch(62.0% 0.040 296.0)",
+          "oklch(74.0% 0.031 296.0)",
+          "oklch(85.0% 0.022 296.0)",
+          "oklch(95.0% 0.014 296.0)"
+        ]
+      },
+      "panel-deep": {
+        "role": "neutral",
+        "displayName": "Cristal Hondo",
+        "canonical": "oklch(14.8% 0.030 296.0) / 84%",
+        "tonalRamp": [
+          "oklch(15.0% 0.017 296.0)",
+          "oklch(25.0% 0.023 296.0)",
+          "oklch(37.0% 0.030 296.0)",
+          "oklch(50.0% 0.030 296.0)",
+          "oklch(62.0% 0.030 296.0)",
+          "oklch(74.0% 0.023 296.0)",
+          "oklch(85.0% 0.017 296.0)",
+          "oklch(95.0% 0.011 296.0)"
+        ]
+      },
+      "sidebar": {
+        "role": "neutral",
+        "displayName": "Barra Lateral",
+        "canonical": "oklch(12.8% 0.027 297.4) / 55%",
+        "tonalRamp": [
+          "oklch(15.0% 0.015 297.4)",
+          "oklch(25.0% 0.020 297.4)",
+          "oklch(37.0% 0.026 297.4)",
+          "oklch(50.0% 0.027 297.4)",
+          "oklch(62.0% 0.027 297.4)",
+          "oklch(74.0% 0.021 297.4)",
+          "oklch(85.0% 0.015 297.4)",
+          "oklch(95.0% 0.009 297.4)"
+        ]
+      },
+      "field": {
+        "role": "neutral",
+        "displayName": "Campo",
+        "canonical": "oklch(10.0% 0.027 297.4) / 50%",
+        "tonalRamp": [
+          "oklch(15.0% 0.015 297.4)",
+          "oklch(25.0% 0.020 297.4)",
+          "oklch(37.0% 0.027 297.4)",
+          "oklch(50.0% 0.027 297.4)",
+          "oklch(62.0% 0.027 297.4)",
+          "oklch(74.0% 0.021 297.4)",
+          "oklch(85.0% 0.015 297.4)",
+          "oklch(95.0% 0.010 297.4)"
+        ]
       },
       "surface": {
         "role": "neutral",
-        "displayName": "Superficie",
-        "canonical": "#131a26",
-        "tonalRamp": ["#0b0f17", "#0d121d", "#0f1726", "#131a26", "#1c2738", "#223049", "#3a4a66", "#5a6b85"]
+        "displayName": "Capa 1",
+        "canonical": "oklch(100.0% 0.000 89.9) / 4%",
+        "tonalRamp": [
+          "oklch(15.0% 0.000 89.9)",
+          "oklch(25.0% 0.000 89.9)",
+          "oklch(37.0% 0.000 89.9)",
+          "oklch(50.0% 0.000 89.9)",
+          "oklch(62.0% 0.000 89.9)",
+          "oklch(74.0% 0.000 89.9)",
+          "oklch(85.0% 0.000 89.9)",
+          "oklch(95.0% 0.000 89.9)"
+        ]
       },
-      "border": { "role": "neutral", "displayName": "Borde", "canonical": "#223049" },
-      "ink": { "role": "neutral", "displayName": "Tinta", "canonical": "#e6edf6" },
-      "muted": { "role": "neutral", "displayName": "Tinta Apagada", "canonical": "#8aa0bd" },
-      "warning": { "role": "tertiary", "displayName": "Ámbar", "canonical": "#e0a458" },
-      "danger": { "role": "tertiary", "displayName": "Rojo Suave", "canonical": "#e08a8a" }
+      "surface-2": {
+        "role": "neutral",
+        "displayName": "Capa 2",
+        "canonical": "oklch(100.0% 0.000 89.9) / 7%",
+        "tonalRamp": [
+          "oklch(15.0% 0.000 89.9)",
+          "oklch(25.0% 0.000 89.9)",
+          "oklch(37.0% 0.000 89.9)",
+          "oklch(50.0% 0.000 89.9)",
+          "oklch(62.0% 0.000 89.9)",
+          "oklch(74.0% 0.000 89.9)",
+          "oklch(85.0% 0.000 89.9)",
+          "oklch(95.0% 0.000 89.9)"
+        ]
+      },
+      "surface-3": {
+        "role": "neutral",
+        "displayName": "Capa Lila",
+        "canonical": "oklch(74.3% 0.087 298.0) / 14%",
+        "tonalRamp": [
+          "oklch(15.0% 0.048 298.0)",
+          "oklch(25.0% 0.065 298.0)",
+          "oklch(37.0% 0.086 298.0)",
+          "oklch(50.0% 0.087 298.0)",
+          "oklch(62.0% 0.087 298.0)",
+          "oklch(74.0% 0.067 298.0)",
+          "oklch(85.0% 0.048 298.0)",
+          "oklch(95.0% 0.031 298.0)"
+        ]
+      },
+      "border": {
+        "role": "neutral",
+        "displayName": "Borde",
+        "canonical": "oklch(74.3% 0.087 298.0) / 16%",
+        "tonalRamp": [
+          "oklch(15.0% 0.048 298.0)",
+          "oklch(25.0% 0.065 298.0)",
+          "oklch(37.0% 0.086 298.0)",
+          "oklch(50.0% 0.087 298.0)",
+          "oklch(62.0% 0.087 298.0)",
+          "oklch(74.0% 0.067 298.0)",
+          "oklch(85.0% 0.048 298.0)",
+          "oklch(95.0% 0.031 298.0)"
+        ]
+      },
+      "border-strong": {
+        "role": "neutral",
+        "displayName": "Borde Fuerte",
+        "canonical": "oklch(74.3% 0.087 298.0) / 30%",
+        "tonalRamp": [
+          "oklch(15.0% 0.048 298.0)",
+          "oklch(25.0% 0.065 298.0)",
+          "oklch(37.0% 0.086 298.0)",
+          "oklch(50.0% 0.087 298.0)",
+          "oklch(62.0% 0.087 298.0)",
+          "oklch(74.0% 0.067 298.0)",
+          "oklch(85.0% 0.048 298.0)",
+          "oklch(95.0% 0.031 298.0)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Tinta",
+        "canonical": "oklch(95.1% 0.021 301.1)",
+        "tonalRamp": [
+          "oklch(15.0% 0.011 301.1)",
+          "oklch(25.0% 0.015 301.1)",
+          "oklch(37.0% 0.020 301.1)",
+          "oklch(50.0% 0.021 301.1)",
+          "oklch(62.0% 0.021 301.1)",
+          "oklch(74.0% 0.016 301.1)",
+          "oklch(85.0% 0.011 301.1)",
+          "oklch(95.0% 0.007 301.1)"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Tinta Apagada",
+        "canonical": "oklch(70.9% 0.050 297.2)",
+        "tonalRamp": [
+          "oklch(15.0% 0.027 297.2)",
+          "oklch(25.0% 0.037 297.2)",
+          "oklch(37.0% 0.049 297.2)",
+          "oklch(50.0% 0.050 297.2)",
+          "oklch(62.0% 0.050 297.2)",
+          "oklch(74.0% 0.038 297.2)",
+          "oklch(85.0% 0.027 297.2)",
+          "oklch(95.0% 0.017 297.2)"
+        ]
+      },
+      "placeholder": {
+        "role": "neutral",
+        "displayName": "Placeholder",
+        "canonical": "oklch(53.5% 0.066 293.9)",
+        "tonalRamp": [
+          "oklch(15.0% 0.036 293.9)",
+          "oklch(25.0% 0.049 293.9)",
+          "oklch(37.0% 0.065 293.9)",
+          "oklch(50.0% 0.066 293.9)",
+          "oklch(62.0% 0.066 293.9)",
+          "oklch(74.0% 0.051 293.9)",
+          "oklch(85.0% 0.036 293.9)",
+          "oklch(95.0% 0.023 293.9)"
+        ]
+      }
     },
     "typographyMeta": {
-      "headline": { "displayName": "Headline", "purpose": "Título de página en la cabecera del AppShell." },
-      "title": { "displayName": "Title", "purpose": "Títulos de sección, tarjeta y panel/drawer." },
-      "body": { "displayName": "Body", "purpose": "Texto general, mensajes, filas de tabla. 65–75ch en prosa." },
-      "label": { "displayName": "Label", "purpose": "Etiquetas de formulario y metadatos." },
-      "overline": { "displayName": "Overline", "purpose": "Solo rótulos de grupo del nav lateral." }
+      "display": {
+        "displayName": "Display",
+        "purpose": "Solo el titular del hero de la landing. Space Grotesk 700, techo 4.5rem."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Títulos de sección de la landing y de los docs."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Título de página en la cabecera de la app, títulos de tarjeta y de cajón. Escala fija."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Texto general, mensajes y filas. Inter 14px; en la landing 17px/1.6."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Etiquetas de formulario, metadatos y subtítulo de cabecera."
+      },
+      "overline": {
+        "displayName": "Overline",
+        "purpose": "Solo los rótulos de grupo de la barra lateral. Nunca como eyebrow de sección."
+      },
+      "mono": {
+        "displayName": "Mono",
+        "purpose": "Chips de código, ids y URLs."
+      }
     },
     "shadows": [
-      { "name": "card-lift", "value": "0 1px 2px rgba(0,0,0,.35), 0 6px 14px rgba(0,0,0,.22)", "purpose": "Tarjetas y paneles en reposo: levanta sin gritar." },
-      { "name": "overlay", "value": "0 6px 20px rgba(0,0,0,.45)", "purpose": "Menús, dropdowns, popovers." },
-      { "name": "drawer", "value": "-8px 0 24px rgba(0,0,0,.4)", "purpose": "Paneles laterales (detalle de deal, config de bot, sesiones)." }
+      {
+        "name": "glass-line",
+        "value": "inset 0 1px 0 rgba(255,255,255,0.06)",
+        "purpose": "Línea de luz del borde superior de todo cristal."
+      },
+      {
+        "name": "shadow-card",
+        "value": "inset 0 1px 0 rgba(255,255,255,0.06), 0 12px 32px -20px rgba(0,0,0,0.75)",
+        "purpose": "Tarjetas en reposo: separa sin dibujar contorno."
+      },
+      {
+        "name": "shadow-overlay",
+        "value": "inset 0 1px 0 rgba(255,255,255,0.06), 0 30px 70px -24px rgba(0,0,0,0.8)",
+        "purpose": "Menús, popovers y diálogos."
+      },
+      {
+        "name": "shadow-drawer",
+        "value": "-24px 0 70px -24px rgba(0,0,0,0.8)",
+        "purpose": "Cajones laterales."
+      },
+      {
+        "name": "glow-accent",
+        "value": "0 0 0 1px rgba(138,43,226,0.22), 0 10px 28px -10px rgba(138,43,226,0.7)",
+        "purpose": "Botón primario en reposo; crece en hover."
+      },
+      {
+        "name": "focus-ring",
+        "value": "0 0 0 3px rgba(138,43,226,0.16), 0 0 22px -6px rgba(138,43,226,0.6)",
+        "purpose": "Foco de campos."
+      },
+      {
+        "name": "glass-blur",
+        "value": "backdrop-filter: blur(18px) saturate(160%)",
+        "purpose": "Solo estructural: menú, cabecera, cajones, diálogos, menús, avisos."
+      }
     ],
     "motion": [
-      { "name": "ease-control", "value": "ease", "purpose": "Hover/active de botones y controles (0.13s)." },
-      { "name": "fade-in", "value": "fadeIn 0.2s ease both", "purpose": "Entrada suave del contenido al navegar entre secciones." },
-      { "name": "duration-fast", "value": "120ms", "purpose": "Transiciones de estado (foco, hover, color)." }
+      {
+        "name": "state",
+        "value": "130ms ease",
+        "purpose": "Hover, foco y color en botones y campos."
+      },
+      {
+        "name": "press",
+        "value": "70ms ease (translateY(1px))",
+        "purpose": "La pulsación hunde 1px."
+      },
+      {
+        "name": "ease-out-quint",
+        "value": "cubic-bezier(0.22, 1, 0.36, 1)",
+        "purpose": "Entradas de diálogos, avisos y reveals de la landing (180–700ms)."
+      },
+      {
+        "name": "content-fade",
+        "value": "200ms ease (opacity .35 → 1)",
+        "purpose": "Entrada del contenido al navegar entre secciones."
+      },
+      {
+        "name": "marquee",
+        "value": "40s linear infinite (translateX 0 → -50%)",
+        "purpose": "Banda violeta de la landing; se pausa en hover y con prefers-reduced-motion."
+      }
     ],
     "breakpoints": [
-      { "name": "sidebar-collapse", "value": "900px" }
+      {
+        "name": "phone",
+        "value": "600px"
+      },
+      {
+        "name": "tablet",
+        "value": "900px"
+      },
+      {
+        "name": "landing-phone",
+        "value": "560px"
+      }
     ]
   },
   "components": [
@@ -60,92 +539,163 @@
       "name": "Primary Button",
       "kind": "button",
       "refersTo": "button-primary",
-      "description": "Acción principal de cada vista. Verde Señal con texto casi negro.",
+      "description": "La acción principal de cada vista: degradado violeta con luz arriba y halo.",
       "html": "<button class=\"ds-btn-primary\">Guardar</button>",
-      "css": ".ds-btn-primary { background: var(--accent, #25d366); color: #04210f; font-weight: 600; font-size: 14px; padding: 9px 16px; border: none; border-radius: 8px; cursor: pointer; transition: filter .13s ease, transform .07s ease; } .ds-btn-primary:hover { filter: brightness(1.08); } .ds-btn-primary:active { transform: translateY(1px); } .ds-btn-primary:focus-visible { outline: 2px solid var(--accent, #25d366); outline-offset: 2px; }"
+      "css": ".ds-btn-primary { display:inline-flex; align-items:center; gap:7px; padding:9px 16px; border-radius:8px; border:1px solid transparent; font:600 13.5px/1.2 Inter, ui-sans-serif, system-ui, sans-serif; color:#fff; cursor:pointer; background-image: linear-gradient(180deg, rgba(255,255,255,0.16), rgba(255,255,255,0) 55%), linear-gradient(135deg, #9a44f2, #7a1fd6); box-shadow: 0 0 0 1px rgba(138,43,226,0.22), 0 10px 28px -10px rgba(138,43,226,0.7); transition: box-shadow .13s ease, transform .07s ease; } .ds-btn-primary:hover { background-image: linear-gradient(180deg, rgba(255,255,255,0.22), rgba(255,255,255,0) 55%), linear-gradient(135deg, #a858ff, #8a2be2); box-shadow: 0 0 0 1px rgba(138,43,226,0.35), 0 12px 34px -10px rgba(138,43,226,0.85); } .ds-btn-primary:active { transform: translateY(1px); box-shadow: 0 0 0 1px rgba(138,43,226,0.3); } .ds-btn-primary:focus-visible { outline: 2px solid var(--accent, #8a2be2); outline-offset: 2px; }"
     },
     {
       "name": "Ghost Button",
       "kind": "button",
       "refersTo": "button-ghost",
-      "description": "Acción secundaria (Cancelar, Editar). Transparente con borde hairline.",
+      "description": "Acciones secundarias: transparente con hairline; el hover rellena al 5%.",
       "html": "<button class=\"ds-btn-ghost\">Cancelar</button>",
-      "css": ".ds-btn-ghost { background: transparent; color: var(--muted, #8aa0bd); font-size: 13px; padding: 8px 14px; border: 1px solid var(--border, #223049); border-radius: 8px; cursor: pointer; transition: filter .13s ease, color .13s ease, transform .07s ease; } .ds-btn-ghost:hover { filter: brightness(1.12); color: var(--text, #e6edf6); } .ds-btn-ghost:active { transform: translateY(1px); }"
+      "css": ".ds-btn-ghost { display:inline-flex; align-items:center; gap:7px; padding:9px 14px; border-radius:8px; border:1px solid var(--border, rgba(178,160,220,0.16)); background:transparent; color:var(--text, #f1ecfb); font:500 13.5px/1.2 Inter, ui-sans-serif, system-ui, sans-serif; cursor:pointer; transition: background .13s ease, border-color .13s ease; } .ds-btn-ghost:hover { background: rgba(255,255,255,0.05); border-color: rgba(178,160,220,0.3); } .ds-btn-ghost:active { transform: translateY(1px); } .ds-btn-ghost:focus-visible { outline: 2px solid var(--accent, #8a2be2); outline-offset: 2px; }"
+    },
+    {
+      "name": "Soft Button",
+      "kind": "button",
+      "refersTo": "button-soft",
+      "description": "Acción destacada que no es la principal (Probar, Asistente): violeta tenue con texto lila.",
+      "html": "<button class=\"ds-btn-soft\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 3.5 13.6 8 18 9.6 13.6 11.2 12 15.7 10.4 11.2 6 9.6 10.4 8z\"/></svg> Asistente</button>",
+      "css": ".ds-btn-soft { display:inline-flex; align-items:center; gap:7px; padding:9px 14px; border-radius:8px; border:1px solid rgba(138,43,226,0.35); background: rgba(138,43,226,0.16); color:var(--accent-text, #d6b8ff); font:600 13.5px/1.2 Inter, ui-sans-serif, system-ui, sans-serif; cursor:pointer; transition: background .13s ease, box-shadow .13s ease; } .ds-btn-soft:hover { background: rgba(138,43,226,0.24); box-shadow: 0 0 18px -6px rgba(138,43,226,0.6); } .ds-btn-soft:focus-visible { outline: 2px solid var(--accent, #8a2be2); outline-offset: 2px; }"
     },
     {
       "name": "Field Input",
       "kind": "input",
       "refersTo": "input",
-      "description": "Campo de texto. Interior más hondo que la superficie; foco con anillo de acento por outline.",
-      "html": "<input class=\"ds-input\" placeholder=\"Buscar por nombre o teléfono…\" />",
-      "css": ".ds-input { background: #0d1320; color: var(--text, #e6edf6); font-size: 14px; padding: 9px 11px; border: 1px solid var(--border, #223049); border-radius: 8px; caret-color: var(--accent, #25d366); transition: outline-color .12s ease, border-color .12s ease; } .ds-input::placeholder { color: #5d6e88; } .ds-input:focus-visible { outline: 2px solid var(--accent, #25d366); outline-offset: 2px; }"
+      "description": "El hueco donde se escribe: fondo hondo translúcido, sombra interior y foco violeta.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"Buscar por nombre o teléfono\" />",
+      "css": ".ds-input { width:100%; box-sizing:border-box; padding:9px 11px; border-radius:8px; border:1px solid var(--border, rgba(178,160,220,0.16)); background:var(--field, rgba(4,2,10,0.5)); color:var(--text, #f1ecfb); font:400 14px/1.4 Inter, ui-sans-serif, system-ui, sans-serif; box-shadow: inset 0 1px 2px rgba(0,0,0,0.35); caret-color:var(--accent, #8a2be2); transition: border-color .12s ease, box-shadow .12s ease; } .ds-input::placeholder { color:#6f6690; } .ds-input:hover { border-color: rgba(178,160,220,0.3); } .ds-input:focus { outline:none; border-color:var(--accent, #8a2be2); box-shadow: 0 0 0 3px rgba(138,43,226,0.16), 0 0 22px -6px rgba(138,43,226,0.6), inset 0 1px 2px rgba(0,0,0,0.35); }"
     },
     {
-      "name": "Nav Item (active)",
-      "kind": "nav",
-      "refersTo": "nav-item",
-      "description": "Ítem de la barra lateral con icono de línea. Activo = fondo acento tenue + barra de acento a la izquierda.",
-      "html": "<a class=\"ds-nav-item is-active\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M22 12h-6l-2 3h-4l-2-3H2\"/><path d=\"M5.5 5.1 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.9A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.7 1.1z\"/></svg>Bandeja</a>",
-      "css": ".ds-nav-item { position: relative; display: flex; align-items: center; gap: 11px; padding: 9px 12px; border-radius: 8px; color: var(--muted, #8aa0bd); text-decoration: none; font-size: 14px; font-weight: 500; transition: background .12s ease, color .12s ease; } .ds-nav-item svg { width: 18px; height: 18px; } .ds-nav-item:hover { background: #16202f; color: var(--text, #e6edf6); } .ds-nav-item.is-active { background: rgba(37,211,102,.12); color: #eafff3; } .ds-nav-item.is-active::before { content: \"\"; position: absolute; left: -10px; top: 8px; bottom: 8px; width: 3px; border-radius: 0 3px 3px 0; background: var(--accent, #25d366); }"
-    },
-    {
-      "name": "Surface Card",
+      "name": "Glass Card",
       "kind": "card",
       "refersTo": "card",
-      "description": "Tarjeta/panel levantado del fondo con sombra suave; borde hairline opcional.",
-      "html": "<div class=\"ds-card\"><strong>Oportunidad: Ana</strong><div class=\"ds-card-sub\">+51 999 ···</div><div class=\"ds-card-val\">$ 1,200</div></div>",
-      "css": ".ds-card { background: var(--panel, #131a26); color: var(--text, #e6edf6); border-radius: 12px; padding: 16px; box-shadow: 0 1px 2px rgba(0,0,0,.35), 0 6px 14px rgba(0,0,0,.22); } .ds-card-sub { color: var(--muted, #8aa0bd); font-size: 12px; margin-top: 4px; } .ds-card-val { color: var(--accent, #25d366); font-size: 13px; margin-top: 6px; font-weight: 600; }"
+      "description": "Tarjeta de cristal: translúcida, con línea de luz arriba y sombra larga. Sin desenfoque.",
+      "html": "<div class=\"ds-card\"><div class=\"ds-card__title\">Identidad</div><p class=\"ds-card__body\">Nombre del agente, número que atiende y si está activo.</p></div>",
+      "css": ".ds-card { background:var(--panel, rgba(20,14,34,0.62)); border:1px solid var(--border, rgba(178,160,220,0.16)); border-radius:12px; padding:18px; color:var(--text, #f1ecfb); box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 12px 32px -20px rgba(0,0,0,0.75); font-family: Inter, ui-sans-serif, system-ui, sans-serif; } .ds-card__title { font: 700 16px/1.25 \"Space Grotesk\", Inter, sans-serif; letter-spacing:-0.01em; margin-bottom:6px; } .ds-card__body { margin:0; font-size:14px; line-height:1.5; color:var(--muted, #a49bbd); }"
     },
     {
       "name": "Status Chip",
       "kind": "chip",
-      "refersTo": "chip",
-      "description": "Pastilla de estado/etiqueta. Estado positivo en Verde Señal tenue + Verde Vital.",
-      "html": "<span class=\"ds-chip\">en línea</span>",
-      "css": ".ds-chip { display: inline-flex; align-items: center; gap: 5px; background: rgba(37,211,102,.12); color: #7ee2a8; font-size: 11px; padding: 2px 9px; border-radius: 999px; }"
+      "refersTo": "chip-positive",
+      "description": "Estado positivo: verde tenue con texto Verde Vital; siempre con icono o palabra.",
+      "html": "<span class=\"ds-chip ds-chip--positive\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"m5 12 4.5 4.5L19 7\"/></svg> Entregado</span> <span class=\"ds-chip\">Interesado</span>",
+      "css": ".ds-chip { display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:999px; background: rgba(178,160,220,0.14); color:var(--text, #f1ecfb); font:500 11.5px/1.4 Inter, ui-sans-serif, system-ui, sans-serif; } .ds-chip svg { width:11px; height:11px; } .ds-chip--positive { background: rgba(126,226,168,0.14); color:#7ee2a8; }"
+    },
+    {
+      "name": "Nav Item (active)",
+      "kind": "nav",
+      "refersTo": "nav-item-active",
+      "description": "Ítem del menú: degradado violeta tenue, línea de luz y barra indicadora de 3px con brillo.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav__item is-active\" href=\"#\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M22 12h-6l-2 3h-4l-2-3H2\"/><path d=\"M5.5 5.1 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.9A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.7 1.1z\"/></svg> Bandeja</a><a class=\"ds-nav__item\" href=\"#\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"8\" r=\"4\"/><path d=\"M4 21a8 8 0 0 1 16 0\"/></svg> Contactos</a></nav>",
+      "css": ".ds-nav { display:flex; flex-direction:column; gap:2px; width:200px; padding:4px 10px; } .ds-nav__item { position:relative; display:flex; align-items:center; gap:11px; padding:9px 12px; border-radius:12px; color:var(--muted, #a49bbd); text-decoration:none; font:500 14px/1.2 Inter, ui-sans-serif, system-ui, sans-serif; transition: background .12s ease, color .12s ease; } .ds-nav__item svg { width:18px; height:18px; } .ds-nav__item:hover { background: rgba(255,255,255,0.05); color:var(--text, #f1ecfb); } .ds-nav__item.is-active { background: linear-gradient(90deg, rgba(138,43,226,0.24), rgba(190,100,255,0.05)); color:#f4eeff; box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 0 0 1px rgba(138,43,226,0.18); } .ds-nav__item.is-active::before { content:\"\"; position:absolute; left:-10px; top:8px; bottom:8px; width:3px; border-radius:0 3px 3px 0; background: linear-gradient(180deg, #8a2be2, #b26bff); box-shadow: 0 0 10px rgba(138,43,226,0.8); } .ds-nav__item:focus-visible { outline: 2px solid var(--accent, #8a2be2); outline-offset: 2px; }"
     },
     {
       "name": "Message Bubble (signature)",
       "kind": "custom",
-      "refersTo": null,
-      "description": "Burbuja de la bandeja. Saliente verde profundo a la derecha; estado de envío en Verde Vital.",
-      "html": "<div class=\"ds-bubble ds-bubble-out\"><div>¡Listo! Te envío la cotización.</div><div class=\"ds-bubble-meta\">IA · leído</div></div>",
-      "css": ".ds-bubble { max-width: 70%; padding: 8px 12px; border-radius: 10px; font-size: 14px; color: var(--text, #e6edf6); } .ds-bubble-out { margin-left: auto; background: #155e3b; } .ds-bubble-meta { font-size: 11px; color: #9fd9b6; text-align: right; margin-top: 2px; }"
+      "refersTo": "bubble-out",
+      "description": "Saliente con degradado violeta a la derecha; entrante en Capa 2 a la izquierda; estado con icono.",
+      "html": "<div class=\"ds-thread\"><div class=\"ds-bub ds-bub--in\">Hola, ¿cuánto cuesta el plan Pro?</div><div class=\"ds-bub ds-bub--out\">El plan Pro cuesta 49 USD al mes e incluye 3 números. ¿Te lo activo?<span class=\"ds-bub__meta\">17:11 <svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"m2 12 4.5 4.5L15 8\"/><path d=\"m9 16.5 1.5 1.5L22 7\"/></svg></span></div></div>",
+      "css": ".ds-thread { display:flex; flex-direction:column; gap:8px; width:340px; font-family: Inter, ui-sans-serif, system-ui, sans-serif; } .ds-bub { max-width:82%; padding:9px 12px; border-radius:12px; font-size:14px; line-height:1.45; color:var(--text, #f1ecfb); } .ds-bub--in { align-self:flex-start; background: rgba(255,255,255,0.075); border-bottom-left-radius:4px; } .ds-bub--out { align-self:flex-end; background: linear-gradient(135deg, rgba(138,43,226,0.34), rgba(190,100,255,0.14)); border-bottom-right-radius:4px; } .ds-bub__meta { display:flex; justify-content:flex-end; align-items:center; gap:4px; margin-top:4px; font-size:11px; color:#7ee2a8; } .ds-bub__meta svg { width:13px; height:13px; }"
+    },
+    {
+      "name": "Segmented Control",
+      "kind": "custom",
+      "refersTo": "segmented",
+      "description": "Filtros de la bandeja y pestañas de embudo: contenedor hundido, segmento activo en Capa 2.",
+      "html": "<div class=\"ds-seg\"><button class=\"is-active\">Todas</button><button>Sin asignar</button><button>Mías</button></div>",
+      "css": ".ds-seg { display:inline-flex; padding:3px; gap:2px; border-radius:9px; background:var(--field, rgba(4,2,10,0.5)); border:1px solid var(--border, rgba(178,160,220,0.16)); box-shadow: inset 0 1px 2px rgba(0,0,0,0.35); } .ds-seg button { padding:6px 12px; border-radius:7px; border:none; background:transparent; color:var(--muted, #a49bbd); font:500 13px/1.2 Inter, ui-sans-serif, system-ui, sans-serif; cursor:pointer; transition: color .12s ease, background .12s ease; } .ds-seg button:hover { color:var(--text, #f1ecfb); } .ds-seg button.is-active { background: rgba(255,255,255,0.075); color:var(--text, #f1ecfb); font-weight:600; box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 1px 2px rgba(0,0,0,0.35); } .ds-seg button:focus-visible { outline: 2px solid var(--accent, #8a2be2); outline-offset: 2px; }"
     }
   ],
   "narrative": {
-    "northStar": "La Sala de Control",
-    "overview": "Trimmo es el puesto de mando del vendedor: una superficie oscura y enfocada donde toda la operación —conversaciones en vivo, oportunidades, campañas— está a la vista y bajo control. El fondo casi negro azulado es la sala con las luces bajas para que lo que importa brille. Y lo que brilla es el Verde Señal: el pulso del producto, reservado para la acción y el estado vivo. El sistema es denso pero legible; la energía se expresa con microinteracciones táctiles y la presencia rítmica del verde, no con saturación.",
+    "northStar": "La Sala de Control, edición nocturna",
+    "overview": "Trimmo sigue siendo el puesto de mando del vendedor: una sala a oscuras donde toda la operación —conversaciones en vivo, oportunidades, campañas— está a la vista y bajo control. Lo que cambia en esta edición es la materia de la sala. El fondo es un negro con tinte violeta (#07060c) sobre el que respiran tres brillos de color (violeta arriba a la izquierda, lila a la derecha, magenta al pie) y una rejilla técnica fina que asoma en la esquina y se desvanece. Los paneles ya no son placas opacas: son **cristal**. Dejan pasar el brillo del fondo y, cuando flotan sobre contenido que se mueve (menú, cabecera, cajones, diálogos), lo desenfocan. Las tarjetas son translúcidas pero nunca desenfocan; el cristal es estructural, no decorativo.\n\nLa luz de esta sala es el **Violeta Eléctrico** (#8a2be2): el único acento de marca. Señala acción (botón primario con halo), foco (anillo y resplandor de los campos), selección (ítem activo del menú, fila activa de la bandeja) y la voz del negocio en el chat (burbuja saliente). El **Verde WhatsApp** (#25d366) no compite: queda reservado a lo que *es* WhatsApp (número conectado, «en vivo») y a los estados positivos (entregado, ganado, opt-in). Dos colores, dos oficios, nunca intercambiables.\n\nEl sistema es **denso pero legible**: muchos hilos, tarjetas y métricas a la vez, empaquetados con jerarquía y aire suficiente. La energía viene del movimiento táctil (hover que aviva, pulsación que hunde, entradas cortas) y de los halos con sentido, no de más color. Rechaza explícitamente el **SaaS genérico de plantilla** (tarjetas clonadas, gris plano, «big number + label»), lo **colorido/infantil** (arcoíris y emojis por doquier) y lo **corporativo frío/anticuado** (azules rígidos, tablas de los 2000). Si una pantalla pudiera ser de cualquier otro SaaS, falló.",
     "keyCharacteristics": [
-      "Sala oscura azulada; el contenido es la luz.",
-      "Un solo acento con significado: Verde Señal = acción y vida.",
+      "Negro violáceo con brillos de fondo; los paneles son cristal que deja pasar la luz.",
+      "Un solo acento de marca, el Violeta Eléctrico, con halo solo donde hay acción.",
+      "El verde es señal de WhatsApp y de estado positivo, nunca decoración.",
       "Densidad con jerarquía; aire que respira, nunca apretado.",
-      "Energía por movimiento táctil, no por color saturado.",
-      "Estados siempre explícitos (color + icono/texto), nunca solo color."
+      "Dos familias con oficios separados: Space Grotesk titula, Inter trabaja.",
+      "Estados siempre explícitos (color + icono o palabra), nunca solo color."
     ],
     "rules": [
-      { "name": "La Regla de la Única Señal", "body": "El Verde Señal aparece en ≤10% de cualquier pantalla. Es para acción y vida, jamás para rellenar.", "section": "colors" },
-      { "name": "La Regla del Estado Doble", "body": "Ningún estado se comunica solo con color: siempre color + icono o palabra.", "section": "colors" },
-      { "name": "La Regla del Peso Antes que la Fuente", "body": "La jerarquía se hace con tamaño y peso en una sola familia sans del sistema.", "section": "typography" },
-      { "name": "La Regla del Overline Confinado", "body": "Las mayúsculas tracked viven solo en los rótulos de grupo del nav, nunca como eyebrow sobre contenido.", "section": "typography" },
-      { "name": "La Regla Anti Ghost-Card", "body": "Si una tarjeta se eleva con sombra, su borde baja a hairline o desaparece. Nunca border 1px + sombra de blur ≥16px.", "section": "elevation" },
-      { "name": "La Regla de la Sombra Jerárquica", "body": "La fuerza de la sombra crece con la altura: tarjeta < overlay < drawer < modal.", "section": "elevation" }
+      {
+        "name": "La Regla del Único Acento",
+        "body": "El Violeta Eléctrico es el único color de marca. Aparece en ≤15% de cualquier pantalla: acción, foco, selección, voz del negocio. Si dos cosas violetas compiten por atención, una de las dos no debería ser violeta.",
+        "section": "colors"
+      },
+      {
+        "name": "La Regla del Verde Reservado",
+        "body": "El verde solo dice dos cosas: «esto es WhatsApp» o «esto salió bien». Jamás en un botón primario, un titular o un adorno.",
+        "section": "colors"
+      },
+      {
+        "name": "La Regla del Estado Doble",
+        "body": "Ningún estado se comunica solo con color. Entregado, ganado, perdido, pausado: siempre color **+** icono o palabra.",
+        "section": "colors"
+      },
+      {
+        "name": "La Regla de la Transparencia con Fondo",
+        "body": "Los colores translúcidos existen para dejar pasar el brillo del fondo. Nunca se apilan más de dos capas translúcidas: la tercera se vuelve barro.",
+        "section": "colors"
+      },
+      {
+        "name": "La Regla de las Dos Familias",
+        "body": "Space Grotesk titula, Inter trabaja. Prohibida la display en botones, etiquetas, campos o datos; prohibida Inter en el h1 del hero.",
+        "section": "typography"
+      },
+      {
+        "name": "La Regla del Overline Confinado",
+        "body": "Las mayúsculas tracked viven únicamente en los rótulos de grupo del nav. No son un eyebrow para poner sobre cada sección.",
+        "section": "typography"
+      },
+      {
+        "name": "La Regla del Titular Sólido",
+        "body": "Los titulares se enfatizan con peso, tamaño o un solo color plano. Nunca con degradado en el texto.",
+        "section": "typography"
+      },
+      {
+        "name": "La Regla del Cristal Estructural",
+        "body": "Solo desenfoca lo que flota sobre contenido que se mueve: menú, cabecera, cajones, diálogos, menús, avisos. Las tarjetas son translúcidas pero **nunca** llevan `backdrop-filter`: además de ser decoración, un desenfoque convierte a la tarjeta en contenedor de sus modales `position: fixed` y los recorta.",
+        "section": "elevation"
+      },
+      {
+        "name": "La Regla del Halo con Sentido",
+        "body": "El resplandor violeta solo aparece en la acción principal, en el foco y en la selección activa. Un halo en algo que no se puede pulsar miente.",
+        "section": "elevation"
+      },
+      {
+        "name": "La Regla Anti Ghost-Card",
+        "body": "Una superficie se separa por transparencia y línea de luz, o por sombra; nunca por `border: 1px solid` más una sombra ancha compitiendo. Si una tarjeta lleva borde, su sombra es la larga y negativa de arriba o ninguna.",
+        "section": "elevation"
+      }
     ],
     "dos": [
-      "Do reservar el Verde Señal (#25d366) para acción y estado vivo; ≤10% de la pantalla.",
-      "Do comunicar todo estado con color + icono o palabra (entregado, ganado, perdido, IA pausada).",
-      "Do elevar tarjetas con sombra suave (blur ≤14px) y bajar el borde a hairline cuando la sombra ya separa.",
-      "Do dar respuesta táctil: hover que sube brillo, :active que hunde 1px, anillo de foco de acento por outline.",
-      "Do mantener una sola familia sans del sistema; jerarquía por tamaño y peso.",
-      "Do texto de cuerpo a ≥4.5:1; placeholders legibles (#5d6e88)."
+      "**Do** usar el Violeta Eléctrico (#8a2be2) solo para acción, foco, selección y la voz del negocio; ≤15% de la pantalla (La Regla del Único Acento).",
+      "**Do** reservar el verde (#25d366 / #7ee2a8) a lo que es WhatsApp y a los estados positivos (La Regla del Verde Reservado).",
+      "**Do** comunicar todo estado con color **+** icono o palabra (La Regla del Estado Doble).",
+      "**Do** separar superficies con transparencia y línea de luz; desenfocar solo lo estructural: menú, cabecera, cajones, diálogos, menús, avisos.",
+      "**Do** montar con portal cualquier cosa `position: fixed` que nazca dentro de un elemento con `backdrop-filter`.",
+      "**Do** dar respuesta táctil: hover que aviva, `:active` que hunde 1px, anillo de foco violeta por `outline`.",
+      "**Do** titular con Space Grotesk y trabajar con Inter; jerarquía por tamaño y peso.",
+      "**Do** texto de cuerpo a ≥4.5:1 (Tinta #f1ecfb y Tinta Apagada #a49bbd sobre cristal); placeholders a #6f6690, nunca gris fantasma.",
+      "**Do** usar iconos SVG de línea (18px, trazo 1.75) para toda señal de interfaz; los emojis solo dentro del contenido de los mensajes.",
+      "**Do** respetar `prefers-reduced-motion`: toda animación tiene alternativa de crossfade o instantánea."
     ],
     "donts": [
-      "Don't caer en SaaS genérico de plantilla: rejillas de tarjetas idénticas, todo gris, el template big-number + label.",
-      "Don't volverlo colorido/infantil: arcoíris de colores ni emojis por todos lados.",
-      "Don't parecer corporativo frío/anticuado: azules rígidos ni tablas densas estilo software de los 2000.",
-      "Don't parear border 1px solid con box-shadow de blur ≥16px en la misma tarjeta o botón (ghost-card).",
-      "Don't redondear tarjetas/inputs a 24/28/32px+; el techo es 12px (full-pill solo en chips).",
-      "Don't usar el verde como relleno decorativo, gradientes de texto, ni glassmorphism por defecto."
+      "**Don't** caer en **SaaS genérico de plantilla**: rejillas de tarjetas idénticas, todo gris, el template «big number + label» de dashboard.",
+      "**Don't** volverlo **colorido/infantil**: arcoíris de colores ni emojis por todos lados; la energía va por movimiento y el acento, no por ruido.",
+      "**Don't** parecer **corporativo frío/anticuado**: azules corporativos rígidos ni tablas densas estilo software de los 2000.",
+      "**Don't** poner `backdrop-filter` en tarjetas ni usar el cristal como decoración (La Regla del Cristal Estructural).",
+      "**Don't** usar degradado en el texto de titulares ni en la marca; énfasis por peso, tamaño o un color plano (La Regla del Titular Sólido).",
+      "**Don't** repetir eyebrows en mayúsculas sobre cada sección; el overline vive solo en los grupos del nav (La Regla del Overline Confinado).",
+      "**Don't** usar `border-left`/`border-right` mayor de 1px como raya decorativa en tarjetas, avisos o listas. Las únicas rayas laterales son el indicador de selección de 3px del nav y de la fila activa de la bandeja, y la barra de la cita dentro de una burbuja del chat (la convención de WhatsApp para «respondiendo a»).",
+      "**Don't** parear `border: 1px solid` con `box-shadow` de blur ≥16px positivo en la misma tarjeta o botón (ghost-card); la sombra de tarjeta es larga y negativa o no es.",
+      "**Don't** redondear tarjetas o campos a 24/28/32px+. Techo: 12px en superficies, 14px en diálogos; pastilla solo en chips y en los botones de la landing.",
+      "**Don't** usar el verde en botones primarios, titulares o adornos, ni el violeta en chips de estado positivo.",
+      "**Don't** apilar más de dos capas translúcidas (La Regla de la Transparencia con Fondo).",
+      "**Don't** animar propiedades de layout (`width`, `height`) salvo el pliegue del menú; las transiciones son de 120–250 ms y comunican estado, no decoran."
     ]
   }
 }

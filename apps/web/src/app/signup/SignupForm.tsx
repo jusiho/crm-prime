@@ -8,6 +8,7 @@ import {
   suggestSlug,
 } from "@crm/shared";
 import { PasswordStrength } from "@/components/PasswordStrength";
+import { NavIcon } from "@/components/NavIcons";
 import { checkSlug, registerOrg, type Campo } from "./actions";
 
 /**
@@ -359,7 +360,7 @@ export function SignupForm({ baseDomain }: { baseDomain: string }) {
       {paso === 3 && resultado && (
         <section key="p3" className="signup-paso" aria-labelledby="t3" aria-live="polite">
           <div style={sello} aria-hidden="true">
-            ✓
+            <NavIcon name="check" size={24} />
           </div>
           <h1 id="t3" style={{ ...titulo, textAlign: "center" }}>
             Tu empresa está lista
@@ -542,7 +543,7 @@ const campo: React.CSSProperties = {
   padding: "10px 12px",
   borderRadius: 8,
   border: "1px solid var(--border)",
-  background: "#0d1320",
+  background: "var(--field)",
   color: "var(--text)",
   font: "inherit",
 };
@@ -552,7 +553,7 @@ const grupoSlug: React.CSSProperties = {
   alignItems: "center",
   borderRadius: 8,
   border: "1px solid var(--border)",
-  background: "#0d1320",
+  background: "var(--field)",
   overflow: "hidden",
 };
 const afijo: React.CSSProperties = {

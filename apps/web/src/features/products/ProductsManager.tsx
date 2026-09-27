@@ -221,7 +221,7 @@ const card: React.CSSProperties = {
 
 const thumb: React.CSSProperties = {
   height: 120,
-  background: "#0d1320",
+  background: "var(--field)",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
@@ -234,7 +234,7 @@ const search_: React.CSSProperties = {
   padding: "9px 12px",
   borderRadius: 8,
   border: "1px solid var(--border)",
-  background: "#0d1320",
+  background: "var(--field)",
   color: "var(--text)",
   fontSize: 14,
 };
@@ -244,7 +244,7 @@ const input: React.CSSProperties = {
   padding: "9px 11px",
   borderRadius: 8,
   border: "1px solid var(--border)",
-  background: "#0d1320",
+  background: "var(--field)",
   color: "var(--text)",
   fontSize: 14,
   boxSizing: "border-box",

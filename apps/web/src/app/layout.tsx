@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { body, display } from "./fonts";
 import { Providers } from "@/providers";
 import { I18nProvider } from "@/i18n/I18nProvider";
 import { getLocale, getMessages } from "@/i18n/server";
@@ -24,7 +25,7 @@ export default async function RootLayout({
   const locale = await getLocale();
 
   return (
-    <html lang={locale}>
+    <html lang={locale} className={`${display.variable} ${body.variable}`}>
       <body>
         <I18nProvider locale={locale} messages={getMessages(locale)}>
           <Providers>{children}</Providers>

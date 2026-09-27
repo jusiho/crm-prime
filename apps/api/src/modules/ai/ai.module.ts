@@ -7,6 +7,7 @@ import { AutomationService } from "./automation.service";
 import { BotService } from "./bot.service";
 import { FlowService } from "./flow.service";
 import { FlowAssistantService } from "./flow-assistant.service";
+import { PromptAssistantService } from "./prompt-assistant.service";
 import { FlowEngineService } from "./flow-engine.service";
 import { FlowProcessor } from "./flow.processor";
 import { AiController } from "./ai.controller";
@@ -32,6 +33,7 @@ import { KnowledgeModule } from "../knowledge/knowledge.module";
     BotService,
     FlowService,
     FlowAssistantService,
+    PromptAssistantService,
     FlowEngineService,
     FlowProcessor,
   ],

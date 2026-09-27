@@ -741,7 +741,7 @@ function MessageBubble({
     >
       <div
         style={{
-          background: out ? "#1c3a6e" : "#1c2738",
+          background: out ? "var(--bubble-out)" : "var(--surface-2)",
           color: "var(--text)",
           padding: "8px 12px",
           borderRadius: 10,
@@ -1000,7 +1000,7 @@ const detailsPanel: React.CSSProperties = {
 };
 
 const noteItem: React.CSSProperties = {
-  background: "#1c2738",
+  background: "var(--surface-2)",
   border: "1px solid var(--border)",
   borderRadius: 8,
   padding: "8px 10px",
@@ -1163,7 +1163,7 @@ const aiBanner: React.CSSProperties = {
   padding: "8px 16px",
   borderTop: "1px solid var(--border)",
   background: "var(--accent-soft)",
-  color: "#a9c3ff",
+  color: "var(--accent-text)",
   fontSize: 13,
 };
 

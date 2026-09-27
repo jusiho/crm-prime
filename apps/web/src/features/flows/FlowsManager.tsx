@@ -107,18 +107,18 @@ function FlowRow({
 }) {
   return (
     <div style={row}>
-      <span style={dot(flow.isActive ? "#3578ff" : "#7a8aa0")} />
+      <span style={dot(flow.isActive ? "var(--accent)" : "#7a8aa0")} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <strong style={{ fontSize: 15 }}>{flow.name}</strong>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 4 }}>
-          <span style={badge("#3a4a6a")}>
+          <span style={badge("var(--surface-3)")}>
             {flow.triggerType === "conversation_start"
               ? "al iniciar chat"
               : "palabra clave"}
           </span>
           <span
             style={{
-              ...badge(flow.channel ? "#1f5a6f" : "#43506a"),
+              ...badge(flow.channel ? "#1f5a6f" : "var(--surface-3)"),
               display: "inline-flex",
               alignItems: "center",
               gap: 4,
@@ -133,7 +133,7 @@ function FlowRow({
               "cualquier número"
             )}
           </span>
-          <span style={badge("#43506a")}>{flow.nodeCount} bloques</span>
+          <span style={badge("var(--surface-3)")}>{flow.nodeCount} bloques</span>
           {!flow.isActive && <span style={badge("#5a4a2a")}>inactivo</span>}
         </div>
       </div>

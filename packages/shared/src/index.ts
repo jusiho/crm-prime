@@ -23,6 +23,7 @@ export * from "./schemas/lead-webhook.schema.js";
 export * from "./schemas/meta-leads.schema.js";
 export * from "./schemas/ai-settings.schema.js";
 export * from "./schemas/flow-assistant.schema.js";
+export * from "./schemas/prompt-assistant.schema.js";
 export * from "./schemas/api-key.schema.js";
 export * from "./schemas/integration-settings.schema.js";
 export * from "./schemas/public-api.schema.js";

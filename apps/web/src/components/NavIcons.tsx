@@ -64,7 +64,12 @@ export type IconName =
   | "inbox-check"
   | "hourglass"
   | "bell"
-  | "bell-off";
+  | "bell-off"
+  // Varios (sustituyen a emojis)
+  | "flask"
+  | "wrench"
+  | "mic"
+  | "chevron-down";
 
 export function NavIcon({ name, size = 18 }: { name: IconName; size?: number }) {
   const p = {
@@ -507,6 +512,35 @@ export function NavIcon({ name, size = 18 }: { name: IconName; size?: number }) 
           <path d="M6 22h12" />
           <path d="M6.5 2v3.8c0 1 .4 2 1.2 2.7L12 12l-4.3 3.5c-.8.7-1.2 1.7-1.2 2.7V22" />
           <path d="M17.5 2v3.8c0 1-.4 2-1.2 2.7L12 12l4.3 3.5c.8.7 1.2 1.7 1.2 2.7V22" />
+        </svg>
+      );
+    case "flask":
+      // Matraz: probar el agente. Sustituye al emoji 🧪.
+      return (
+        <svg {...p}>
+          <path d="M10 2v7.3L4.3 19.2A1.5 1.5 0 0 0 5.6 21.5h12.8a1.5 1.5 0 0 0 1.3-2.3L14 9.3V2" />
+          <path d="M8.5 2h7" />
+          <path d="M7.2 15h9.6" />
+        </svg>
+      );
+    case "wrench":
+      return (
+        <svg {...p}>
+          <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.8-3.8a6 6 0 0 1-7.9 7.9L6.7 20.3a2.1 2.1 0 0 1-3-3l6.9-6.9a6 6 0 0 1 7.9-7.9l-3.8 3.8z" />
+        </svg>
+      );
+    case "mic":
+      return (
+        <svg {...p}>
+          <rect x="9" y="2.5" width="6" height="11" rx="3" />
+          <path d="M5 11a7 7 0 0 0 14 0" />
+          <path d="M12 18v3.5M8.5 21.5h7" />
+        </svg>
+      );
+    case "chevron-down":
+      return (
+        <svg {...p}>
+          <path d="m6 9 6 6 6-6" />
         </svg>
       );
   }

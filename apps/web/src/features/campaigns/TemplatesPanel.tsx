@@ -17,7 +17,7 @@ const TEMPLATE_STATUS_COLOR: Record<string, string> = {
   PENDING_DELETION: "#7a3a3a",
   REJECTED: "#7a3a3a",
   PAUSED: "#7a5a2a",
-  DISABLED: "#43506a",
+  DISABLED: "var(--surface-3)",
 };
 
 const STATUS_TEXT: Record<string, string> = {
@@ -163,18 +163,18 @@ function TemplateRow({
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           <strong>{template.name}</strong>
-          <span style={badge("#43506a")}>{template.language}</span>
-          <span style={badge("#2c3a55")}>
+          <span style={badge("var(--surface-3)")}>{template.language}</span>
+          <span style={badge("var(--surface-3)")}>
             {CATEGORY_TEXT[template.category] ?? template.category}
           </span>
-          <span style={badge(TEMPLATE_STATUS_COLOR[template.status] ?? "#43506a")}>
+          <span style={badge(TEMPLATE_STATUS_COLOR[template.status] ?? "var(--surface-3)")}>
             {STATUS_TEXT[template.status] ?? template.status}
           </span>
           {template.header && (
-            <span style={badge("#2c3a55")}>Encabezado: {template.header.format}</span>
+            <span style={badge("var(--surface-3)")}>Encabezado: {template.header.format}</span>
           )}
           {template.buttons.length > 0 && (
-            <span style={badge("#2c3a55")}>{template.buttons.length} botón(es)</span>
+            <span style={badge("var(--surface-3)")}>{template.buttons.length} botón(es)</span>
           )}
         </div>
 

@@ -276,7 +276,7 @@ function ContactRow({
 
       <td style={td}>
         {c.source ? (
-          <span style={badge(c.source.color ?? "#2c3a52")}>{c.source.name}</span>
+          <span style={badge(c.source.color ?? "var(--surface-3)")}>{c.source.name}</span>
         ) : (
           <span style={muted}>—</span>
         )}
@@ -285,7 +285,7 @@ function ContactRow({
       <td style={td}>
         <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
           {c.tags.slice(0, 3).map((t) => (
-            <span key={t.name} style={badge(t.color ?? "#2c3a52")}>
+            <span key={t.name} style={badge(t.color ?? "var(--surface-3)")}>
               {t.name}
             </span>
           ))}
@@ -466,7 +466,7 @@ const searchInput: React.CSSProperties = {
   padding: "10px 12px",
   borderRadius: 8,
   border: "1px solid var(--border)",
-  background: "#0d1320",
+  background: "var(--field)",
   color: "var(--text)",
   fontSize: 14,
   boxSizing: "border-box",
@@ -490,7 +490,7 @@ const input: React.CSSProperties = {
   padding: "9px 11px",
   borderRadius: 8,
   border: "1px solid var(--border)",
-  background: "#0d1320",
+  background: "var(--field)",
   color: "var(--text)",
   fontSize: 14,
   boxSizing: "border-box",
@@ -500,7 +500,7 @@ const miniInput: React.CSSProperties = {
   padding: "4px 8px",
   borderRadius: 6,
   border: "1px solid var(--border)",
-  background: "#0d1320",
+  background: "var(--field)",
   color: "var(--text)",
   fontSize: 13,
 };
@@ -509,7 +509,7 @@ const select: React.CSSProperties = {
   padding: "6px 9px",
   borderRadius: 7,
   border: "1px solid var(--border)",
-  background: "#0d1320",
+  background: "var(--field)",
   color: "var(--text)",
   fontSize: 13,
 };
@@ -564,7 +564,7 @@ const infoBox: React.CSSProperties = {
 const urlBox: React.CSSProperties = {
   display: "block",
   padding: "8px 10px",
-  background: "#0d1320",
+  background: "var(--field)",
   borderRadius: 8,
   border: "1px solid var(--border)",
   fontSize: 13,
@@ -575,7 +575,7 @@ const urlBox: React.CSSProperties = {
 const pre: React.CSSProperties = {
   marginTop: 10,
   padding: 12,
-  background: "#0d1320",
+  background: "var(--field)",
   borderRadius: 8,
   border: "1px solid var(--border)",
   fontSize: 12,
@@ -591,14 +591,14 @@ const fieldChip: React.CSSProperties = {
   fontSize: 13,
   padding: "4px 10px",
   borderRadius: 999,
-  background: "#22304a",
-  color: "#cfe0ff",
+  background: "var(--surface-3)",
+  color: "var(--accent-text)",
 };
 
 const chipX: React.CSSProperties = {
   background: "transparent",
   border: "none",
-  color: "#cfe0ff",
+  color: "var(--accent-text)",
   cursor: "pointer",
   fontSize: 11,
   opacity: 0.7,

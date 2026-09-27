@@ -112,8 +112,8 @@ export function SideNav({
       <div style={{ ...brand, justifyContent: collapsed ? "center" : "space-between" }}>
         {!collapsed && (
           <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-            <span style={brandMark}>T</span>
-            <span style={{ fontWeight: 700, fontSize: 16 }}>Trimmo</span>
+            <span className="brand-mark" style={brandMark}>T</span>
+            <span className="brand-name" style={{ fontWeight: 700, fontSize: 16 }}>Trimmo</span>
           </div>
         )}
         <button
@@ -191,7 +191,6 @@ const brandMark: React.CSSProperties = {
   width: 28,
   height: 28,
   borderRadius: 8,
-  background: "var(--accent)",
   color: "#f3f8ff",
   display: "grid",
   placeItems: "center",

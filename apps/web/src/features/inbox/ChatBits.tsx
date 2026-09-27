@@ -135,7 +135,7 @@ export function MessagesSkeleton() {
             width: r.w,
             height: 38,
             borderRadius: 12,
-            background: r.out ? "#1c3a6e" : "#1c2738",
+            background: r.out ? "var(--bubble-out)" : "var(--surface-2)",
             opacity: 0.45,
             animation: "chatPulse 1.4s ease-in-out infinite",
             animationDelay: `${i * 90}ms`,
@@ -218,7 +218,7 @@ const typingBubble: React.CSSProperties = {
   gap: 8,
   padding: "8px 12px",
   borderRadius: "10px 10px 10px 2px",
-  background: "#1c2738",
+  background: "var(--surface-2)",
   color: "var(--muted)",
 };
 

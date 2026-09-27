@@ -311,7 +311,7 @@ const secretBox: React.CSSProperties = {
   flex: 1,
   padding: "9px 11px",
   borderRadius: 8,
-  background: "#0d1320",
+  background: "var(--field)",
   border: "1px solid var(--border)",
   fontSize: 12.5,
   wordBreak: "break-all",
@@ -319,7 +319,7 @@ const secretBox: React.CSSProperties = {
 };
 
 const code: React.CSSProperties = {
-  background: "#0d1320",
+  background: "var(--field)",
   border: "1px solid var(--border)",
   borderRadius: 8,
   padding: 11,

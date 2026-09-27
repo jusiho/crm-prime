@@ -150,7 +150,7 @@ export function CampaignWizard({ onDone }: { onDone: () => void }) {
             </div>
           </div>
           {template && (
-            <div style={{ marginTop: 10, padding: 12, background: "#0d1320", borderRadius: 8, color: "var(--muted)", fontSize: 13, whiteSpace: "pre-wrap" }}>
+            <div style={{ marginTop: 10, padding: 12, background: "var(--field)", borderRadius: 8, color: "var(--muted)", fontSize: 13, whiteSpace: "pre-wrap" }}>
               {template.body}
             </div>
           )}
@@ -171,7 +171,7 @@ export function CampaignWizard({ onDone }: { onDone: () => void }) {
                   ...ghostBtn,
                   borderColor: tagIds.includes(t.id) ? "var(--accent)" : "var(--border)",
                   color: tagIds.includes(t.id) ? "var(--text)" : "var(--muted)",
-                  background: tagIds.includes(t.id) ? "#10243a" : "transparent",
+                  background: tagIds.includes(t.id) ? "var(--accent-soft)" : "transparent",
                 }}
               >
                 {t.name} · {t.contactCount}

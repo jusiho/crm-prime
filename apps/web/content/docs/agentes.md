@@ -24,6 +24,16 @@ En **Agentes IA → Nuevo agente**:
 - **Bienvenida**, **horario** (fuera de horario responde un mensaje fijo) y **palabras clave** que disparan una acción.
 - **Escalado**: umbrales de confianza y de enfado del cliente a partir de los cuales pasa a una persona.
 
+## Asistente de redacción
+
+No hace falta saber escribir un *system prompt*. Junto al campo de instrucciones (y junto a la bienvenida y al mensaje fuera de horario) hay un botón **Asistente**:
+
+1. Cuentas qué vendes y a quién, el objetivo del agente (vender, agendar, dar soporte…) y el tono.
+2. El asistente propone unas instrucciones completas: rol, objetivo, tono para WhatsApp, cuándo usar cada herramienta que tengas activada, límites, cuándo pasar a una persona y ejemplos.
+3. Pides ajustes en el chat («más corto», «de usted», «añade los horarios») y, cuando te convenza, pulsas **Usar este texto**. Nada se guarda hasta que guardas el agente.
+
+Usa tu propio modelo (Ajustes › Inteligencia Artificial) y conoce tu contexto real: catálogo, base de conocimiento, etapas del embudo y herramientas del agente, así que no inventa nombres de herramientas ni productos. Lo que no sabe lo deja marcado entre corchetes, como `[HORARIO]`, para que lo rellenes. También sirve para cualquier otro texto: un guion de ventas, una respuesta a una objeción o un mensaje de seguimiento.
+
 ## Herramientas y acciones
 
 | Consulta | Qué hace |

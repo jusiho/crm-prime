@@ -99,6 +99,7 @@ export const en = {
     signUp: "Sign up",
     signUpTitle: "Create account",
     signUpSubtitle: "Sign up to use the CRM",
+    signUpReassure: "Free, no card needed. Connect your WhatsApp in minutes.",
     name: "Name",
     namePlaceholder: "Your name",
     createAccount: "Create account",

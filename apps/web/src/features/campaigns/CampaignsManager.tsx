@@ -128,7 +128,7 @@ function CampaignCard({
     <div style={box}>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <strong style={{ fontSize: 16 }}>{c.name}</strong>
-        <span style={badge(STATUS_COLOR[c.status] ?? "#43506a")}>{c.status}</span>
+        <span style={badge(STATUS_COLOR[c.status] ?? "var(--surface-3)")}>{c.status}</span>
         <span
           style={{
             color: "var(--muted)",
@@ -219,7 +219,7 @@ function TabBtn({
         padding: "8px 16px",
         borderRadius: 8,
         border: "none",
-        background: active ? "#1b2536" : "transparent",
+        background: active ? "var(--accent-soft)" : "transparent",
         color: active ? "var(--text)" : "var(--muted)",
         cursor: "pointer",
         fontSize: 14,

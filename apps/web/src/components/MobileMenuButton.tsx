@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { NavIcon } from "./NavIcons";
 
 /**
@@ -34,7 +35,11 @@ export function MobileMenuButton() {
       >
         <NavIcon name={open ? "x" : "filter"} size={18} />
       </button>
-      {open && <div className="mobile-nav-backdrop" onClick={() => setOpen(false)} />}
+      {open &&
+        createPortal(
+          <div className="mobile-nav-backdrop" onClick={() => setOpen(false)} />,
+          document.body,
+        )}
     </>
   );
 }

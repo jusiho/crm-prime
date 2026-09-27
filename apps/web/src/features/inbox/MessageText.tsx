@@ -153,6 +153,6 @@ const mono: React.CSSProperties = {
 };
 
 const link: React.CSSProperties = {
-  color: "#9ec1ff",
+  color: "var(--accent-text)",
   textDecoration: "underline",
 };

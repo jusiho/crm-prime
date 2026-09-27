@@ -12,10 +12,12 @@ import {
   createBotSchema,
   updateBotSchema,
   playgroundRequestSchema,
+  promptAssistantRequestSchema,
   Role,
   type CreateBotInput,
   type UpdateBotInput,
   type PlaygroundRequest,
+  type PromptAssistantRequest,
 } from "@crm/shared";
 import { ZodValidationPipe } from "../../common/pipes/zod-validation.pipe";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
@@ -23,6 +25,7 @@ import { RolesGuard } from "../../common/guards/roles.guard";
 import { Roles } from "../../common/decorators/roles.decorator";
 import { BotService } from "./bot.service";
 import { AgentService } from "./agent.service";
+import { PromptAssistantService } from "./prompt-assistant.service";
 
 @Controller("bots")
 @UseGuards(JwtAuthGuard)
@@ -30,6 +33,7 @@ export class BotsController {
   constructor(
     private readonly bots: BotService,
     private readonly agent: AgentService,
+    private readonly promptAssistant: PromptAssistantService,
   ) {}
 
   @Get()
@@ -46,6 +50,17 @@ export class BotsController {
     body: PlaygroundRequest,
   ) {
     return this.agent.playground(body);
+  }
+
+  // Asistente de redacción: propone instrucciones o mensajes; no guarda nada.
+  @Post("prompt-assistant")
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
+  promptAssist(
+    @Body(new ZodValidationPipe(promptAssistantRequestSchema))
+    body: PromptAssistantRequest,
+  ) {
+    return this.promptAssistant.run(body);
   }
 
   @Get(":id")

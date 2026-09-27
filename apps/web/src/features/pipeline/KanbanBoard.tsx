@@ -196,7 +196,7 @@ export function KanbanBoard() {
                     {stage.isWon && <NavIcon name="trophy" size={14} />}
                     {stage.isLost && <NavIcon name="x" size={14} />}
                     {isEntry && (
-                      <span title="Etapa de entrada: aquí aparecen las conversaciones nuevas de WhatsApp" style={{ color: "#9ec1ff", display: "inline-flex" }}>
+                      <span title="Etapa de entrada: aquí aparecen las conversaciones nuevas de WhatsApp" style={{ color: "var(--accent-text)", display: "inline-flex" }}>
                         <NavIcon name="inbox" size={14} />
                       </span>
                     )}
@@ -778,7 +778,7 @@ const columnHeader: React.CSSProperties = {
 };
 
 const card: React.CSSProperties = {
-  background: "#1c2738",
+  background: "var(--surface-2)",
   border: "1px solid var(--border)",
   borderRadius: 8,
   padding: "10px 12px",
@@ -834,7 +834,7 @@ const field: React.CSSProperties = {
   padding: "8px 10px",
   borderRadius: 8,
   border: "1px solid var(--border)",
-  background: "#0d1320",
+  background: "var(--field)",
   color: "var(--text)",
 };
 
@@ -842,8 +842,8 @@ const ownerAvatar: React.CSSProperties = {
   width: 22,
   height: 22,
   borderRadius: "50%",
-  background: "#22304a",
-  color: "#cfe0ff",
+  background: "var(--surface-3)",
+  color: "var(--accent-text)",
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
@@ -866,7 +866,7 @@ const drawer: React.CSSProperties = {
   height: "100vh",
   width: 380,
   maxWidth: "92vw",
-  background: "var(--bg)",
+  background: "var(--panel-2)",
   borderLeft: "1px solid var(--border)",
   zIndex: 41,
   display: "flex",

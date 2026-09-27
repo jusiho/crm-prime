@@ -559,7 +559,16 @@ function Builder({ flowId, channels, bots, stages, agents, flows, onBack }: Prop
           style={{ ...primary, opacity: dirty || isNew ? 1 : 0.75 }}
           title={dirty ? "Hay cambios sin guardar (Ctrl+S)" : "Guardar (Ctrl+S)"}
         >
-          {save.isPending ? "Guardando…" : dirty ? "● Guardar cambios" : "Guardar flujo"}
+          {save.isPending ? (
+            "Guardando…"
+          ) : dirty ? (
+            <>
+              <span style={dirtyDot} />
+              Guardar cambios
+            </>
+          ) : (
+            "Guardar flujo"
+          )}
         </button>
       </div>
 
@@ -780,7 +789,7 @@ const input: React.CSSProperties = {
   padding: "7px 10px",
   borderRadius: 7,
   border: "1px solid var(--border)",
-  background: "#0d1320",
+  background: "var(--field)",
   color: "var(--text)",
   fontSize: 13,
   boxSizing: "border-box",
@@ -816,7 +825,21 @@ const iconGhost: React.CSSProperties = {
   justifyContent: "center",
 };
 
+// Punto que avisa de cambios sin guardar en el botón principal.
+const dirtyDot: React.CSSProperties = {
+  width: 7,
+  height: 7,
+  borderRadius: 999,
+  background: "currentColor",
+  display: "inline-block",
+  marginRight: 7,
+  verticalAlign: "middle",
+};
+
 const primary: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
   padding: "8px 16px",
   borderRadius: 7,
   border: "none",
@@ -834,7 +857,7 @@ function assistantBtn(active: boolean): React.CSSProperties {
     padding: "7px 12px",
     borderRadius: 7,
     border: `1px solid ${active ? "var(--accent)" : "var(--border)"}`,
-    background: active ? "rgba(53,120,255,0.12)" : "transparent",
+    background: active ? "rgba(138,43,226,0.12)" : "transparent",
     color: active ? "var(--accent)" : "var(--text)",
     cursor: "pointer",
     fontSize: 13,
@@ -875,8 +898,8 @@ const issuesMenu: React.CSSProperties = {
   width: 340,
   maxHeight: 320,
   overflowY: "auto",
-  background: "#0d1320",
-  border: "1px solid #233047",
+  background: "var(--field)",
+  border: "1px solid var(--border-strong)",
   borderRadius: 10,
   padding: 4,
   boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
@@ -921,8 +944,8 @@ const menuBackdrop: React.CSSProperties = {
 const menu: React.CSSProperties = {
   position: "fixed",
   zIndex: 61,
-  background: "#0d1320",
-  border: "1px solid #233047",
+  background: "var(--field)",
+  border: "1px solid var(--border-strong)",
   borderRadius: 10,
   padding: 6,
   display: "flex",

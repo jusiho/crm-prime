@@ -225,9 +225,11 @@ export function WhatsAppConnect({ hub = false }: { hub?: boolean }) {
         )}
       </div>
       <p style={{ color: "var(--muted)", marginTop: 6 }}>
-        Conecta uno o varios números con <strong>Coexistencia</strong>: sigues
-        usando la app de WhatsApp Business en cada celular y gestionas todo desde
-        el CRM. Cada conversación se responde por el número por el que entró.
+        Conecta uno o varios números; cada conversación se responde por el número
+        por el que entró. La <strong>Coexistencia</strong> (seguir usando el número
+        también en la app del celular) solo la activa Meta a través de un
+        proveedor aprobado, con el botón «Conectar WhatsApp»: no se puede activar
+        por cuenta propia. Un número añadido a mano trabaja en modo API.
       </p>
 
       {connectError && (
@@ -295,7 +297,7 @@ export function WhatsAppConnect({ hub = false }: { hub?: boolean }) {
           </div>
           <p style={{ color: "var(--muted)", fontSize: 12, marginTop: 14 }}>
             Al conectar aceptas nuestra{" "}
-            <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: "#3578ff" }}>
+            <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent)" }}>
               Política de Privacidad
             </a>
             .
@@ -313,7 +315,9 @@ export function WhatsAppConnect({ hub = false }: { hub?: boolean }) {
           }}
           style={linkBtn}
         >
-          {manualOpen ? "▾" : "▸"}{" "}
+          <span style={chevron(manualOpen)} aria-hidden>
+            <NavIcon name="chevron-down" size={14} />
+          </span>
           {editing
             ? `Actualizar el token de ${editing.label ?? editing.phoneNumberId}`
             : "Añadir un número a mano (token de Meta)"}
@@ -363,7 +367,7 @@ const hubDialog: React.CSSProperties = {
   width: 480,
   maxWidth: "100%",
   borderRadius: 12,
-  background: "var(--bg)",
+  background: "var(--panel-2)",
   border: "1px solid var(--border)",
   boxShadow: "var(--shadow-card)",
   overflow: "hidden",
@@ -532,7 +536,10 @@ function ManualConnect({
             onChange={(e) => setMode(e.target.value as "api" | "coexistence")}
           >
             <option value="api">API (solo desde el CRM)</option>
-            <option value="coexistence">Coexistencia (también desde el celular)</option>
+            {/* A mano no se activa: solo se conserva si el número ya la tenía. */}
+            <option value="coexistence" disabled={channel?.mode !== "coexistence"}>
+              Coexistencia (solo la activa Meta vía proveedor aprobado)
+            </option>
           </select>
         </div>
       </div>
@@ -547,10 +554,12 @@ function ManualConnect({
           <span>
             Un número añadido con tu propia app trabaja en <strong>modo API</strong>:
             se atiende solo desde el CRM. La <strong>Coexistencia</strong> (seguir
-            usando el número en la app de WhatsApp Business del celular) solo la da
-            el botón «Conectar WhatsApp», con la app de la plataforma, y Meta la
-            habilita cuando aprueba el acceso avanzado. Si Meta te mostró el error
-            #2655111 al pulsarlo, es eso: aún no está aprobado.
+            usando el número en la app de WhatsApp Business del celular) no se
+            puede activar por cuenta propia: Meta solo la habilita a través del
+            registro integrado de un <strong>proveedor tecnológico aprobado</strong>,
+            con acceso avanzado. En Trimmo la da el botón «Conectar WhatsApp»
+            cuando Meta apruebe la plataforma. Si al pulsarlo Meta mostró el error
+            #2655111, es eso: aún no está aprobado.
           </span>
         </p>
       )}
@@ -587,7 +596,10 @@ function ManualConnect({
  * es accesible desde fuera, así que se avisa de que hace falta un túnel.
  */
 function WebhookInfo({ hub }: { hub: boolean }) {
-  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  // El origen se lee tras montar: en el servidor no hay window, y leerlo en
+  // el render hacía que el HTML del servidor y el del cliente no coincidieran.
+  const [origin, setOrigin] = useState("");
+  useEffect(() => setOrigin(window.location.origin), []);
   const isLocal = /localhost|127\.0\.0\.1/.test(origin);
 
   // SaaS: la plataforma ya recibe los mensajes de los números conectados con
@@ -664,13 +676,25 @@ const urlBox: React.CSSProperties = {
   marginTop: 8,
   padding: "8px 10px",
   borderRadius: 7,
-  background: "#0d1320",
+  background: "var(--field)",
   border: "1px solid var(--border)",
   fontSize: 12,
   wordBreak: "break-all",
 };
 
+// Flecha del desplegable: mira a la derecha cerrado y abajo abierto.
+function chevron(open: boolean): React.CSSProperties {
+  return {
+    display: "inline-flex",
+    transition: "transform 150ms",
+    transform: open ? "none" : "rotate(-90deg)",
+  };
+}
+
 const linkBtn: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 6,
   border: "none",
   background: "transparent",
   color: "var(--muted)",
@@ -732,7 +756,7 @@ function ChannelRow({
 
   return (
     <div style={row}>
-      <span style={dot(online ? "#3578ff" : "#7a8aa0")} />
+      <span style={dot(online ? "var(--accent)" : "#7a8aa0")} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <strong style={{ fontSize: 15 }}>
@@ -740,7 +764,7 @@ function ChannelRow({
               channel.displayPhoneNumber ||
               channel.phoneNumberId}
           </strong>
-          <span style={pill(channel.source === "env" ? "#43506a" : "#1f6f46")}>
+          <span style={pill(channel.source === "env" ? "var(--surface-3)" : "#1f6f46")}>
             {channel.mode === "coexistence" ? "Coexistencia" : "API"}
             {channel.source === "env" ? " · .env" : ""}
           </span>
@@ -857,9 +881,9 @@ function Empty({
       </div>
       <p style={{ color: "var(--muted)", fontSize: 14, margin: 0 }}>
         Pulsa el botón y se abrirá la ventana oficial de Meta. Elige tu cuenta y
-        número, y <strong>escanea el QR con tu WhatsApp Business</strong> para
-        activar la Coexistencia. Repite el proceso por cada número que quieras
-        añadir.
+        número; si ese número ya lo usas en la app del celular,{" "}
+        <strong>escanea el QR con tu WhatsApp Business</strong> para activar la
+        Coexistencia. Repite el proceso por cada número que quieras añadir.
       </p>
       <div>
         <button onClick={onConnect} disabled={!ready || connecting} style={waBtn}>
@@ -935,7 +959,7 @@ const waBtn: React.CSSProperties = {
   padding: "12px 20px",
   borderRadius: 10,
   border: "none",
-  background: "#3578ff",
+  background: "var(--accent)",
   color: "#f3f8ff",
   fontWeight: 700,
   fontSize: 15,
@@ -949,7 +973,7 @@ const addBtn: React.CSSProperties = {
   padding: "8px 14px",
   borderRadius: 9,
   border: "none",
-  background: "#3578ff",
+  background: "var(--accent)",
   color: "#f3f8ff",
   fontWeight: 600,
   fontSize: 13,

@@ -330,7 +330,7 @@ function PipelineCard({
                   )}
                 </div>
                 {entryStage && (
-                  <div style={{ ...hint, flex: "1 1 100%", color: "#9ec1ff" }}>
+                  <div style={{ ...hint, flex: "1 1 100%", color: "var(--accent-text)" }}>
                     Ahora mismo: las conversaciones nuevas aparecen en «{entryStage.name}»
                     {Number(days) > 0 ? ` y se descartan solas tras ${days} día${days === "1" ? "" : "s"} sin respuesta` : ""}.
                     Si el contacto vuelve a escribir, la oportunidad descartada regresa.

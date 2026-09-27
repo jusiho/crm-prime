@@ -56,8 +56,8 @@ export const dangerBtn: CSSProperties = {
 export const softBtn: CSSProperties = {
   ...ghostBtn,
   background: "var(--accent-soft)",
-  color: "#9ec1ff",
-  border: "1px solid rgba(53,120,255,0.35)",
+  color: "var(--accent-text)",
+  border: "1px solid rgba(138,43,226,0.35)",
 };
 
 /** Versión compacta de cualquiera de los anteriores: `{ ...ghostBtn, ...smBtn }`. */

@@ -441,7 +441,7 @@ function PageRow({
                   ...ghostBtn,
                   borderColor: on ? "var(--accent)" : "var(--border)",
                   color: on ? "var(--text)" : "var(--muted)",
-                  background: on ? "#10243a" : "transparent",
+                  background: on ? "var(--accent-soft)" : "transparent",
                 }}
               >
                 {t.name}
@@ -561,7 +561,7 @@ const input: React.CSSProperties = {
   padding: "8px 10px",
   borderRadius: 8,
   border: "1px solid var(--border)",
-  background: "#0d1320",
+  background: "var(--field)",
   color: "var(--text)",
   fontSize: 13.5,
   width: "100%",
@@ -572,7 +572,7 @@ const code: React.CSSProperties = {
   display: "inline-block",
   marginTop: 4,
   padding: "3px 6px",
-  background: "#0d1320",
+  background: "var(--field)",
   borderRadius: 6,
   fontSize: 12,
 };

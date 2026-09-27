@@ -16,8 +16,11 @@ import {
   type KeywordTrigger,
   type Weekday,
 } from "@crm/shared";
+import type { PromptAssistantTarget } from "@crm/shared";
 import { createBot, updateBot } from "@/lib/bff";
 import { box, field, input, label as lbl, primaryBtn, ghostBtn, toggle } from "./styles";
+import { smBtn } from "@/components/ui";
+import { PromptAssistant } from "./PromptAssistant";
 
 // Modelos agrupados por proveedor. El proveedor activo (OpenAI o Anthropic) se
 // decide por la env del backend; aquí eliges el modelo dentro de ese proveedor.
@@ -73,6 +76,12 @@ type Form = {
   businessHours: BusinessHours;
   keywordTriggers: KeywordTrigger[];
 };
+
+// Campos del editor que tienen botón de asistente de redacción.
+type AssistTarget = Extract<
+  PromptAssistantTarget,
+  "systemPrompt" | "welcomeMessage" | "outOfHoursMessage"
+>;
 
 /**
  * Niveles de "cuándo rendirse", en vez del umbral 0–1 que nadie sabe elegir.
@@ -228,6 +237,8 @@ export function BotEditor({
   const queryClient = useQueryClient();
   const [form, setForm] = useState<Form>(() => toForm(bot));
   const isNew = !bot;
+  // Asistente de redacción: qué campo está editando (null = cerrado).
+  const [assist, setAssist] = useState<AssistTarget | null>(null);
 
   const set = <K extends keyof Form>(k: K, v: Form[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
@@ -291,6 +302,29 @@ export function BotEditor({
     { id: "automatizacion", label: "Automatización", icon: "clock" },
     { id: "limites", label: "Escalado y límites", icon: "alert" },
   ] as const;
+
+  // Qué lee y qué escribe el asistente según el campo desde el que se abrió.
+  const ASSIST: Record<
+    AssistTarget,
+    { title: string; current: string; apply: (text: string) => void }
+  > = {
+    systemPrompt: {
+      title: "Instrucciones del agente",
+      current: form.systemPrompt,
+      apply: (text) => set("systemPrompt", text),
+    },
+    welcomeMessage: {
+      title: "Mensaje de bienvenida",
+      current: form.welcomeMessage,
+      apply: (text) => set("welcomeMessage", text),
+    },
+    outOfHoursMessage: {
+      title: "Mensaje fuera de horario",
+      current: form.businessHours.outOfHoursMessage ?? "",
+      apply: (text) =>
+        set("businessHours", { ...form.businessHours, outOfHoursMessage: text }),
+    },
+  };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
@@ -387,9 +421,17 @@ export function BotEditor({
           </div>
         </div>
         <div style={field}>
-          <span style={lbl}>System prompt (personalidad e instrucciones)</span>
+          <div style={labelRow}>
+            <span style={lbl}>Instrucciones del agente (system prompt)</span>
+            <AssistButton onClick={() => setAssist("systemPrompt")} />
+          </div>
+          <span style={fieldHint}>
+            Quién es, qué vende, cómo habla, qué no debe hacer y cuándo pasar a
+            una persona. Es el texto más importante del agente: si no sabes por
+            dónde empezar, el asistente lo redacta contigo.
+          </span>
           <textarea
-            style={{ ...input, minHeight: 150, resize: "vertical", fontFamily: "inherit" }}
+            style={{ ...input, minHeight: 190, resize: "vertical", fontFamily: "inherit" }}
             value={form.systemPrompt}
             onChange={(e) => set("systemPrompt", e.target.value)}
           />
@@ -477,12 +519,15 @@ export function BotEditor({
           </span>
         </label>
         {form.welcomeEnabled && (
-          <textarea
-            style={{ ...input, minHeight: 70, resize: "vertical", fontFamily: "inherit" }}
-            value={form.welcomeMessage}
-            onChange={(e) => set("welcomeMessage", e.target.value)}
-            placeholder="¡Hola! Gracias por escribirnos…"
-          />
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <textarea
+              style={{ ...input, minHeight: 70, resize: "vertical", fontFamily: "inherit" }}
+              value={form.welcomeMessage}
+              onChange={(e) => set("welcomeMessage", e.target.value)}
+              placeholder="¡Hola! Gracias por escribirnos…"
+            />
+            <AssistButton onClick={() => setAssist("welcomeMessage")} align="end" />
+          </div>
         )}
 
         <div style={divider} />
@@ -505,6 +550,7 @@ export function BotEditor({
           <BusinessHoursEditor
             value={form.businessHours}
             onChange={(h) => set("businessHours", h)}
+            onAssist={() => setAssist("outOfHoursMessage")}
           />
         )}
 
@@ -665,7 +711,7 @@ export function BotEditor({
       </div>
 
       {/* Acciones: fijas abajo, alcanzables desde cualquier pestaña */}
-      <div style={actionBar}>
+      <div className="sticky-bar" style={actionBar}>
         {!isNew && onDeleted && !bot?.isDefault && (
           <button onClick={onDeleted} style={{ ...ghostBtn, color: "#e08a8a", borderColor: "#5a2a2a" }}>
             Eliminar
@@ -688,6 +734,18 @@ export function BotEditor({
           {save.isPending ? "Guardando…" : isNew ? "Crear agente" : "Guardar"}
         </button>
       </div>
+
+      {assist && (
+        <PromptAssistant
+          target={assist}
+          title={ASSIST[assist].title}
+          current={ASSIST[assist].current}
+          botName={form.name}
+          enabledTools={form.enabledTools}
+          onApply={ASSIST[assist].apply}
+          onClose={() => setAssist(null)}
+        />
+      )}
     </div>
   );
 }
@@ -695,9 +753,11 @@ export function BotEditor({
 function BusinessHoursEditor({
   value,
   onChange,
+  onAssist,
 }: {
   value: BusinessHours;
   onChange: (h: BusinessHours) => void;
+  onAssist?: () => void;
 }) {
   function setDay(d: Weekday, range: { from: string; to: string } | null) {
     onChange({ ...value, days: { ...value.days, [d]: range } });
@@ -752,7 +812,10 @@ function BusinessHoursEditor({
         );
       })}
       <div style={field}>
-        <span style={lbl}>Mensaje fuera de horario</span>
+        <div style={labelRow}>
+          <span style={lbl}>Mensaje fuera de horario</span>
+          {onAssist && <AssistButton onClick={onAssist} />}
+        </div>
         <textarea
           style={{ ...input, minHeight: 60, resize: "vertical", fontFamily: "inherit" }}
           value={value.outOfHoursMessage ?? ""}
@@ -809,8 +872,9 @@ function KeywordTriggersEditor({
             <button
               onClick={() => onChange(value.filter((_, idx) => idx !== i))}
               style={{ ...ghostBtn, color: "#e08a8a", borderColor: "#5a2a2a" }}
+              title="Quitar disparador"
             >
-              ✕
+              <NavIcon name="x" size={14} />
             </button>
           </div>
           {t.action === "reply" && (
@@ -877,7 +941,7 @@ const actionBar: React.CSSProperties = {
   gap: 10,
   padding: "12px 0",
   borderTop: "1px solid var(--border)",
-  background: "var(--bg, #0b0f17)",
+  background: "var(--panel-2)",
 };
 
 /** Consumo real del mes frente al presupuesto. Sin esto el número es ciego. */
@@ -899,8 +963,8 @@ function BudgetMeter({ bot, limit }: { bot: BotDto; limit: number }) {
         <div
           style={{
             ...meterFill,
-            width: `${pct}%`,
-            background: over ? "#e08a8a" : pct > 80 ? "#e0a458" : "var(--accent, #25d366)",
+            transform: `scaleX(${pct / 100})`,
+            background: over ? "var(--danger)" : pct > 80 ? "var(--warning)" : "var(--accent)",
           }}
         />
       </div>
@@ -920,7 +984,7 @@ function radioCard(active: boolean): React.CSSProperties {
     padding: "10px 12px",
     borderRadius: 9,
     border: `1px solid ${active ? "var(--accent)" : "var(--border)"}`,
-    background: active ? "#10243a" : "transparent",
+    background: active ? "var(--accent-soft)" : "transparent",
     cursor: "pointer",
   };
 }
@@ -930,7 +994,7 @@ function chipBtn(active: boolean): React.CSSProperties {
     padding: "7px 13px",
     borderRadius: 999,
     border: `1px solid ${active ? "var(--accent)" : "var(--border)"}`,
-    background: active ? "#10243a" : "transparent",
+    background: active ? "var(--accent-soft)" : "transparent",
     color: active ? "var(--text)" : "var(--muted)",
     cursor: "pointer",
     fontSize: 13,
@@ -940,15 +1004,18 @@ function chipBtn(active: boolean): React.CSSProperties {
 const meterTrack: React.CSSProperties = {
   height: 6,
   borderRadius: 999,
-  background: "var(--field, #0d1320)",
+  background: "var(--field, var(--field))",
   overflow: "hidden",
   marginBottom: 4,
 };
 
+// Se anima con transform (no con width) para no recalcular el layout.
 const meterFill: React.CSSProperties = {
+  width: "100%",
   height: "100%",
   borderRadius: 999,
-  transition: "width 300ms cubic-bezier(0.22,1,0.36,1)",
+  transformOrigin: "left",
+  transition: "transform 300ms cubic-bezier(0.22,1,0.36,1)",
 };
 
 const sectionHint: React.CSSProperties = {
@@ -993,8 +1060,9 @@ function ToolRow({
           {tool.description}
         </div>
         {tool.unavailableReason && (
-          <div style={{ color: "#e0b766", fontSize: 12, marginTop: 3 }}>
-            ⚠️ {tool.unavailableReason}
+          <div style={{ color: "#e0b766", fontSize: 12, marginTop: 3, display: "flex", alignItems: "center", gap: 5 }}>
+            <NavIcon name="alert" size={13} />
+            {tool.unavailableReason}
           </div>
         )}
       </span>
@@ -1015,6 +1083,27 @@ const hint: React.CSSProperties = {
   color: "var(--muted)",
   fontSize: 12,
   marginTop: 2,
+};
+
+// Abre el asistente de redacción para el campo de al lado.
+function AssistButton({ onClick, align }: { onClick: () => void; align?: "end" }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{ ...ghostBtn, ...smBtn, alignSelf: align === "end" ? "flex-end" : undefined }}
+      title="Redactar o mejorar este texto con IA"
+    >
+      <NavIcon name="sparkles" size={13} /> Asistente
+    </button>
+  );
+}
+
+const labelRow: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 8,
 };
 
 const divider: React.CSSProperties = {

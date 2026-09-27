@@ -303,8 +303,8 @@ export const nodeTypes = {
 
 // ── Estilos ───────────────────────────────────────────────────
 
-const handleStyle: React.CSSProperties = { width: 11, height: 11, background: "#3578ff", border: "2px solid #0f1726" };
-const targetStyle: React.CSSProperties = { width: 11, height: 11, background: "#5a6b85", border: "2px solid #0f1726" };
+const handleStyle: React.CSSProperties = { width: 11, height: 11, background: "var(--accent)", border: "2px solid var(--panel-2)" };
+const targetStyle: React.CSSProperties = { width: 11, height: 11, background: "#5a6b85", border: "2px solid var(--panel-2)" };
 
 function shell(selected: boolean, color: string, minWidth = 190): React.CSSProperties {
   return {
@@ -312,11 +312,11 @@ function shell(selected: boolean, color: string, minWidth = 190): React.CSSPrope
     minWidth,
     maxWidth: 250,
     borderRadius: 10,
-    border: `1.5px solid ${selected ? "#3578ff" : color}`,
-    background: "#0f1726",
+    border: `1.5px solid ${selected ? "var(--accent)" : color}`,
+    background: "var(--panel-2)",
     color: "#e6edf6",
     fontSize: 12,
-    boxShadow: selected ? "0 0 0 3px rgba(53,120,255,0.28), 0 8px 24px rgba(0,0,0,0.35)" : "0 2px 10px rgba(0,0,0,0.25)",
+    boxShadow: selected ? "0 0 0 3px rgba(138,43,226,0.28), 0 8px 24px rgba(0,0,0,0.35)" : "0 2px 10px rgba(0,0,0,0.25)",
     transition: "box-shadow 0.12s ease, border-color 0.12s ease",
   };
 }
@@ -352,7 +352,7 @@ const plusBtn: React.CSSProperties = {
   height: 22,
   borderRadius: "50%",
   border: "none",
-  background: "#3578ff",
+  background: "var(--accent)",
   color: "#f3f8ff",
   fontSize: 16,
   fontWeight: 700,
@@ -371,8 +371,8 @@ const toolbar: React.CSSProperties = {
   gap: 4,
   padding: 4,
   borderRadius: 8,
-  background: "#0d1320",
-  border: "1px solid #233047",
+  background: "var(--field)",
+  border: "1px solid var(--border-strong)",
   boxShadow: "0 6px 20px rgba(0,0,0,0.45)",
 };
 
@@ -403,7 +403,7 @@ const issueDot: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  border: "2px solid #0f1726",
+  border: "2px solid var(--panel-2)",
   zIndex: 5,
   cursor: "help",
 };

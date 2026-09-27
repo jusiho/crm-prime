@@ -99,6 +99,7 @@ export const es: Messages = {
     signUp: "Regístrate",
     signUpTitle: "Crear cuenta",
     signUpSubtitle: "Regístrate para acceder al CRM",
+    signUpReassure: "Gratis y sin tarjeta. Conectas tu WhatsApp en minutos.",
     name: "Nombre",
     namePlaceholder: "Tu nombre",
     createAccount: "Crear cuenta",
@@ -235,7 +236,7 @@ export const es: Messages = {
     // Filas, avisos y atajos
     previewImage: "Imagen",
     previewVideo: "Vídeo",
-    previewAudio: "Audio",
+    previewAudio: "Nota de voz",
     previewDocument: "Documento",
     previewLocation: "Ubicación",
     previewOther: "Mensaje",

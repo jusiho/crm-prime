@@ -8,6 +8,8 @@ import { deleteBot, fetchBots } from "@/lib/bff";
 import { BotEditor } from "./BotEditor";
 import { AgentPlayground } from "./AgentPlayground";
 import { primaryBtn } from "./styles";
+import { softBtn } from "@/components/ui";
+import { NavIcon } from "@/components/NavIcons";
 
 type Selection = { kind: "none" } | { kind: "new" } | { kind: "edit"; id: string };
 
@@ -67,13 +69,16 @@ export function BotsManager() {
       <section style={detailCol}>
         {sel.kind === "none" && (
           <div style={empty}>
-            <div style={{ fontSize: 38 }}>🤖</div>
+            <div style={{ color: "var(--muted)", opacity: 0.7 }}>
+              <NavIcon name="bot" size={44} />
+            </div>
             <p style={muted}>
               Selecciona un bot para editarlo o crea uno nuevo. Cada bot puede
               atender un número de WhatsApp distinto.
             </p>
-            <button onClick={() => setTesting({})} style={testBtn}>
-              🧪 Probar el bot por defecto
+            <button onClick={() => setTesting({})} style={softBtn}>
+              <NavIcon name="flask" size={15} />
+              Probar el bot por defecto
             </button>
           </div>
         )}
@@ -101,9 +106,10 @@ export function BotsManager() {
                 onClick={() =>
                   setTesting({ id: selectedBot.id, name: selectedBot.name })
                 }
-                style={testBtn}
+                style={softBtn}
               >
-                🧪 Probar
+                <NavIcon name="flask" size={15} />
+                Probar
               </button>
             </div>
             <BotEditor
@@ -147,20 +153,25 @@ function BotCard({
   return (
     <button onClick={onClick} style={card(active)}>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <span style={dot(bot.isActive ? "#3578ff" : "#7a8aa0")} />
+        <span style={dot(bot.isActive ? "var(--accent)" : "#7a8aa0")} />
         <strong style={{ fontSize: 14 }}>{bot.name}</strong>
       </div>
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
-        <span style={badge(bot.channel ? "#1f5a6f" : "#43506a")}>
-          {bot.channel
-            ? `📱 ${bot.channel.label ?? bot.channel.displayPhoneNumber}`
-            : "global"}
+        <span style={badge(bot.channel ? "#1f5a6f" : "var(--surface-3)")}>
+          {bot.channel ? (
+            <>
+              <NavIcon name="phone" size={10} />
+              {bot.channel.label ?? bot.channel.displayPhoneNumber}
+            </>
+          ) : (
+            "global"
+          )}
         </span>
         {bot.autopilotByDefault && <span style={badge("#1f6f46")}>autopilot</span>}
-        {bot.welcomeEnabled && <span style={badge("#3a4a6a")}>bienvenida</span>}
-        {bot.businessHoursEnabled && <span style={badge("#3a4a6a")}>horario</span>}
+        {bot.welcomeEnabled && <span style={badge("var(--surface-3)")}>bienvenida</span>}
+        {bot.businessHoursEnabled && <span style={badge("var(--surface-3)")}>horario</span>}
         {bot.keywordTriggers.length > 0 && (
-          <span style={badge("#3a4a6a")}>
+          <span style={badge("var(--surface-3)")}>
             {bot.keywordTriggers.length} disparador
             {bot.keywordTriggers.length > 1 ? "es" : ""}
           </span>
@@ -209,18 +220,6 @@ const detailHead: React.CSSProperties = {
 
 const detailTitle: React.CSSProperties = { margin: 0, fontSize: 20 };
 
-const testBtn: React.CSSProperties = {
-  padding: "8px 14px",
-  borderRadius: 8,
-  border: "1px solid #3a4a6a",
-  background: "#16203a",
-  color: "#a9c3ff",
-  fontWeight: 600,
-  cursor: "pointer",
-  fontSize: 13,
-  whiteSpace: "nowrap",
-};
-
 const empty: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
@@ -240,7 +239,7 @@ function card(active: boolean): React.CSSProperties {
     padding: 12,
     borderRadius: 10,
     border: `1px solid ${active ? "var(--accent)" : "var(--border)"}`,
-    background: active ? "#10243a" : "var(--panel)",
+    background: active ? "var(--accent-soft)" : "var(--panel)",
     cursor: "pointer",
     color: "var(--text)",
   };
@@ -252,6 +251,9 @@ function dot(color: string): React.CSSProperties {
 
 function badge(bg: string): React.CSSProperties {
   return {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 4,
     fontSize: 11,
     padding: "2px 8px",
     borderRadius: 999,

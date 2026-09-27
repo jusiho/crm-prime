@@ -211,7 +211,7 @@ function FieldRow({ field, onDelete }: { field: CustomFieldDto; onDelete: () => 
   return (
     <div style={{ ...card, display: "flex", gap: 10, alignItems: "center" }}>
       <strong style={{ flex: 1, minWidth: 0 }}>{field.label}</strong>
-      <span style={badge("#3a4a6a")}>{TYPE_LABEL[field.type]}</span>
+      <span style={badge("var(--surface-3)")}>{TYPE_LABEL[field.type]}</span>
       {field.type === "select" && field.options.length > 0 && (
         <span style={{ ...muted, fontSize: 12.5 }}>{field.options.join(" · ")}</span>
       )}

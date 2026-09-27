@@ -16,7 +16,7 @@ export interface NodeMeta {
 
 // Catálogo de bloques que se pueden añadir (paleta, menú "+" y arrastre).
 export const NODE_PALETTE: NodeMeta[] = [
-  { type: "sendMessage", label: "Enviar mensaje", icon: "message", hint: "Un texto al contacto", color: "#2c4b7a", accent: "#9ec1ff" },
+  { type: "sendMessage", label: "Enviar mensaje", icon: "message", hint: "Un texto al contacto", color: "#2c4b7a", accent: "var(--accent-text)" },
   { type: "askQuestion", label: "Preguntar y guardar", icon: "question", hint: "Espera la respuesta y la guarda en una variable", color: "#7a5fb0", accent: "#cbb6ff" },
   { type: "condition", label: "Condición", icon: "branch", hint: "Ramifica según palabras clave", color: "#b08a3f", accent: "#ffd98a" },
   { type: "action", label: "Acción", icon: "bolt", hint: "IA, humano, etiqueta o pipeline", color: "#3f8c6e", accent: "#8fe6c0" },

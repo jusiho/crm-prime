@@ -67,7 +67,7 @@ const grupo: React.CSSProperties = {
   alignItems: "center",
   borderRadius: 8,
   border: "1px solid var(--border)",
-  background: "#0d1320",
+  background: "var(--field)",
   overflow: "hidden",
 };
 const campo: React.CSSProperties = {

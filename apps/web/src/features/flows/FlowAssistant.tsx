@@ -128,7 +128,7 @@ export function FlowAssistant({
           Asistente
         </span>
         <button onClick={onClose} style={closeBtn} title="Cerrar">
-          ✕
+          <NavIcon name="x" size={15} />
         </button>
       </header>
 
@@ -237,14 +237,21 @@ function ProposalCard({
       <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 3 }}>
         {[...counts.entries()].map(([type, n]) => (
           <li key={type} style={{ fontSize: 12, display: "flex", gap: 6 }}>
-            <span style={{ color: "var(--muted)" }}>▸</span>
+            <span style={bullet} />
             {BLOCK_LABEL[type] ?? type}
             {n > 1 ? ` ×${n}` : ""}
           </li>
         ))}
       </ul>
       <button onClick={onApply} disabled={applied} style={applyBtn(applied)}>
-        {applied ? "Aplicado ✓" : "Aplicar al lienzo"}
+        {applied ? (
+          <>
+            <NavIcon name="check" size={14} />
+            Aplicado
+          </>
+        ) : (
+          "Aplicar al lienzo"
+        )}
       </button>
       {applied && (
         <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 5 }}>
@@ -275,6 +282,11 @@ const header: React.CSSProperties = {
 };
 
 const closeBtn: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: 4,
+  borderRadius: 6,
   border: "none",
   background: "transparent",
   color: "var(--muted)",
@@ -320,11 +332,15 @@ const card: React.CSSProperties = {
   padding: 10,
   borderRadius: 8,
   border: "1px solid var(--border)",
-  background: "#0d1320",
+  background: "var(--field)",
 };
 
 function applyBtn(applied: boolean): React.CSSProperties {
   return {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
     marginTop: 9,
     width: "100%",
     padding: "7px 10px",
@@ -337,6 +353,16 @@ function applyBtn(applied: boolean): React.CSSProperties {
     cursor: applied ? "default" : "pointer",
   };
 }
+
+// Punto que sustituye a la viñeta tipográfica en la lista de bloques.
+const bullet: React.CSSProperties = {
+  width: 5,
+  height: 5,
+  borderRadius: 999,
+  background: "var(--muted)",
+  marginTop: 6,
+  flexShrink: 0,
+};
 
 const warnList: React.CSSProperties = {
   margin: "9px 0 0",
@@ -381,7 +407,7 @@ const textarea: React.CSSProperties = {
   padding: "8px 10px",
   borderRadius: 8,
   border: "1px solid var(--border)",
-  background: "#0d1320",
+  background: "var(--field)",
   color: "var(--text)",
   fontSize: 12.5,
   resize: "vertical",

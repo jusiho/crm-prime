@@ -258,7 +258,7 @@ function roleBadge(role: string): React.CSSProperties {
     fontSize: 12,
     padding: "3px 10px",
     borderRadius: 999,
-    background: role === "ADMIN" ? "#1f5a6f" : "#3a4a6a",
+    background: role === "ADMIN" ? "#1f5a6f" : "var(--surface-3)",
     color: "#eaf2ff",
   };
 }
