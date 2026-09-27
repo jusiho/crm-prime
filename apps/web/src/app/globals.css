@@ -982,3 +982,17 @@ code {
     display: none;
   }
 }
+
+/* Productos: la tarjeta entera abre la edición. */
+.product-card {
+  transition: border-color 0.14s ease, transform 0.14s ease;
+}
+.product-card:hover {
+  border-color: var(--border-strong) !important;
+  transform: translateY(-2px);
+  filter: none !important;
+}
+.product-card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}

@@ -7,6 +7,7 @@ import {
   OnModuleInit,
 } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
+import { contactCurrency } from "@crm/shared";
 import type {
   CreateDealInput,
   CreatePipelineInput,
@@ -295,7 +296,8 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
         stageId,
         title: input.title,
         value: input.value,
-        currency: input.currency,
+        // Sin moneda explícita: la del contacto (fijada o la de su país).
+        currency: input.currency ?? contactCurrency(contact) ?? "USD",
       },
       include: DEAL_INCLUDE,
     });
@@ -328,6 +330,7 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
         data: {
           ...(input.title !== undefined ? { title: input.title } : {}),
           ...(input.value !== undefined ? { value: input.value } : {}),
+          ...(input.currency !== undefined ? { currency: input.currency } : {}),
           ...(input.ownerId !== undefined ? { ownerId: input.ownerId } : {}),
         },
         include: DEAL_INCLUDE,
@@ -432,6 +435,7 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
         stageId: entry.id,
         ownerId,
         title: contact.name ?? contact.phone,
+        currency: contactCurrency(contact) ?? "USD",
       },
     });
     // La conversación sigue al mismo vendedor: le aparece en "Mías" sin que

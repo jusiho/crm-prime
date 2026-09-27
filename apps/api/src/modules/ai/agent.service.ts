@@ -1,5 +1,6 @@
 import { Inject, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import type { Prisma } from "@prisma/client";
+import { contactCurrency, countryFromPhone, priceFor } from "@crm/shared";
 import type {
   AiSuggestion,
   Classification,
@@ -507,6 +508,7 @@ export class AgentService {
       id: string;
       name: string | null;
       phone: string;
+      currency?: string | null;
       optIn: boolean;
       lastMessageAt: Date | null;
     },
@@ -524,9 +526,12 @@ export class AgentService {
     }
 
     if (tu.name === "search_contact") {
+      const country = countryFromPhone(contact.phone);
       output = JSON.stringify({
         name: contact.name,
         phone: contact.phone,
+        country: country?.name ?? null,
+        currency: contactCurrency(contact),
         optIn: contact.optIn,
         lastMessageAt: contact.lastMessageAt?.toISOString() ?? null,
       });
@@ -549,6 +554,7 @@ export class AgentService {
         sku: true,
         description: true,
         imageUrl: true,
+        prices: { select: { currency: true, amount: true } },
       } as const;
       const baseWhere = { isActive: true } as const;
 
@@ -581,18 +587,33 @@ export class AgentService {
       }
 
       const total = await this.prisma.product.count({ where: baseWhere });
-      const items = rows.map((p) => ({
+      // Precio en la moneda del cliente si el producto la tiene; si no, el
+      // precio base, marcado para que el agente no lo "convierta" por su cuenta.
+      const clientCurrency = contactCurrency(contact);
+      const items = rows.map((p) => {
+        const hit = priceFor(
+          {
+            price: Number(p.price),
+            currency: p.currency,
+            prices: p.prices.map((x) => ({ currency: x.currency, amount: Number(x.amount) })),
+          },
+          clientCurrency,
+        );
+        return {
         name: p.name,
-        price: Number(p.price),
-        currency: p.currency,
+        price: hit.amount,
+        currency: hit.currency,
+        ...(clientCurrency ? { priceInClientCurrency: !hit.fallback } : {}),
         sku: p.sku,
         description: p.description,
         // Se expone solo si TIENE foto, no la URL: así el modelo sabe que
         // puede mandarla (con send_product_image) pero no puede inventarse
         // ni filtrar un enlace.
         hasImage: !!p.imageUrl,
-      }));
+        };
+      });
       output = JSON.stringify({
+        clientCurrency,
         // Nota para el agente: si filtró y no hubo match, le devolvemos todo.
         note:
           total === 0
@@ -687,13 +708,19 @@ export class AgentService {
   // ── Construcción del contexto ──────────────────────────────────
   private buildSystem(
     base: string | undefined,
-    contact: { name: string | null; phone: string },
+    contact: { name: string | null; phone: string; currency?: string | null },
   ): string {
+    const country = countryFromPhone(contact.phone);
+    const currency = contactCurrency(contact);
+    const where = [
+      country ? ` País: ${country.name}.` : "",
+      currency ? ` Cotiza en ${currency}.` : "",
+    ].join("");
     const fallback =
       "Eres un asistente de atención al cliente por WhatsApp. Responde en español, breve y cordial. Redacta una posible respuesta para que un agente humano la revise antes de enviarla. Si no estás seguro o el caso lo amerita, usa la herramienta handoff_to_human.";
     return [
       base ?? fallback,
-      `\n\nContacto actual: ${contact.name ?? "(sin nombre)"} (${contact.phone}).`,
+      `\n\nContacto actual: ${contact.name ?? "(sin nombre)"} (${contact.phone}).${where}`,
       "Devuelve únicamente el texto de la respuesta sugerida, sin prefijos como 'Respuesta:'.",
     ].join("");
   }

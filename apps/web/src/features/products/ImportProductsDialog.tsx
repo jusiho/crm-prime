@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import {
+  priceColumnCurrency,
   PRODUCT_IMPORT_FIELDS,
   csvToRecords,
   guessColumnMapping,
@@ -101,10 +102,10 @@ export function ImportProductsDialog({
 
   function downloadTemplate() {
     const csv = toCsv(
-      ["nombre", "sku", "precio", "moneda", "descripcion", "imagen", "activo"],
+      ["nombre", "sku", "precio", "moneda", "precio_USD", "precio_MXN", "descripcion", "imagen", "activo"],
       [
-        ["Camiseta azul", "CAM-001", "59.90", "PEN", "Algodón 100%", "https://misitio.com/camiseta.jpg", "si"],
-        ["Gorra negra", "GOR-002", "29.90", "PEN", "", "", "si"],
+        ["Camiseta azul", "CAM-001", "59.90", "PEN", "16", "290", "Algodón 100%", "https://misitio.com/camiseta.jpg", "si"],
+        ["Gorra negra", "GOR-002", "29.90", "PEN", "8", "", "", "", "si"],
       ],
     );
     const url = URL.createObjectURL(
@@ -224,6 +225,16 @@ export function ImportProductsDialog({
                     </label>
                   ))}
                 </div>
+                {(() => {
+                  const extra = parsed.headers.filter((h) => priceColumnCurrency(h));
+                  return (
+                    <p style={{ color: "var(--muted)", fontSize: 12.5, margin: "8px 0 0" }}>
+                      {extra.length
+                        ? `Precios en otras monedas: ${extra.map((h) => priceColumnCurrency(h)).join(", ")} (columnas ${extra.join(", ")}).`
+                        : "Para precios en otras monedas, añade columnas como precio_USD o precio_MXN."}
+                    </p>
+                  );
+                })()}
 
                 {missingRequired.length > 0 && (
                   <p style={{ color: "#e0b766", fontSize: 13 }}>
@@ -258,6 +269,12 @@ export function ImportProductsDialog({
                               <td style={td}>{r.value.sku ?? "—"}</td>
                               <td style={td}>
                                 {r.value.price.toFixed(2)} {r.value.currency}
+                                {r.value.prices.length > 0 && (
+                                  <span style={{ color: "var(--muted)" }}>
+                                    {" · "}
+                                    {r.value.prices.map((p) => `${p.amount.toFixed(2)} ${p.currency}`).join(" · ")}
+                                  </span>
+                                )}
                               </td>
                               <td style={td}>{r.value.isActive ? "Sí" : "No"}</td>
                             </>

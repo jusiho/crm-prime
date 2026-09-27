@@ -1,6 +1,7 @@
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import type { Prisma } from "@prisma/client";
 import {
+  contactCurrency,
   MessageAuthor,
   MessageType,
   type ResolveActionsResult,
@@ -173,7 +174,7 @@ export class AgentActionsService {
     // sale del contacto, que es de donde cuelga la oportunidad.
     const contact = await this.prisma.contact.findUnique({
       where: { id: contactId },
-      select: { orgId: true, name: true, phone: true },
+      select: { orgId: true, name: true, phone: true, currency: true },
     });
     if (!contact) throw new Error("El contacto ya no existe");
     await this.prisma.deal.create({
@@ -182,6 +183,7 @@ export class AgentActionsService {
         contactId,
         stageId: stage.id,
         title: contact.name ?? contact.phone,
+        currency: contactCurrency(contact) ?? "USD",
       },
     });
     return `Oportunidad creada en "${stageName}".`;

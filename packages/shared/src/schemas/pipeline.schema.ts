@@ -81,7 +81,8 @@ export const createDealSchema = z.object({
   contactId: z.string(),
   title: z.string().min(1).max(160),
   value: z.number().nonnegative().optional(),
-  currency: z.string().length(3).default("USD"),
+  // Sin moneda: la del contacto (su país o la fijada en su ficha), o USD.
+  currency: z.string().length(3).transform((v) => v.toUpperCase()).optional(),
   stageId: z.string().optional(), // por defecto, la primera etapa del embudo
   pipelineId: z.string().optional(), // por defecto, el embudo predeterminado
 });
@@ -90,6 +91,7 @@ export type CreateDealInput = z.infer<typeof createDealSchema>;
 export const updateDealSchema = z.object({
   title: z.string().min(1).max(160).optional(),
   value: z.number().nonnegative().nullable().optional(),
+  currency: z.string().length(3).transform((v) => v.toUpperCase()).optional(),
   ownerId: z.string().nullable().optional(),
 });
 export type UpdateDealInput = z.infer<typeof updateDealSchema>;

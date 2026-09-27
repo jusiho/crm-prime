@@ -1,16 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { NavIcon } from "@/components/NavIcons";
 import { confirmDialog } from "@/lib/confirm";
-import type { CreateProductInput, ProductDto } from "@crm/shared";
+import { toast } from "@/lib/toast";
+import { CURRENCIES, formatMoney, type CreateProductInput, type ProductDto } from "@crm/shared";
 import {
   createProduct,
   deleteProduct,
   fetchProducts,
   updateProduct,
 } from "@/lib/bff";
+import { dangerBtn, ghostBtn, input, label, primaryBtn, smBtn } from "@/components/ui";
 import { ImportProductsDialog } from "./ImportProductsDialog";
 
 // Al pegar una imagen es fácil olvidar el esquema ("midominio.com/foto.jpg").
@@ -21,57 +24,69 @@ function normalizeUrl(raw: string): string | null {
   return /^https?:\/\//i.test(value) ? value : `https://${value}`;
 }
 
-function formatPrice(price: number, currency: string): string {
-  try {
-    return price.toLocaleString("es", { style: "currency", currency });
-  } catch {
-    return `${price.toFixed(2)} ${currency}`;
-  }
-}
+type Filter = "all" | "active" | "inactive";
 
 export function ProductsManager() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<Filter>("all");
   const [editing, setEditing] = useState<ProductDto | "new" | null>(null);
   const [importing, setImporting] = useState(false);
 
-  const { data: products, isPending } = useQuery({
+  const { data: products, isPending, isError } = useQuery({
     queryKey: ["products", search],
     queryFn: () => fetchProducts(search),
   });
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["products"] });
 
-  const remove = useMutation({
-    mutationFn: deleteProduct,
-    onSuccess: refresh,
-  });
+  const list = (products ?? []).filter((p) =>
+    filter === "all" ? true : filter === "active" ? p.isActive : !p.isActive,
+  );
+  const activeCount = (products ?? []).filter((p) => p.isActive).length;
 
   return (
-    <div style={{ maxWidth: 920, margin: "0 auto", padding: 24 }}>
-      <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-        <input
-          style={search_}
-          value={search}
-          placeholder="Buscar por nombre o SKU…"
-          onChange={(e) => setSearch(e.target.value)}
-        />
+    <div style={page}>
+      <div style={toolbar}>
+        <label style={searchBox}>
+          <NavIcon name="search" size={16} />
+          <input
+            style={searchInput}
+            value={search}
+            placeholder="Buscar por nombre o SKU"
+            aria-label="Buscar productos"
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </label>
+        <div className="seg" role="tablist" aria-label="Filtrar productos">
+          {(
+            [
+              ["all", `Todos · ${products?.length ?? 0}`],
+              ["active", `Activos · ${activeCount}`],
+              ["inactive", `Inactivos · ${(products?.length ?? 0) - activeCount}`],
+            ] as const
+          ).map(([k, text]) => (
+            <button key={k} role="tab" aria-selected={filter === k} onClick={() => setFilter(k)}>
+              {text}
+            </button>
+          ))}
+        </div>
+        <div style={{ flex: 1 }} />
         <button onClick={() => setImporting(true)} style={ghostBtn}>
-          Importar CSV
+          <NavIcon name="file" size={15} /> Importar CSV
         </button>
         <button onClick={() => setEditing("new")} style={primaryBtn}>
-          + Nuevo producto
+          <NavIcon name="plus" size={15} /> Nuevo producto
         </button>
       </div>
 
       {importing && (
-        <ImportProductsDialog
-          onClose={() => setImporting(false)}
-          onImported={refresh}
-        />
+        <ImportProductsDialog onClose={() => setImporting(false)} onImported={refresh} />
       )}
 
       {editing && (
-        <ProductForm
+        <ProductDrawer
+          // La clave reinicia el formulario al cambiar de producto.
+          key={editing === "new" ? "new" : editing.id}
           product={editing === "new" ? null : editing}
           onClose={() => setEditing(null)}
           onSaved={() => {
@@ -81,63 +96,103 @@ export function ProductsManager() {
         />
       )}
 
-      {isPending && <p style={muted}>Cargando…</p>}
+      {isPending && (
+        <div style={grid}>
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="skeleton" style={{ height: 210, borderRadius: 12 }} />
+          ))}
+        </div>
+      )}
+      {isError && <p style={{ color: "var(--danger)" }}>No se pudieron cargar los productos.</p>}
+
+      {!isPending && list.length === 0 && (
+        <div style={empty}>
+          <NavIcon name="package" size={32} />
+          <strong style={{ color: "var(--text)" }}>
+            {search || filter !== "all" ? "Nada coincide con la búsqueda" : "Aún no tienes productos"}
+          </strong>
+          <span>
+            {search || filter !== "all"
+              ? "Prueba con otro nombre o SKU."
+              : "Crea el primero o importa tu catálogo desde un CSV. El agente de IA los usa para dar precios."}
+          </span>
+        </div>
+      )}
 
       <div style={grid}>
-        {(products ?? []).map((p) => (
-          <div key={p.id} style={card}>
-            <div style={thumb}>
-              {p.imageUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={p.imageUrl} alt={p.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-              ) : (
-                <span style={{ opacity: 0.4 }}>
-                  <NavIcon name="package" size={28} />
-                </span>
-              )}
-            </div>
-            <div style={{ padding: 12 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-                <strong style={{ fontSize: 14 }}>{p.name}</strong>
-                {!p.isActive && <span style={badge}>inactivo</span>}
-              </div>
-              {p.sku && <div style={{ ...muted, fontSize: 12 }}>SKU: {p.sku}</div>}
-              <div style={{ fontSize: 18, fontWeight: 700, marginTop: 6, color: "#7ee2a8" }}>
-                {formatPrice(p.price, p.currency)}
-              </div>
-              {p.description && (
-                <p style={{ ...muted, fontSize: 13, marginTop: 6, marginBottom: 0 }}>
-                  {p.description}
-                </p>
-              )}
-              <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-                <button onClick={() => setEditing(p)} style={ghostBtn}>
-                  Editar
-                </button>
-                <button
-                  onClick={() => {
-                    void confirmDialog({
-                      message: `¿Eliminar "${p.name}"?`,
-                      danger: true,
-                    }).then((ok) => ok && remove.mutate(p.id));
-                  }}
-                  style={{ ...ghostBtn, color: "#e08a8a", borderColor: "#5a2a2a" }}
-                >
-                  Eliminar
-                </button>
-              </div>
-            </div>
-          </div>
+        {list.map((p) => (
+          <ProductCard key={p.id} product={p} onOpen={() => setEditing(p)} />
         ))}
-        {products && products.length === 0 && !isPending && (
-          <p style={muted}>No hay productos.</p>
-        )}
       </div>
     </div>
   );
 }
 
-function ProductForm({
+function ProductCard({ product: p, onOpen }: { product: ProductDto; onOpen: () => void }) {
+  const [broken, setBroken] = useState(false);
+  return (
+    <button type="button" onClick={onOpen} style={card} className="product-card" aria-label={`Editar ${p.name}`}>
+      <div style={thumb}>
+        {p.imageUrl && !broken ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={p.imageUrl}
+            alt=""
+            onError={() => setBroken(true)}
+            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          />
+        ) : (
+          <span style={{ color: "var(--muted)", opacity: 0.6 }}>
+            <NavIcon name={broken ? "alert" : "package"} size={26} />
+          </span>
+        )}
+        {!p.isActive && <span style={inactiveBadge}>Inactivo</span>}
+      </div>
+      <div style={{ padding: "12px 14px 14px", display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
+        <strong style={cardTitle}>{p.name}</strong>
+        <span style={{ fontSize: 12, color: "var(--muted)" }}>{p.sku ? `SKU ${p.sku}` : "Sin SKU"}</span>
+        <span style={cardPrice}>{formatMoney(p.price, p.currency)}</span>
+        {p.prices.length > 0 && (
+          <span style={priceChips}>
+            {p.prices.map((x) => (
+              <span key={x.currency} style={priceChip}>
+                {formatMoney(x.amount, x.currency)}
+              </span>
+            ))}
+          </span>
+        )}
+        {broken && <span style={{ fontSize: 12, color: "var(--warning)" }}>La imagen no carga</span>}
+      </div>
+    </button>
+  );
+}
+
+/** Selector de moneda: las habituales, más la actual si no está en la lista. */
+function CurrencySelect({
+  value,
+  onChange,
+  exclude = [],
+  ariaLabel,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  exclude?: string[];
+  ariaLabel: string;
+}) {
+  const options = CURRENCIES.filter((c) => c.code === value || !exclude.includes(c.code));
+  return (
+    <select style={{ ...input, width: 110, flex: "0 0 auto" }} value={value} aria-label={ariaLabel} onChange={(e) => onChange(e.target.value)}>
+      {!options.some((c) => c.code === value) && <option value={value}>{value}</option>}
+      {options.map((c) => (
+        <option key={c.code} value={c.code} title={c.label}>
+          {c.code}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+function ProductDrawer({
   product,
   onClose,
   onSaved,
@@ -149,11 +204,28 @@ function ProductForm({
   const isNew = !product;
   const [name, setName] = useState(product?.name ?? "");
   const [sku, setSku] = useState(product?.sku ?? "");
-  const [price, setPrice] = useState(String(product?.price ?? ""));
+  const [price, setPrice] = useState(product ? String(product.price) : "");
   const [currency, setCurrency] = useState(product?.currency ?? "USD");
   const [imageUrl, setImageUrl] = useState(product?.imageUrl ?? "");
   const [description, setDescription] = useState(product?.description ?? "");
   const [isActive, setIsActive] = useState(product?.isActive ?? true);
+  // Precios en otras monedas (el importe como texto para escribir decimales).
+  const [prices, setPrices] = useState<{ currency: string; amount: string }[]>(
+    (product?.prices ?? []).map((p) => ({ currency: p.currency, amount: String(p.amount) })),
+  );
+  const [mounted, setMounted] = useState(false);
+  const [previewBroken, setPreviewBroken] = useState(false);
+
+  const used = [currency, ...prices.map((p) => p.currency)];
+  const nextCurrency = CURRENCIES.find((c) => !used.includes(c.code))?.code;
+
+  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  useEffect(() => setPreviewBroken(false), [imageUrl]);
 
   const save = useMutation({
     mutationFn: () => {
@@ -161,121 +233,397 @@ function ProductForm({
         name: name.trim(),
         sku: sku.trim() || null,
         price: Number(price) || 0,
-        currency: currency.trim().toUpperCase().slice(0, 3) || "USD",
+        currency,
+        prices: prices
+          .filter((p) => p.amount.trim() !== "" && p.currency !== currency)
+          .map((p) => ({ currency: p.currency, amount: Number(p.amount) || 0 })),
         imageUrl: normalizeUrl(imageUrl),
         description: description.trim() || null,
         isActive,
       };
       return isNew ? createProduct(payload) : updateProduct(product!.id, payload);
     },
-    onSuccess: onSaved,
+    onSuccess: () => {
+      toast.success(isNew ? "Producto creado" : "Cambios guardados");
+      onSaved();
+    },
   });
 
-  return (
-    <div style={{ ...card, padding: 16, marginTop: 14 }}>
-      <strong>{isNew ? "Nuevo producto" : "Editar producto"}</strong>
-      <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
-        <input style={input} value={name} placeholder="Nombre" onChange={(e) => setName(e.target.value)} />
-        <input style={{ ...input, width: 140 }} value={sku} placeholder="SKU" onChange={(e) => setSku(e.target.value)} />
-      </div>
-      <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
-        <input style={{ ...input, width: 140 }} type="number" min={0} step="0.01" value={price} placeholder="Precio" onChange={(e) => setPrice(e.target.value)} />
-        <input style={{ ...input, width: 90 }} value={currency} placeholder="USD" onChange={(e) => setCurrency(e.target.value)} />
-        <input style={input} value={imageUrl} placeholder="URL de imagen (opcional)" onChange={(e) => setImageUrl(e.target.value)} />
-      </div>
-      <textarea
-        style={{ ...input, minHeight: 60, resize: "vertical", marginTop: 10, fontFamily: "inherit" }}
-        value={description}
-        placeholder="Descripción (opcional)"
-        onChange={(e) => setDescription(e.target.value)}
-      />
-      <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10, fontSize: 14 }}>
-        <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
-        Activo
-      </label>
-      <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 12 }}>
-        {save.isError && <span style={{ color: "#ff6b6b", fontSize: 13, alignSelf: "center" }}>{(save.error as Error).message}</span>}
-        <button onClick={onClose} style={ghostBtn}>Cancelar</button>
-        <button onClick={() => save.mutate()} disabled={!name.trim() || save.isPending} style={primaryBtn}>
-          {save.isPending ? "Guardando…" : isNew ? "Crear" : "Guardar"}
-        </button>
-      </div>
-    </div>
+  const remove = useMutation({
+    mutationFn: () => deleteProduct(product!.id),
+    onSuccess: () => {
+      toast.success("Producto eliminado");
+      onSaved();
+    },
+    onError: (e) => toast.error((e as Error).message),
+  });
+
+  if (!mounted) return null;
+  const preview = normalizeUrl(imageUrl);
+
+  return createPortal(
+    <>
+      <div style={backdrop} onClick={onClose} />
+      <aside role="dialog" aria-label={isNew ? "Nuevo producto" : "Editar producto"} style={drawer}>
+        <header style={drawerHeader}>
+          <strong style={{ fontSize: 16 }}>{isNew ? "Nuevo producto" : "Editar producto"}</strong>
+          <button onClick={onClose} style={{ ...ghostBtn, ...smBtn, padding: 7 }} aria-label="Cerrar" title="Cerrar (Esc)">
+            <NavIcon name="x" size={16} />
+          </button>
+        </header>
+
+        <form
+          id="product-form"
+          style={drawerBody}
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (name.trim()) save.mutate();
+          }}
+        >
+          <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
+            <div style={previewBox}>
+              {preview && !previewBroken ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={preview} alt="" onError={() => setPreviewBroken(true)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              ) : (
+                <span style={{ color: "var(--muted)", opacity: 0.6 }}>
+                  <NavIcon name={previewBroken ? "alert" : "image"} size={24} />
+                </span>
+              )}
+            </div>
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10, minWidth: 0 }}>
+              <Field text="Nombre">
+                <input style={input} value={name} autoFocus required onChange={(e) => setName(e.target.value)} />
+              </Field>
+              <Field text="SKU" hint="Opcional. Código único para importar y actualizar.">
+                <input style={input} value={sku} onChange={(e) => setSku(e.target.value)} />
+              </Field>
+            </div>
+          </div>
+
+          <Field text="Imagen (URL)" hint={previewBroken ? "La URL no devuelve una imagen." : "El agente puede enviar esta foto al cliente."}>
+            <input style={input} value={imageUrl} placeholder="https://…" onChange={(e) => setImageUrl(e.target.value)} />
+          </Field>
+
+          <Field text="Descripción">
+            <textarea
+              style={{ ...input, minHeight: 80, resize: "vertical", fontFamily: "inherit" }}
+              value={description}
+              placeholder="Qué es, qué incluye, tallas… El agente la usa para responder."
+              onChange={(e) => setDescription(e.target.value)}
+            />
+          </Field>
+
+          <section style={section}>
+            <div style={{ fontWeight: 600, fontSize: 14 }}>Precios</div>
+            <div style={{ fontSize: 12.5, color: "var(--muted)", lineHeight: 1.45 }}>
+              A cada cliente se le cotiza en la moneda de su país (por el prefijo de su
+              teléfono). Si no hay precio en su moneda, se le da el precio base.
+            </div>
+
+            <div style={priceRow}>
+              <span style={priceRowLabel}>Base</span>
+              <CurrencySelect value={currency} onChange={setCurrency} exclude={prices.map((p) => p.currency)} ariaLabel="Moneda del precio base" />
+              <input
+                style={{ ...input, flex: 1 }}
+                type="number"
+                min={0}
+                step="0.01"
+                inputMode="decimal"
+                value={price}
+                placeholder="0.00"
+                aria-label="Precio base"
+                onChange={(e) => setPrice(e.target.value)}
+              />
+              <span style={{ width: 34 }} />
+            </div>
+
+            {prices.map((row, i) => (
+              <div key={i} style={priceRow}>
+                <span style={priceRowLabel} />
+                <CurrencySelect
+                  value={row.currency}
+                  exclude={used.filter((c) => c !== row.currency)}
+                  ariaLabel={`Moneda ${i + 2}`}
+                  onChange={(v) => setPrices((l) => l.map((r, k) => (k === i ? { ...r, currency: v } : r)))}
+                />
+                <input
+                  style={{ ...input, flex: 1 }}
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  inputMode="decimal"
+                  value={row.amount}
+                  placeholder="0.00"
+                  aria-label={`Precio en ${row.currency}`}
+                  onChange={(e) => setPrices((l) => l.map((r, k) => (k === i ? { ...r, amount: e.target.value } : r)))}
+                />
+                <button
+                  type="button"
+                  onClick={() => setPrices((l) => l.filter((_, k) => k !== i))}
+                  style={{ ...ghostBtn, padding: 0, width: 34, height: 38 }}
+                  aria-label={`Quitar el precio en ${row.currency}`}
+                  title={`Quitar el precio en ${row.currency}`}
+                >
+                  <NavIcon name="x" size={14} />
+                </button>
+              </div>
+            ))}
+
+            {nextCurrency && (
+              <button
+                type="button"
+                onClick={() => setPrices((l) => [...l, { currency: nextCurrency, amount: "" }])}
+                style={{ ...ghostBtn, ...smBtn, alignSelf: "flex-start" }}
+              >
+                <NavIcon name="plus" size={14} /> Precio en otra moneda
+              </button>
+            )}
+          </section>
+
+          <label style={toggleRow}>
+            <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
+            <span>
+              <strong style={{ fontSize: 14 }}>Activo</strong>
+              <span style={{ display: "block", fontSize: 12.5, color: "var(--muted)" }}>
+                Los inactivos no aparecen al agente de IA.
+              </span>
+            </span>
+          </label>
+
+          {save.isError && <p style={{ color: "var(--danger)", fontSize: 13, margin: 0 }}>{(save.error as Error).message}</p>}
+        </form>
+
+        <footer style={drawerFooter}>
+          {!isNew && (
+            <button
+              type="button"
+              style={dangerBtn}
+              disabled={remove.isPending}
+              onClick={() => {
+                void confirmDialog({ message: `¿Eliminar "${product!.name}"? No se puede deshacer.`, danger: true }).then(
+                  (ok) => ok && remove.mutate(),
+                );
+              }}
+            >
+              Eliminar
+            </button>
+          )}
+          <div style={{ flex: 1 }} />
+          <button type="button" onClick={onClose} style={ghostBtn}>
+            Cancelar
+          </button>
+          <button type="submit" form="product-form" disabled={!name.trim() || save.isPending} style={primaryBtn}>
+            {save.isPending ? "Guardando…" : isNew ? "Crear producto" : "Guardar cambios"}
+          </button>
+        </footer>
+      </aside>
+    </>,
+    document.body,
   );
 }
 
+function Field({ text, hint, children }: { text: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <label style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+      <span style={{ ...label, marginBottom: 0 }}>{text}</span>
+      {children}
+      {hint && <span style={{ fontSize: 12, color: "var(--muted)" }}>{hint}</span>}
+    </label>
+  );
+}
+
+// ── Estilos ───────────────────────────────────────────────────
+const page: React.CSSProperties = { maxWidth: 1100, margin: "0 auto", padding: 24 };
+
+const toolbar: React.CSSProperties = {
+  display: "flex",
+  gap: 10,
+  alignItems: "center",
+  flexWrap: "wrap",
+};
+
+const searchBox: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  padding: "0 12px",
+  minWidth: 240,
+  flex: "0 1 320px",
+  borderRadius: 8,
+  border: "1px solid var(--border)",
+  background: "var(--field)",
+  color: "var(--muted)",
+};
+
+const searchInput: React.CSSProperties = {
+  flex: 1,
+  minWidth: 0,
+  padding: "9px 0",
+  border: "none",
+  background: "transparent",
+  color: "var(--text)",
+  fontSize: 14,
+  outline: "none",
+  boxShadow: "none",
+};
+
 const grid: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
   gap: 14,
   marginTop: 18,
 };
 
 const card: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  padding: 0,
+  textAlign: "left",
+  font: "inherit",
+  color: "var(--text)",
   background: "var(--panel)",
   border: "1px solid var(--border)",
   borderRadius: 12,
   overflow: "hidden",
-  boxShadow: "var(--shadow-card)",
+  cursor: "pointer",
 };
 
 const thumb: React.CSSProperties = {
-  height: 120,
+  position: "relative",
+  aspectRatio: "4 / 3",
   background: "var(--field)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  borderBottom: "1px solid var(--border)",
+};
+
+const inactiveBadge: React.CSSProperties = {
+  position: "absolute",
+  top: 8,
+  left: 8,
+  fontSize: 11,
+  fontWeight: 600,
+  padding: "2px 8px",
+  borderRadius: 999,
+  background: "rgba(8, 5, 16, 0.8)",
+  border: "1px solid var(--border)",
+  color: "var(--muted)",
+};
+
+const cardTitle: React.CSSProperties = {
+  fontSize: 14.5,
+  lineHeight: 1.3,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+};
+
+const cardPrice: React.CSSProperties = {
+  marginTop: 6,
+  fontSize: 18,
+  fontWeight: 700,
+  fontVariantNumeric: "tabular-nums",
+};
+
+const priceChips: React.CSSProperties = { display: "flex", flexWrap: "wrap", gap: 5, marginTop: 2 };
+
+const priceChip: React.CSSProperties = {
+  fontSize: 11.5,
+  padding: "2px 7px",
+  borderRadius: 999,
+  background: "var(--surface-3)",
+  color: "var(--text)",
+  fontVariantNumeric: "tabular-nums",
+};
+
+const empty: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  gap: 8,
+  textAlign: "center",
+  padding: "56px 24px",
+  marginTop: 18,
+  color: "var(--muted)",
+  fontSize: 14,
+  border: "1px dashed var(--border)",
+  borderRadius: 12,
+};
+
+const backdrop: React.CSSProperties = {
+  position: "fixed",
+  inset: 0,
+  background: "rgba(4, 2, 10, 0.55)",
+  zIndex: 1000,
+  animation: "fadeIn 0.15s ease",
+};
+
+const drawer: React.CSSProperties = {
+  position: "fixed",
+  top: 0,
+  right: 0,
+  height: "100dvh",
+  width: "min(480px, 100vw)",
+  background: "var(--panel-2)",
+  borderLeft: "1px solid var(--border)",
+  boxShadow: "var(--shadow-drawer)",
+  zIndex: 1001,
+  display: "flex",
+  flexDirection: "column",
+};
+
+const drawerHeader: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  padding: "14px 18px",
+  borderBottom: "1px solid var(--border)",
+};
+
+const drawerBody: React.CSSProperties = {
+  flex: 1,
+  overflowY: "auto",
+  padding: 18,
+  display: "flex",
+  flexDirection: "column",
+  gap: 16,
+};
+
+const drawerFooter: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 10,
+  padding: "12px 18px",
+  borderTop: "1px solid var(--border)",
+};
+
+const previewBox: React.CSSProperties = {
+  width: 96,
+  height: 96,
+  flexShrink: 0,
+  borderRadius: 10,
+  overflow: "hidden",
+  background: "var(--field)",
+  border: "1px solid var(--border)",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
 };
 
-const muted: React.CSSProperties = { color: "var(--muted)", fontSize: 14 };
-
-const search_: React.CSSProperties = {
-  flex: 1,
-  padding: "9px 12px",
-  borderRadius: 8,
+const section: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 10,
+  padding: 14,
+  borderRadius: 10,
   border: "1px solid var(--border)",
-  background: "var(--field)",
-  color: "var(--text)",
-  fontSize: 14,
+  background: "var(--surface)",
 };
 
-const input: React.CSSProperties = {
-  flex: 1,
-  padding: "9px 11px",
-  borderRadius: 8,
-  border: "1px solid var(--border)",
-  background: "var(--field)",
-  color: "var(--text)",
-  fontSize: 14,
-  boxSizing: "border-box",
-};
+const priceRow: React.CSSProperties = { display: "flex", gap: 8, alignItems: "center" };
 
-const badge: React.CSSProperties = {
-  fontSize: 10,
-  padding: "1px 7px",
-  borderRadius: 999,
-  background: "#5a4a2a",
-  color: "#e9f1ff",
-  alignSelf: "flex-start",
-};
+const priceRowLabel: React.CSSProperties = { width: 36, fontSize: 12, color: "var(--muted)", flexShrink: 0 };
 
-const primaryBtn: React.CSSProperties = {
-  padding: "9px 16px",
-  borderRadius: 8,
-  border: "none",
-  background: "var(--accent)",
-  color: "#f3f8ff",
-  fontWeight: 600,
-  cursor: "pointer",
-  whiteSpace: "nowrap",
-};
-
-const ghostBtn: React.CSSProperties = {
-  padding: "8px 14px",
-  borderRadius: 8,
-  border: "1px solid var(--border)",
-  background: "transparent",
-  color: "var(--muted)",
-  cursor: "pointer",
-  fontSize: 13,
-};
+const toggleRow: React.CSSProperties = { display: "flex", gap: 10, alignItems: "flex-start", cursor: "pointer" };

@@ -11,6 +11,8 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import {
+  contactCurrency,
+  countryFromPhone,
   createContactSchema,
   updateContactSchema,
   utmKeys,
@@ -85,6 +87,12 @@ export class ContactsController {
       // Sin los utm_*: van en `attribution`, y si salieran también aquí el
       // panel los reescribiría como si fueran campos editables del negocio.
       fields: this.businessFields(c.metadata),
+      country: (() => {
+        const k = countryFromPhone(c.phone);
+        return k ? { code: k.code, name: k.name } : null;
+      })(),
+      currency: contactCurrency(c),
+      currencyOverride: c.currency,
     }));
   }
 
@@ -163,6 +171,7 @@ export class ContactsController {
       data: {
         ...(body.name !== undefined ? { name: body.name } : {}),
         ...(body.optIn !== undefined ? { optIn: body.optIn } : {}),
+        ...(body.currency !== undefined ? { currency: body.currency } : {}),
         ...(metadata !== undefined ? { metadata } : {}),
       },
     });

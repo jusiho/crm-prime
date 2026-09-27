@@ -59,6 +59,11 @@ export const contactListItemSchema = z.object({
   }),
   // Valores de campos personalizados (key → valor).
   fields: z.record(z.string()).default({}),
+  // País deducido del prefijo del teléfono, y la moneda con la que se le
+  // cotiza: la fijada a mano (currencyOverride) o la de su país.
+  country: z.object({ code: z.string(), name: z.string() }).nullable().default(null),
+  currency: z.string().nullable().default(null),
+  currencyOverride: z.string().nullable().default(null),
 });
 export type ContactListItem = z.infer<typeof contactListItemSchema>;
 
@@ -67,6 +72,13 @@ export const updateContactSchema = z.object({
   name: z.string().max(160).nullable().optional(),
   optIn: z.boolean().optional(),
   fields: z.record(z.string()).optional(), // se fusionan en metadata
+  // Moneda fija para este contacto; null vuelve a la de su país.
+  currency: z
+    .string()
+    .length(3)
+    .transform((v) => v.toUpperCase())
+    .nullable()
+    .optional(),
 });
 export type UpdateContactInput = z.infer<typeof updateContactSchema>;
 

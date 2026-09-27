@@ -7,6 +7,8 @@ export const productDtoSchema = z.object({
   description: z.string().nullable(),
   price: z.number(),
   currency: z.string(),
+  // Precios en otras monedas (el de arriba es el precio base).
+  prices: z.array(z.object({ currency: z.string(), amount: z.number() })).default([]),
   imageUrl: z.string().nullable(),
   isActive: z.boolean(),
   createdAt: z.string(),
@@ -31,6 +33,14 @@ const currencyField = z
   .string()
   .length(3, "Usa el código ISO de 3 letras (USD, EUR, PEN, MXN…)")
   .transform((v) => v.toUpperCase());
+// Precios adicionales: una entrada por moneda, distinta de la base.
+const pricesField = z
+  .array(z.object({ currency: currencyField, amount: priceField }))
+  .max(20)
+  .refine(
+    (list) => new Set(list.map((p) => p.currency)).size === list.length,
+    "Hay una moneda repetida en los precios",
+  );
 const imageUrlField = z
   .string()
   .url("La URL de la imagen debe empezar por http:// o https://")
@@ -42,6 +52,7 @@ export const createProductSchema = z.object({
   description: descriptionField.default(null),
   price: priceField.default(0),
   currency: currencyField.default("USD"),
+  prices: pricesField.default([]),
   imageUrl: imageUrlField.default(null),
   isActive: z.boolean().default(true),
 });
@@ -53,6 +64,8 @@ export const updateProductSchema = z.object({
   description: descriptionField.optional(),
   price: priceField.optional(),
   currency: currencyField.optional(),
+  // Si viene, sustituye la lista entera de precios adicionales.
+  prices: pricesField.optional(),
   imageUrl: imageUrlField.optional(),
   isActive: z.boolean().optional(),
 });
@@ -139,12 +152,22 @@ export function parseImportBoolean(raw: string, fallback = true): boolean {
   return fallback;
 }
 
+/**
+ * Columnas de precio por moneda: "precio_MXN", "price EUR", "precio (PEN)"…
+ * Devuelve la moneda que indican, o null si la columna no es de ese tipo.
+ */
+export function priceColumnCurrency(header: string): string | null {
+  const m = normalizeHeader(header).match(/^(?:precio|price|valor)[\s_(-]+([a-z]{3})\)?$/);
+  return m ? m[1]!.toUpperCase() : null;
+}
+
 export const productImportRowSchema = z.object({
   name: nameField,
   sku: skuField.default(null),
   description: descriptionField.default(null),
   price: priceField,
   currency: currencyField.default("USD"),
+  prices: pricesField.default([]),
   imageUrl: imageUrlField.default(null),
   isActive: z.boolean().default(true),
 });
@@ -178,6 +201,18 @@ export function toProductImportRow(
     return { ok: false, error: `Moneda no válida: "${rawCurrency}" (usa USD, PEN, EUR…)` };
   }
 
+  // Precios en otras monedas: columnas precio_XXX (vacías se ignoran).
+  const prices: { currency: string; amount: number }[] = [];
+  for (const [column, value] of Object.entries(record)) {
+    const cur = priceColumnCurrency(column);
+    if (!cur || cur === currency || !value?.trim()) continue;
+    const amount = parseImportPrice(value);
+    if (amount === null || amount < 0) {
+      return { ok: false, error: `Precio en ${cur} no válido: "${value}"` };
+    }
+    if (!prices.some((p) => p.currency === cur)) prices.push({ currency: cur, amount });
+  }
+
   const rawImage = get("imageUrl");
   const imageUrl = rawImage
     ? /^https?:\/\//i.test(rawImage)
@@ -191,6 +226,7 @@ export function toProductImportRow(
     description: get("description") || null,
     price,
     currency,
+    prices,
     imageUrl,
     isActive: parseImportBoolean(get("isActive")),
   });

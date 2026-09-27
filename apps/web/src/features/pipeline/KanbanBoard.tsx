@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { confirmDialog } from "@/lib/confirm";
 import { toast } from "@/lib/toast";
 import { NavIcon } from "@/components/NavIcons";
+import { contactCurrency, CURRENCIES, formatMoney } from "@crm/shared";
 import type { DealDto, PipelineDto, PipelineSummaryDto, PipelineView, StageDto } from "@crm/shared";
 import {
   createDeal,
@@ -28,11 +29,7 @@ import { dangerBtn, ghostBtn, primaryBtn, smBtn } from "@/components/ui";
 
 function money(value: number | null, currency: string): string {
   if (value === null) return "";
-  try {
-    return new Intl.NumberFormat("es", { style: "currency", currency }).format(value);
-  } catch {
-    return `${value} ${currency}`;
-  }
+  return formatMoney(value, currency);
 }
 
 function fecha(iso: string): string {
@@ -174,8 +171,13 @@ export function KanbanBoard() {
         <div style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 12 }}>
           {data.stages.map((stage) => {
             const deals = dealsByStage.get(stage.id) ?? [];
-            const total = deals.reduce((s, d) => s + (d.value ?? 0), 0);
-            const cur = deals.find((d) => d.value !== null)?.currency ?? "USD";
+            // Un total por moneda: sumar MXN con USD no significa nada.
+            const totals = new Map<string, number>();
+            for (const d of deals) {
+              if (d.value === null) continue;
+              totals.set(d.currency, (totals.get(d.currency) ?? 0) + d.value);
+            }
+            const total = [...totals.values()].reduce((a, b) => a + b, 0);
             const isEntry = stage.id === entryStageId;
             return (
               <div
@@ -206,7 +208,7 @@ export function KanbanBoard() {
                 </div>
                 {total > 0 && (
                   <div style={{ color: "#7ee2a8", fontSize: 12, marginBottom: 10, fontWeight: 600 }}>
-                    {money(total, cur)}
+                    {[...totals].map(([c, v]) => money(v, c)).join(" · ")}
                   </div>
                 )}
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -394,6 +396,7 @@ function DealDetail({
   const { data: customFields = [] } = useQuery({ queryKey: ["custom-fields"], queryFn: fetchCustomFields });
   const [title, setTitle] = useState(deal.title);
   const [value, setValue] = useState(deal.value != null ? String(deal.value) : "");
+  const [currency, setCurrency] = useState(deal.currency);
   const [fields, setFields] = useState<Record<string, string>>(deal.contact.fields ?? {});
 
   const saveFields = useMutation({
@@ -401,7 +404,8 @@ function DealDetail({
     onSuccess: onChanged,
   });
   const save = useMutation({
-    mutationFn: () => updateDeal(deal.id, { title: title.trim(), value: value ? Number(value) : null }),
+    mutationFn: () =>
+      updateDeal(deal.id, { title: title.trim(), value: value ? Number(value) : null, currency }),
     onSuccess: onChanged,
   });
   const setOwner = useMutation({
@@ -448,11 +452,29 @@ function DealDetail({
               {deal.source ? ` · ${deal.source.name}` : ""}
             </div>
           </Field>
-          <div style={{ display: "flex", gap: 10 }}>
-            <Field label="Valor" style={{ flex: 1 }}>
-              <input style={field} type="number" min="0" value={value} onChange={(e) => setValue(e.target.value)} onBlur={() => save.mutate()} />
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <Field label="Valor" style={{ flex: "1 1 190px" }}>
+              <div style={{ display: "flex", gap: 6 }}>
+                <input style={{ ...field, flex: 1, minWidth: 0 }} type="number" min="0" value={value} onChange={(e) => setValue(e.target.value)} onBlur={() => save.mutate()} />
+                <select
+                  style={{ ...field, width: 92, flex: "0 0 auto" }}
+                  value={currency}
+                  aria-label="Moneda"
+                  onChange={(e) => {
+                    setCurrency(e.target.value);
+                    updateDeal(deal.id, { currency: e.target.value }).then(onChanged, () => undefined);
+                  }}
+                >
+                  {!CURRENCIES.some((c) => c.code === currency) && <option value={currency}>{currency}</option>}
+                  {CURRENCIES.map((c) => (
+                    <option key={c.code} value={c.code}>
+                      {c.code}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </Field>
-            <Field label="Etapa" style={{ flex: 1 }}>
+            <Field label="Etapa" style={{ flex: "1 1 140px" }}>
               <select style={field} value={deal.stageId} onChange={(e) => setStage.mutate(e.target.value)}>
                 {stages.map((s) => (
                   <option key={s.id} value={s.id}>
@@ -699,13 +721,17 @@ function NewDealForm({ pipelineId, onCreated }: { pipelineId: string; onCreated:
     enabled: open,
   });
 
+  // Pista para el campo; el servidor decide (también mira la moneda fijada en la ficha).
+  const picked = contacts.find((c) => c.id === contactId);
+  const contactCur = picked ? contactCurrency(picked) : null;
+
   const create = useMutation({
     mutationFn: () =>
       createDeal({
         contactId,
         title: title.trim(),
         value: value ? Number(value) : undefined,
-        currency: "USD",
+        // Sin moneda: el servidor usa la del contacto (su país o su ficha).
         pipelineId,
       }),
     onSuccess: () => {
@@ -743,7 +769,7 @@ function NewDealForm({ pipelineId, onCreated }: { pipelineId: string; onCreated:
         ))}
       </select>
       <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Título" required style={field} />
-      <input value={value} onChange={(e) => setValue(e.target.value)} placeholder="Valor" type="number" min="0" style={{ ...field, width: 90 }} />
+      <input value={value} onChange={(e) => setValue(e.target.value)} placeholder={`Valor${contactCur ? ` (${contactCur})` : ""}`} type="number" min="0" style={{ ...field, width: 120 }} />
       <button type="submit" disabled={create.isPending} style={primaryBtn}>
         Crear
       </button>

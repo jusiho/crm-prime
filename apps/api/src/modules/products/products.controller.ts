@@ -49,6 +49,7 @@ export class ProductsController {
         : undefined,
       orderBy: { createdAt: "desc" },
       take: 200,
+      include: { prices: { orderBy: { currency: "asc" } } },
     });
     return rows.map((p) => this.toDto(p));
   }
@@ -72,7 +73,8 @@ export class ProductsController {
         isActive: body.isActive,
       },
     });
-    return this.toDto(p);
+    await this.setPrices(p.id, p.currency, body.prices);
+    return this.dtoById(p.id);
   }
 
   /**
@@ -131,11 +133,15 @@ export class ProductsController {
 
         if (existing) {
           await this.prisma.product.update({ where: { id: existing.id }, data });
+          // Las columnas precio_XXX del archivo actualizan esas monedas y
+          // dejan intactas las demás.
+          if (row.prices.length) await this.upsertPrices(existing.id, row.currency, row.prices);
           result.updated++;
         } else {
-          await this.prisma.product.create({
+          const created = await this.prisma.product.create({
             data: { ...data, orgId: this.tenant.orgId() },
           });
+          await this.setPrices(created.id, created.currency, row.prices);
           result.created++;
         }
       } catch (e) {
@@ -170,7 +176,12 @@ export class ProductsController {
         ...(body.isActive !== undefined ? { isActive: body.isActive } : {}),
       },
     });
-    return this.toDto(p);
+    if (body.prices !== undefined) await this.setPrices(p.id, p.currency, body.prices);
+    // Si cambió la moneda base, sobra un precio adicional en esa moneda.
+    else if (body.currency !== undefined) {
+      await this.prisma.productPrice.deleteMany({ where: { productId: p.id, currency: p.currency } });
+    }
+    return this.dtoById(p.id);
   }
 
   @Delete(":id")
@@ -194,6 +205,52 @@ export class ProductsController {
     }
   }
 
+  /**
+   * Sustituye la lista de precios adicionales. La moneda base no se guarda
+   * aquí (vive en el propio producto), así que se descarta si viene.
+   */
+  private async setPrices(
+    productId: string,
+    base: string,
+    prices: { currency: string; amount: number }[],
+  ): Promise<void> {
+    await this.prisma.productPrice.deleteMany({ where: { productId } });
+    const rows = prices.filter((p) => p.currency !== base);
+    if (!rows.length) return;
+    await this.prisma.productPrice.createMany({
+      data: rows.map((p) => ({
+        orgId: this.tenant.orgId(),
+        productId,
+        currency: p.currency,
+        amount: p.amount,
+      })),
+    });
+  }
+
+  /** Crea o actualiza solo las monedas dadas (importación sobre existentes). */
+  private async upsertPrices(
+    productId: string,
+    base: string,
+    prices: { currency: string; amount: number }[],
+  ): Promise<void> {
+    for (const p of prices) {
+      if (p.currency === base) continue;
+      await this.prisma.productPrice.upsert({
+        where: { productId_currency: { productId, currency: p.currency } },
+        update: { amount: p.amount },
+        create: { orgId: this.tenant.orgId(), productId, currency: p.currency, amount: p.amount },
+      });
+    }
+  }
+
+  private async dtoById(id: string): Promise<ProductDto> {
+    const p = await this.prisma.product.findUniqueOrThrow({
+      where: { id },
+      include: { prices: { orderBy: { currency: "asc" } } },
+    });
+    return this.toDto(p);
+  }
+
   private toDto(p: {
     id: string;
     name: string;
@@ -201,6 +258,7 @@ export class ProductsController {
     description: string | null;
     price: Prisma.Decimal;
     currency: string;
+    prices?: { currency: string; amount: Prisma.Decimal }[];
     imageUrl: string | null;
     isActive: boolean;
     createdAt: Date;
@@ -212,6 +270,7 @@ export class ProductsController {
       description: p.description,
       price: Number(p.price),
       currency: p.currency,
+      prices: (p.prices ?? []).map((x) => ({ currency: x.currency, amount: Number(x.amount) })),
       imageUrl: p.imageUrl,
       isActive: p.isActive,
       createdAt: p.createdAt.toISOString(),

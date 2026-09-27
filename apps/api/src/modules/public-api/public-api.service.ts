@@ -5,6 +5,7 @@ import {
 } from "@nestjs/common";
 import type { Prisma } from "@prisma/client";
 import {
+  contactCurrency,
   MessageAuthor,
   MessageType,
   utmKeys,
@@ -204,7 +205,7 @@ export class PublicApiService {
         stageId: stage.id,
         title: input.title,
         ...(input.value !== undefined ? { value: input.value } : {}),
-        ...(input.currency ? { currency: input.currency.toUpperCase() } : {}),
+        currency: input.currency?.toUpperCase() ?? contactCurrency(contact) ?? "USD",
       },
       include: { stage: true, contact: true, owner: true },
     });

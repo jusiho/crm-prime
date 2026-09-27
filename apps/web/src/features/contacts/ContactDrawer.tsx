@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import Link from "next/link";
 import {
+  CURRENCIES,
+  countryFromPhone,
   contactOriginLabels,
   utmKeys,
   type ContactListItem,
@@ -41,6 +43,8 @@ export function ContactDrawer({
   const [optIn, setOptIn] = useState(contact.optIn);
   const [values, setValues] = useState<Record<string, string>>(contact.fields);
   const [sourceId, setSourceId] = useState(contact.source?.id ?? "");
+  // "" = la moneda de su país (deducida del teléfono).
+  const [currency, setCurrency] = useState(contact.currencyOverride ?? "");
 
   // Al cambiar de contacto sin cerrar el panel, recargar el formulario.
   useEffect(() => {
@@ -48,6 +52,7 @@ export function ContactDrawer({
     setOptIn(contact.optIn);
     setValues(contact.fields);
     setSourceId(contact.source?.id ?? "");
+    setCurrency(contact.currencyOverride ?? "");
   }, [contact]);
 
   useEffect(() => {
@@ -58,10 +63,13 @@ export function ContactDrawer({
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
 
+  const countryCurrency = countryFromPhone(contact.phone)?.currency ?? null;
+
   const dirty =
     name !== (contact.name ?? "") ||
     optIn !== contact.optIn ||
     sourceId !== (contact.source?.id ?? "") ||
+    currency !== (contact.currencyOverride ?? "") ||
     fields.some((f) => (values[f.key] ?? "") !== (contact.fields[f.key] ?? ""));
 
   const save = useMutation({
@@ -70,6 +78,7 @@ export function ContactDrawer({
         name: name.trim() || null,
         optIn,
         fields: values,
+        currency: currency || null,
       });
       // La fuente tiene su propio endpoint (afecta al reparto por vendedor).
       if (sourceId !== (contact.source?.id ?? "")) {
@@ -130,6 +139,34 @@ export function ContactDrawer({
                   </option>
                 ))}
               </select>
+            </Field>
+
+            <Field label="País y moneda para cotizar">
+              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                <span style={{ fontSize: 13, color: "var(--muted)" }}>
+                  {contact.country ? contact.country.name : "País no reconocido"}
+                </span>
+                <select
+                  style={{ ...input, flex: 1, minWidth: 180 }}
+                  value={currency}
+                  onChange={(e) => setCurrency(e.target.value)}
+                  aria-label="Moneda para cotizar"
+                >
+                  <option value="">
+                    {countryCurrency
+                      ? `La de su país (${countryCurrency})`
+                      : "La base de cada producto"}
+                  </option>
+                  {CURRENCIES.map((c) => (
+                    <option key={c.code} value={c.code}>
+                      {c.code} · {c.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div style={hint}>
+                El agente de IA le da los precios en esta moneda cuando el producto la tiene.
+              </div>
             </Field>
 
             <label style={switchRow}>
