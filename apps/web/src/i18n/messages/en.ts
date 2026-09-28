@@ -39,6 +39,10 @@ export const en = {
     logout: "Log out",
     myAccount: "My account",
     language: "Language",
+    gettingStarted: "Getting started",
+    help: "Help",
+    helpTour: "Tour of this screen",
+    helpDocs: "Documentation",
   },
   pages: {
     inbox: { title: "Inbox", subtitle: "Conversations in real time" },
@@ -54,6 +58,15 @@ export const en = {
     sessions: { title: "Sessions", subtitle: "Devices signed in to your account" },
     account: { title: "My account", subtitle: "Profile, password and security" },
     settings: { title: "Settings", subtitle: "Tags, channels, sources and more" },
+    gettingStarted: { title: "Getting started", subtitle: "Set up Trimmo step by step" },
+  },
+  // Tarjeta de Primeros pasos en el menú lateral.
+  onboarding: {
+    navTitle: "Getting started",
+    navDone: "All set",
+    navSummary: "See the summary",
+    navPending: "{n} steps left",
+    navPendingOne: "1 step left",
   },
   // Conector de Meta en el dominio raíz (SaaS): el SDK solo carga ahí.
   connect: {

@@ -157,7 +157,7 @@ export function Inbox() {
   return (
     <div className="inbox" style={{ display: "flex", height: "calc(100vh - var(--header-h))" }}>
       {showList && (
-        <aside className="inbox-list" style={listPane}>
+        <aside className="inbox-list" style={listPane} data-tour="inbox-list">
           <div style={paneHeader}>
             <span style={{ display: "flex", alignItems: "baseline", gap: 6, minWidth: 0 }}>
               {t("inbox.conversations")}
@@ -282,7 +282,7 @@ export function Inbox() {
       )}
 
       {showChat && (
-        <main className="inbox-chat" style={{ flex: 1, minWidth: 0 }}>
+        <main className="inbox-chat" style={{ flex: 1, minWidth: 0 }} data-tour="inbox-chat">
           {selected ? (
             <ChatWindow
               key={selected.id}

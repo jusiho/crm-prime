@@ -202,7 +202,7 @@ export function Composer({
   ];
 
   return (
-    <div style={wrap}>
+    <div style={wrap} data-tour="inbox-composer">
       {/* Cierra al pulsar fuera. El selector de emojis no entra aquí: ya
           vigila por su cuenta el clic fuera y la tecla Esc. */}
       {(menuOpen || (quickOpen && slashQuery === null)) && (

@@ -42,7 +42,7 @@ export function AiModeSwitch({
   const t = useT();
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 8 }} data-tour="inbox-ai-mode">
       <div style={group} role="group" aria-label={t("inbox.aiModeLabel")}>
         <span style={groupIcon}>
           <NavIcon name="sparkles" size={14} />

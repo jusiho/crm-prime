@@ -154,3 +154,50 @@ test("el atajo runInOrg(() => consulta) acota de verdad", async () => {
   assert.equal(filas.length, 1);
   assert.equal(filas[0].orgId, "o_b");
 });
+
+test("el alta de una empresa funciona con el rol restringido", async () => {
+  // El alta llega por el dominio raíz, sin empresa en contexto. Si la
+  // transacción no fija app.current_org, el rol restringido de producción
+  // rechaza la primera fila con dueño. En desarrollo no se nota porque el
+  // usuario de la base es dueño de las tablas y se salta las políticas.
+  process.env.JWT_ACCESS_SECRET ??= "secreto-de-prueba";
+  const { JwtService } = await import("@nestjs/jwt");
+  const { OrganizationService } = await import(
+    "../src/modules/organizations/organization.service"
+  );
+  const svc = new OrganizationService(
+    prisma,
+    new JwtService({ secret: process.env.JWT_ACCESS_SECRET }),
+  );
+
+  const slug = `alta-${Date.now()}`;
+  const r = await svc.register(
+    {
+      companyName: "Alta de prueba",
+      slug,
+      adminName: "Ana",
+      adminEmail: `ana@${slug}.test`,
+      password: "clave-larga-123",
+    },
+    "127.0.0.1",
+  );
+  assert.equal(r.slug, slug);
+
+  // Todo lo creado lleva el mismo dueño y se ve desde esa empresa…
+  const [cuenta] = await ctx.runInOrg(r.orgId, () =>
+    prisma.$queryRawUnsafe(
+      `SELECT (SELECT count(*) FROM users) AS usuarios,
+              (SELECT count(*) FROM pipeline_stages) AS etapas,
+              (SELECT count(*) FROM agent_configs) AS agentes`,
+    ),
+  );
+  assert.equal(Number(cuenta.usuarios), 1);
+  assert.equal(Number(cuenta.etapas), 6);
+  assert.equal(Number(cuenta.agentes), 1);
+
+  // …y desde otra empresa no se ve nada de ello.
+  const ajenos: any[] = await ctx.runInOrg("o_a", () =>
+    prisma.$queryRawUnsafe(`SELECT id FROM users WHERE "orgId" = '${r.orgId}'`),
+  );
+  assert.equal(ajenos.length, 0);
+});

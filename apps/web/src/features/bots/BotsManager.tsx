@@ -39,7 +39,7 @@ export function BotsManager() {
   return (
     <div style={wrap}>
       {/* Lista */}
-      <aside style={listCol}>
+      <aside style={listCol} data-tour="agents-list">
         <div style={listHeader}>
           <strong>Agentes</strong>
           <button onClick={() => setSel({ kind: "new" })} style={primaryBtn}>
@@ -66,7 +66,7 @@ export function BotsManager() {
       </aside>
 
       {/* Detalle */}
-      <section style={detailCol}>
+      <section style={detailCol} data-tour="agents-editor">
         {sel.kind === "none" && (
           <div style={empty}>
             <div style={{ color: "var(--muted)", opacity: 0.7 }}>
@@ -76,7 +76,7 @@ export function BotsManager() {
               Selecciona un bot para editarlo o crea uno nuevo. Cada bot puede
               atender un número de WhatsApp distinto.
             </p>
-            <button onClick={() => setTesting({})} style={softBtn}>
+            <button onClick={() => setTesting({})} style={softBtn} data-tour="agents-try">
               <NavIcon name="flask" size={15} />
               Probar el bot por defecto
             </button>
@@ -107,6 +107,7 @@ export function BotsManager() {
                   setTesting({ id: selectedBot.id, name: selectedBot.name })
                 }
                 style={softBtn}
+                data-tour="agents-try"
               >
                 <NavIcon name="flask" size={15} />
                 Probar

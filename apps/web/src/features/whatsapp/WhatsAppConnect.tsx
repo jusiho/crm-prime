@@ -218,7 +218,7 @@ export function WhatsAppConnect({ hub = false }: { hub?: boolean }) {
       >
         <h2 style={{ marginTop: 0, marginBottom: 0 }}>Números de WhatsApp</h2>
         {!missingConfig && list.length > 0 && (
-          <button onClick={launch} disabled={!ready || connecting} style={addBtn}>
+          <button onClick={launch} disabled={!ready || connecting} style={addBtn} data-tour="wa-connect">
             <WaIcon />
             {connecting ? "Conectando…" : "Añadir número"}
           </button>
@@ -314,6 +314,7 @@ export function WhatsAppConnect({ hub = false }: { hub?: boolean }) {
             setEditing(null);
           }}
           style={linkBtn}
+          data-tour="wa-manual"
         >
           <span style={chevron(manualOpen)} aria-hidden>
             <NavIcon name="chevron-down" size={14} />

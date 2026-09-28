@@ -5,8 +5,10 @@ import Link from "next/link";
 import { NavIcon, type IconName } from "./NavIcons";
 import { useT } from "@/i18n/I18nProvider";
 import type { MessageKey } from "@/i18n/translate";
+import { OnboardingNavCard } from "@/features/onboarding/OnboardingNavCard";
 
 export type NavKey =
+  | "gettingStarted"
   | "inbox"
   | "contacts"
   | "pipeline"
@@ -136,6 +138,9 @@ export function SideNav({
       </div>
 
       <nav style={{ padding: collapsed ? "8px 8px" : "4px 10px", overflowY: "auto", flex: 1 }}>
+        {role === "ADMIN" && (
+          <OnboardingNavCard collapsed={collapsed} active={active === "gettingStarted"} />
+        )}
         {NAV.map((group) => {
           const items = group.items.filter(
             (it) => !it.adminOnly || role === "ADMIN",
@@ -153,6 +158,7 @@ export function SideNav({
                   key={it.key}
                   href={it.href}
                   className={`nav-item${active === it.key ? " active" : ""}`}
+                  data-tour={`nav-${it.key}`}
                   style={collapsed ? collapsedItem : undefined}
                   title={collapsed ? t(it.labelKey) : undefined}
                   onClick={() => document.body.classList.remove("nav-open")}

@@ -666,6 +666,16 @@ un certificado comodín por reto DNS-01 (HTTP-01 no puede emitirlos) y **un solo
 proxy host** `*.trimmo.lat → crm-web:3000`. A partir de ahí, dar de alta una
 empresa es insertar una fila.
 
+Esa fila se inserta **acotada a la empresa que se está creando**, no con la
+escapatoria. La petición entra por el dominio raíz, sin empresa en contexto, y
+una transacción sin contexto no fija `app.current_org`: con el rol restringido
+de producción, RLS rechaza la primera fila con dueño (`users`) y el alta muere
+con un 500 que en desarrollo no aparece, porque ahí el usuario de la base es
+dueño de las tablas y se salta las políticas. Por eso `OrganizationService.register`
+decide el `orgId` antes de abrir la transacción y la envuelve en
+`runInOrg(orgId, …)`: todo lo que escribe lleva ese dueño y las políticas lo
+aceptan. `test/rls.test.ts` cubre el caso con el rol restringido.
+
 El precio del comodín es que la renovación es un punto único de fallo: si
 caduca el token del DNS, caen todas las empresas a la vez. Conviene vigilar el
 vencimiento.

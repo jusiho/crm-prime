@@ -996,3 +996,604 @@ code {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
+
+/* ── Primeros pasos: tarjeta del menú lateral ──────────────── */
+.nav-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0 12px;
+  padding: 9px 10px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  text-decoration: none;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+.nav-card:hover {
+  background: var(--sidebar-hover);
+  border-color: var(--border-strong);
+  text-decoration: none;
+}
+.nav-card.active {
+  border-color: rgba(138, 43, 226, 0.45);
+  background: rgba(138, 43, 226, 0.12);
+}
+.nav-card.is-collapsed {
+  justify-content: center;
+  padding: 8px 0;
+  margin: 8px 0;
+}
+.nav-card__num {
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.nav-card__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.25;
+}
+.nav-card__text strong {
+  font-size: 13px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nav-card__bar {
+  display: block;
+  height: 3px;
+  margin-top: 5px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+.nav-card__bar > span {
+  display: block;
+  height: 100%;
+  width: 100%;
+  transform-origin: left;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Anillo de progreso (menú y página) */
+.ring {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.ring svg {
+  position: absolute;
+  inset: 0;
+}
+.ring__inner {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.ring__arc {
+  transition: stroke-dashoffset 0.6s cubic-bezier(0.22, 1, 0.36, 1), stroke 0.3s ease;
+}
+
+/* ── Menú de ayuda («?» de la cabecera) ──────────────────────── */
+.help-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 232px;
+  padding: 6px;
+  border-radius: 12px;
+  border: 1px solid var(--border-strong);
+  background: var(--panel-2);
+  box-shadow: var(--shadow-overlay);
+  animation: fadeIn 0.14s ease;
+  z-index: 5;
+}
+.help-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 13.5px;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.help-menu__item:hover:not(:disabled) {
+  background: var(--sidebar-hover);
+  text-decoration: none;
+  filter: none;
+}
+.help-menu__item:disabled {
+  color: var(--muted);
+}
+.help-menu__item svg {
+  color: var(--accent-text);
+  flex-shrink: 0;
+}
+.help-menu__item span {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.help-menu__item small {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+/* ── Tours guiados ───────────────────────────────────────────── */
+.tour-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 1050; /* sobre cajones y diálogos, bajo los toasts */
+  pointer-events: none;
+}
+.tour-spot {
+  position: fixed;
+  border-radius: 10px;
+  box-shadow:
+    0 0 0 2px rgba(190, 100, 255, 0.55),
+    0 0 0 9999px rgba(4, 2, 10, 0.68);
+  transition:
+    top 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+    left 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+    width 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+    height 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.tour-card {
+  position: fixed;
+  width: min(360px, calc(100vw - 24px));
+  padding: 14px 18px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--border-strong);
+  background: var(--panel-2);
+  color: var(--text);
+  box-shadow: var(--shadow-overlay);
+  pointer-events: auto;
+  outline: none;
+  animation: fadeIn 0.18s ease;
+  transition:
+    top 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+    left 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.tour-card:focus-visible {
+  box-shadow: var(--shadow-overlay), 0 0 0 2px var(--accent);
+}
+.tour-card__arrow {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: var(--panel-2);
+  border-left: 1px solid var(--border-strong);
+  border-top: 1px solid var(--border-strong);
+  margin-left: -6px;
+  margin-top: -6px;
+}
+.tour-card.is-bottom .tour-card__arrow {
+  top: 0;
+  transform: rotate(45deg);
+}
+.tour-card.is-top .tour-card__arrow {
+  top: 100%;
+  transform: rotate(225deg);
+}
+.tour-card.is-right .tour-card__arrow {
+  left: 0;
+  transform: rotate(-45deg);
+}
+.tour-card.is-left .tour-card__arrow {
+  left: 100%;
+  transform: rotate(135deg);
+}
+.tour-card__step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.tour-card__dots {
+  display: flex;
+  gap: 4px;
+}
+.tour-card__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--surface-3);
+  transition: background 0.2s ease;
+}
+.tour-card__dot.is-past {
+  background: rgba(190, 100, 255, 0.45);
+}
+.tour-card__dot.is-on {
+  background: var(--accent-2);
+}
+.tour-card h3 {
+  margin: 8px 0 4px;
+  font-size: 16px;
+  line-height: 1.25;
+}
+.tour-card p {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--text);
+}
+.tour-card__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+}
+.tour-card__skip {
+  padding: 4px 0;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.tour-card__skip:hover {
+  color: var(--text);
+  text-decoration: underline;
+  filter: none;
+}
+@media (max-width: 640px) {
+  .tour-card,
+  .tour-card.is-sheet {
+    top: auto !important;
+    left: 12px !important;
+    right: 12px;
+    bottom: 12px;
+    width: auto;
+  }
+  .tour-card__arrow {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tour-spot,
+  .tour-card,
+  .ring__arc,
+  .nav-card__bar > span {
+    transition: none;
+  }
+  .tour-card,
+  .help-menu {
+    animation: none;
+  }
+}
+
+/* ── Página Primeros pasos ───────────────────────────────────── */
+.gs {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 28px 24px 48px;
+}
+.gs-hero {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  padding: 22px 24px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  box-shadow: var(--shadow-card);
+}
+.gs-hero__count {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.gs-hero__count small {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--muted);
+}
+.gs-hero__text {
+  flex: 1;
+  min-width: 0;
+}
+.gs-hero__text h1 {
+  margin: 0 0 6px;
+  font-size: 24px;
+  line-height: 1.2;
+  text-wrap: balance;
+}
+.gs-hero__text p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--muted);
+  max-width: 62ch;
+}
+.gs-next {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+.gs-next__card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  text-decoration: none;
+  transition: border-color 0.14s ease, background 0.14s ease;
+}
+.gs-next__card:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-2);
+  text-decoration: none;
+}
+.gs-next__icon {
+  color: var(--accent-text);
+  margin-bottom: 4px;
+}
+.gs-next__title {
+  font-weight: 600;
+  font-size: 14px;
+}
+.gs-next__text {
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.gs-steps {
+  list-style: none;
+  margin: 22px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.gs-step {
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  transition: border-color 0.14s ease, background 0.14s ease;
+}
+.gs-step.is-current {
+  border-color: rgba(138, 43, 226, 0.45);
+  background: rgba(138, 43, 226, 0.08);
+}
+.gs-step.is-done,
+.gs-step.is-skipped {
+  background: transparent;
+}
+.gs-step__head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 13px 16px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 12px;
+}
+.gs-step__head:hover {
+  filter: none;
+}
+.gs-step__head:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.gs-step__mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 1.5px solid var(--border-strong);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.gs-step.is-current .gs-step__mark {
+  border-color: var(--accent-2);
+  color: var(--accent-text);
+}
+.gs-step.is-done .gs-step__mark {
+  border-color: transparent;
+  background: var(--positive);
+  color: #06140c;
+}
+.gs-step.is-skipped .gs-step__mark {
+  border-style: dashed;
+}
+.gs-step__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.gs-step__title {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.gs-step.is-done .gs-step__title,
+.gs-step.is-skipped .gs-step__title {
+  color: var(--muted);
+  font-weight: 500;
+}
+.gs-step__why {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+.gs-step.is-done .gs-step__why {
+  color: var(--positive);
+}
+.gs-step__meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+  color: var(--muted);
+}
+.gs-step__time {
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+.gs-step__chev {
+  display: inline-flex;
+  transition: transform 0.18s ease;
+}
+.gs-step.is-open .gs-step__chev {
+  transform: rotate(180deg);
+}
+.gs-step__body {
+  padding: 0 16px 16px 58px;
+  animation: fadeIn 0.16s ease;
+}
+.gs-step__body ul {
+  margin: 0 0 14px;
+  padding-left: 18px;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--text);
+  max-width: 64ch;
+}
+.gs-step__body li + li {
+  margin-top: 4px;
+}
+.gs-step__actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.gs-step__skip {
+  margin-left: auto;
+  padding: 6px 4px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.gs-step__skip:hover:not(:disabled) {
+  color: var(--text);
+  text-decoration: underline;
+  filter: none;
+}
+
+.gs-tours {
+  margin-top: 34px;
+}
+.gs-tours h2 {
+  margin: 0 0 4px;
+  font-size: 18px;
+}
+.gs-tours > p {
+  margin: 0 0 12px;
+  font-size: 13.5px;
+  color: var(--muted);
+  max-width: 62ch;
+}
+.gs-tour-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 8px;
+}
+.gs-tour {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+.gs-tour__icon {
+  display: inline-flex;
+  color: var(--accent-text);
+}
+.gs-tour__name {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 500;
+}
+.gs-tour__state {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+.gs-tour.is-seen .gs-tour__state {
+  background: var(--surface-3);
+  color: var(--muted);
+}
+.gs-foot {
+  margin-top: 28px;
+  font-size: 13px;
+  color: var(--muted);
+}
+@media (max-width: 640px) {
+  .gs {
+    padding: 18px 16px 40px;
+  }
+  .gs-hero {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 18px;
+  }
+  .gs-hero__text h1 {
+    font-size: 22px;
+  }
+  .gs-hero > .btn {
+    align-self: stretch;
+  }
+  .gs-step__head {
+    padding: 12px 12px;
+    gap: 10px;
+  }
+  .gs-step__body {
+    padding-left: 12px;
+  }
+  .gs-step__time {
+    display: none;
+  }
+}

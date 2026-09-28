@@ -39,6 +39,10 @@ export const es: Messages = {
     logout: "Salir",
     myAccount: "Mi cuenta",
     language: "Idioma",
+    gettingStarted: "Primeros pasos",
+    help: "Ayuda",
+    helpTour: "Tour de esta pantalla",
+    helpDocs: "Documentación",
   },
   pages: {
     inbox: { title: "Bandeja", subtitle: "Conversaciones en tiempo real" },
@@ -54,6 +58,14 @@ export const es: Messages = {
     sessions: { title: "Sesiones", subtitle: "Dispositivos con tu cuenta abierta" },
     account: { title: "Mi cuenta", subtitle: "Perfil, contraseña y seguridad" },
     settings: { title: "Ajustes", subtitle: "Etiquetas, canales, fuentes y más" },
+    gettingStarted: { title: "Primeros pasos", subtitle: "Pon Trimmo en marcha paso a paso" },
+  },
+  onboarding: {
+    navTitle: "Primeros pasos",
+    navDone: "Todo listo",
+    navSummary: "Ver el resumen",
+    navPending: "{n} pasos pendientes",
+    navPendingOne: "1 paso pendiente",
   },
   // Conector de Meta en el dominio raíz (SaaS): el SDK solo carga ahí.
   connect: {

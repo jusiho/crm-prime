@@ -27,6 +27,7 @@ import { PublicApiModule } from "./modules/public-api/public-api.module";
 import { WebhooksOutModule } from "./modules/webhooks-out/webhooks-out.module";
 import { IntegrationsModule } from "./modules/integrations/integrations.module";
 import { OrganizationsModule } from "./modules/organizations/organizations.module";
+import { OnboardingModule } from "./modules/onboarding/onboarding.module";
 import { HealthController } from "./health.controller";
 
 @Module({
@@ -53,6 +54,7 @@ import { HealthController } from "./health.controller";
     AiModule,
     CampaignsModule,
     QuickRepliesModule,
+    OnboardingModule,
     MetaLeadsModule,
     SourcesModule,
     TagsModule,

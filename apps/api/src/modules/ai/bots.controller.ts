@@ -26,6 +26,7 @@ import { Roles } from "../../common/decorators/roles.decorator";
 import { BotService } from "./bot.service";
 import { AgentService } from "./agent.service";
 import { PromptAssistantService } from "./prompt-assistant.service";
+import { OnboardingService } from "../onboarding/onboarding.service";
 
 @Controller("bots")
 @UseGuards(JwtAuthGuard)
@@ -34,6 +35,7 @@ export class BotsController {
     private readonly bots: BotService,
     private readonly agent: AgentService,
     private readonly promptAssistant: PromptAssistantService,
+    private readonly onboarding: OnboardingService,
   ) {}
 
   @Get()
@@ -49,6 +51,9 @@ export class BotsController {
     @Body(new ZodValidationPipe(playgroundRequestSchema))
     body: PlaygroundRequest,
   ) {
+    // Probar el agente es un paso de Primeros pasos que no se deduce de
+    // los datos (el simulador no persiste nada), así que se marca aquí.
+    void this.onboarding.markDone("try_agent");
     return this.agent.playground(body);
   }
 

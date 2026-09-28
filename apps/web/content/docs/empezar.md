@@ -8,6 +8,12 @@ Trimmo es un CRM para vender por WhatsApp: una bandeja con todos tus números, a
 2. Te proponemos un **subdominio** a partir del nombre (`tu-empresa.trimmo.lat`). Puedes cambiarlo antes de terminar; después ya no, porque es la dirección que compartirás con tu equipo.
 3. Al terminar entras directamente en tu panel, como administrador.
 
+## Primeros pasos, dentro de Trimmo
+
+Al entrar por primera vez te recibe **Primeros pasos**: una lista de ocho pasos (conectar el número, activar la IA, personalizar el agente, cargar el catálogo, subir conocimiento, probar el agente, recibir la primera conversación e invitar al equipo). Cada paso se marca solo cuando lo haces de verdad, no al pulsar una casilla; los que no apliquen a tu negocio se pueden omitir. La tarjeta del menú lateral muestra el avance a todos los administradores y se puede ocultar cuando ya no haga falta.
+
+Cada pantalla tiene además un **tour guiado** de un minuto que se abre solo la primera vez que entras. Desde el botón **?** de la cabecera lo repites cuando quieras, vuelves a Primeros pasos o abres esta documentación.
+
 Tu empresa vive en su propio subdominio. Los datos de cada empresa están separados de los de cualquier otra, también en la base de datos.
 
 > **Para entrar después:** `tu-empresa.trimmo.lat/login`. Si vas a `trimmo.lat/login`, te preguntamos cuál es tu empresa y te llevamos allí, igual que hace Slack con los espacios de trabajo.

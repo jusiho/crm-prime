@@ -1,6 +1,9 @@
 "use client";
 
 import type {
+  OnboardingDto,
+  OnboardingStepKey,
+  TourKey,
   AgentDto,
   AiMode,
   AiSuggestion,
@@ -1465,4 +1468,31 @@ export async function fetchRealtimeToken(): Promise<string> {
   if (!res.ok) throw new Error("No se pudo obtener el token de realtime");
   const data = (await res.json()) as { token: string };
   return data.token;
+}
+
+// ── Primeros pasos (onboarding con seguimiento) ────────────
+
+export async function fetchOnboarding(): Promise<OnboardingDto> {
+  const res = await bffFetch("/api/bff/onboarding");
+  if (!res.ok) throw new Error("No se pudo cargar Primeros pasos");
+  return res.json();
+}
+
+export async function skipOnboardingStep(key: OnboardingStepKey, skipped: boolean): Promise<void> {
+  const res = await bffFetch(`/api/bff/onboarding/steps/${key}/skip`, {
+    method: skipped ? "POST" : "DELETE",
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo actualizar el paso"));
+}
+
+export async function dismissOnboarding(dismissed: boolean): Promise<void> {
+  const res = await bffFetch("/api/bff/onboarding/dismiss", {
+    method: dismissed ? "POST" : "DELETE",
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo guardar la preferencia"));
+}
+
+/** Un tour visto: si falla, no pasa nada grave (volverá a salir). */
+export async function markTourSeen(key: TourKey): Promise<void> {
+  await bffFetch(`/api/bff/onboarding/tours/${key}`, { method: "POST" }).catch(() => undefined);
 }

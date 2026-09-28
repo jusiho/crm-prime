@@ -71,10 +71,10 @@ export function ProductsManager() {
           ))}
         </div>
         <div style={{ flex: 1 }} />
-        <button onClick={() => setImporting(true)} style={ghostBtn}>
+        <button onClick={() => setImporting(true)} style={ghostBtn} data-tour="products-import">
           <NavIcon name="file" size={15} /> Importar CSV
         </button>
-        <button onClick={() => setEditing("new")} style={primaryBtn}>
+        <button onClick={() => setEditing("new")} style={primaryBtn} data-tour="products-new">
           <NavIcon name="plus" size={15} /> Nuevo producto
         </button>
       </div>
@@ -119,7 +119,7 @@ export function ProductsManager() {
         </div>
       )}
 
-      <div style={grid}>
+      <div style={grid} data-tour="products-grid">
         {list.map((p) => (
           <ProductCard key={p.id} product={p} onOpen={() => setEditing(p)} />
         ))}

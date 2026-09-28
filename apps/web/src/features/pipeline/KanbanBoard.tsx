@@ -118,7 +118,7 @@ export function KanbanBoard() {
 
   return (
     <div style={{ padding: 20 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16, flexWrap: "wrap" }} data-tour="pipeline-header">
         <h2 style={{ margin: 0 }}>Embudo</h2>
         <span
           title={connected ? "En tiempo real" : "Desconectado"}
@@ -153,7 +153,7 @@ export function KanbanBoard() {
         >
           {view === "open" ? `Descartadas (${data.discardedCount})` : "Volver al tablero"}
         </button>
-        <button onClick={() => setShowStages(true)} style={{ ...ghostBtn, ...smBtn }}>
+        <button onClick={() => setShowStages(true)} style={{ ...ghostBtn, ...smBtn }} data-tour="pipeline-stages">
           <NavIcon name="settings" size={14} />
           Etapas
         </button>
@@ -168,7 +168,7 @@ export function KanbanBoard() {
           onOpen={setSelectedDealId}
         />
       ) : (
-        <div style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 12 }}>
+        <div style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 12 }} data-tour="pipeline-columns">
           {data.stages.map((stage) => {
             const deals = dealsByStage.get(stage.id) ?? [];
             // Un total por moneda: sumar MXN con USD no significa nada.
@@ -746,7 +746,7 @@ function NewDealForm({ pipelineId, onCreated }: { pipelineId: string; onCreated:
 
   if (!open) {
     return (
-      <button onClick={() => setOpen(true)} style={primaryBtn}>
+      <button onClick={() => setOpen(true)} style={primaryBtn} data-tour="pipeline-new">
         + Nueva oportunidad
       </button>
     );

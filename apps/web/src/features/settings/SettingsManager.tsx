@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { NavIcon, type IconName } from "@/components/NavIcons";
 import { WhatsAppConnect } from "@/features/whatsapp/WhatsAppConnect";
 import { TagsManager } from "./TagsManager";
@@ -42,6 +42,12 @@ const TABS: { key: TabKey; label: string; icon: IconName }[] = [
 
 export function SettingsManager() {
   const [tab, setTab] = useState<TabKey>("tags");
+
+  // Enlaces directos a una pestaña (Primeros pasos manda a ?tab=ai).
+  useEffect(() => {
+    const wanted = new URLSearchParams(window.location.search).get("tab");
+    if (wanted && TABS.some((t) => t.key === wanted)) setTab(wanted as TabKey);
+  }, []);
 
   return (
     <div style={wrap}>

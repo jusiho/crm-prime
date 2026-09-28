@@ -6,6 +6,8 @@ import { NavIcon } from "./NavIcons";
 import { SideNav, type NavKey } from "./SideNav";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { MobileMenuButton } from "./MobileMenuButton";
+import { HelpMenu } from "./HelpMenu";
+import { TourHost } from "@/features/onboarding/TourHost";
 import { getTranslator } from "@/i18n/server";
 import type { MessageKey } from "@/i18n/translate";
 
@@ -14,6 +16,7 @@ export type { NavKey };
 // Cada pantalla toma su título del diccionario; la clave es la misma que su
 // entrada en el menú.
 const TITLE_KEYS: Record<NavKey, string> = {
+  gettingStarted: "gettingStarted",
   inbox: "inbox",
   contacts: "contacts",
   pipeline: "pipeline",
@@ -62,6 +65,7 @@ export async function AppShell({
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <HelpMenu />
             <span className="topbar-lang">
               <LanguageSwitcher />
             </span>
@@ -95,6 +99,7 @@ export async function AppShell({
         </header>
 
         <div className="app-content" style={content}>{children}</div>
+        <TourHost />
       </div>
     </div>
   );

@@ -17,7 +17,8 @@ export async function GET(req: Request) {
   if (!token) redirect("/login");
 
   try {
-    await signIn("credentials", { handoff: token, redirectTo: "/" });
+    // Empresa recién creada: su administrador aterriza en Primeros pasos.
+    await signIn("credentials", { handoff: token, redirectTo: "/getting-started" });
   } catch (e) {
     // El pase no vale (caducado, usado, manipulado): al acceso normal, que la
     // contraseña la sabe porque la acaba de elegir.
@@ -25,5 +26,5 @@ export async function GET(req: Request) {
     // Con éxito, signIn lanza el redirect de Next: hay que dejarlo pasar.
     throw e;
   }
-  redirect("/");
+  redirect("/getting-started");
 }

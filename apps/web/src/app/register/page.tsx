@@ -51,7 +51,7 @@ export default async function RegisterPage({
 
     // Registro correcto → iniciar sesión automáticamente.
     try {
-      await signIn("credentials", { email, password, redirectTo: "/" });
+      await signIn("credentials", { email, password, redirectTo: "/getting-started" });
     } catch (e) {
       if (e instanceof AuthError) {
         redirect("/login?error=credentials");

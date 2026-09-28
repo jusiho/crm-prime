@@ -1093,6 +1093,7 @@ function AssistButton({ onClick, align }: { onClick: () => void; align?: "end" }
       onClick={onClick}
       style={{ ...ghostBtn, ...smBtn, alignSelf: align === "end" ? "flex-end" : undefined }}
       title="Redactar o mejorar este texto con IA"
+      data-tour="agents-assist"
     >
       <NavIcon name="sparkles" size={13} /> Asistente
     </button>

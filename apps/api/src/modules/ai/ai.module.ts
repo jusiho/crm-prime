@@ -16,9 +16,10 @@ import { FlowsController } from "./flows.controller";
 import { AiSettingsController } from "./ai-settings.controller";
 import { MessagingModule } from "../messaging/messaging.module";
 import { KnowledgeModule } from "../knowledge/knowledge.module";
+import { OnboardingModule } from "../onboarding/onboarding.module";
 
 @Module({
-  imports: [LlmModule, MessagingModule, KnowledgeModule],
+  imports: [LlmModule, MessagingModule, KnowledgeModule, OnboardingModule],
   controllers: [
     AiController,
     BotsController,
