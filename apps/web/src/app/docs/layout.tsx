@@ -4,8 +4,8 @@ import { DocsNav } from "./DocsNav";
 import "./docs.css";
 
 export const metadata = {
-  title: { default: "Documentación — Trimmo", template: "%s — Documentación Trimmo" },
-  description: "Guías de Trimmo: conectar WhatsApp, agentes de IA, flujos, embudos, API pública y webhooks.",
+  title: { default: "Documentación — Driony", template: "%s — Documentación Driony" },
+  description: "Guías de Driony: conectar WhatsApp, agentes de IA, flujos, embudos, API pública y webhooks.",
 };
 
 /**
@@ -19,7 +19,7 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
       <header className="docs-top">
         <div className="docs-top__inner">
           <Link href="/" className="docs-brand">
-            Trimmo
+            Driony
           </Link>
           <span className="docs-top__sep">/</span>
           <Link href="/docs" className="docs-top__title">

@@ -43,6 +43,8 @@ export const en = {
     help: "Help",
     helpTour: "Tour of this screen",
     helpDocs: "Documentation",
+    groupPlatform: "Platform",
+    platform: "Console",
   },
   pages: {
     inbox: { title: "Inbox", subtitle: "Conversations in real time" },
@@ -58,7 +60,8 @@ export const en = {
     sessions: { title: "Sessions", subtitle: "Devices signed in to your account" },
     account: { title: "My account", subtitle: "Profile, password and security" },
     settings: { title: "Settings", subtitle: "Tags, channels, sources and more" },
-    gettingStarted: { title: "Getting started", subtitle: "Set up Trimmo step by step" },
+    gettingStarted: { title: "Getting started", subtitle: "Set up Driony step by step" },
+    platform: { title: "Platform console", subtitle: "Every company, signups and plans" },
   },
   // Tarjeta de Primeros pasos en el menú lateral.
   onboarding: {
@@ -74,6 +77,8 @@ export const en = {
     subtitle:
       "Meta's official window will open. Choose your account and number, and scan the QR with your WhatsApp Business app.",
     loadingSdk: "Loading…",
+    subtitleApi:
+      "Meta's official window will open. Choose your business account and the number you want to connect to Driony.",
     continueWithMeta: "Continue with Meta",
     waiting: "Waiting for Meta…",
     saving: "Saving your number…",
@@ -86,7 +91,7 @@ export const en = {
     expiredHint: "Go back to your dashboard and press \"Connect WhatsApp\" again: a fresh link lasts 15 minutes.",
   },
   auth: {
-    signInTitle: "Trimmo",
+    signInTitle: "Driony",
     signInSubtitle: "Sign in",
     email: "Email",
     emailPlaceholder: "you@company.com",

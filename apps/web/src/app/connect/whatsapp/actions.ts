@@ -14,13 +14,14 @@ export async function connectWithTicket(input: {
   code: string;
   phoneNumberId: string;
   wabaId?: string;
+  mode: "coexistence" | "api";
 }): Promise<ConnectResult> {
   let res: Response;
   try {
     res = await fetch(`${API_URL}/api/v1/whatsapp/connect/with-ticket`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...input, mode: "coexistence" }),
+      body: JSON.stringify(input),
       cache: "no-store",
     });
   } catch {

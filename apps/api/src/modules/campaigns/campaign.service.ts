@@ -19,10 +19,12 @@ import { currentOrgId } from "../../infra/tenant/tenant.context";
 import { QUEUE_CAMPAIGN } from "../../infra/queue/queue.constants";
 import { normalizeFill } from "./template-fill.service";
 import { TemplateService } from "./template.service";
+import { PlansService } from "../plans/plans.service";
 
 @Injectable()
 export class CampaignService {
   constructor(
+    private readonly plans: PlansService,
     private readonly prisma: PrismaService,
     private readonly templates: TemplateService,
     @InjectQueue(QUEUE_CAMPAIGN) private readonly queue: Queue,
@@ -84,6 +86,7 @@ export class CampaignService {
 
   // ── Escritura ────────────────────────────────────────────────
   async create(input: CreateCampaignInput): Promise<CampaignDto> {
+    await this.plans.assertFeature("broadcasts");
     const template = await this.prisma.template.findUnique({
       where: { id: input.templateId },
     });

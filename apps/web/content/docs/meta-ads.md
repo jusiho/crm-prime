@@ -1,10 +1,10 @@
 # Anuncios y leads de Meta
 
-Trimmo recoge los contactos que llegan desde Facebook e Instagram por dos caminos, y guarda de dónde vino cada uno.
+Driony recoge los contactos que llegan desde Facebook e Instagram por dos caminos, y guarda de dónde vino cada uno.
 
 ## Anuncios click-to-WhatsApp
 
-Son los anuncios cuyo botón abre una conversación de WhatsApp. No hay que configurar nada: cuando el primer mensaje llega desde un anuncio, Trimmo lo detecta y guarda en el contacto:
+Son los anuncios cuyo botón abre una conversación de WhatsApp. No hay que configurar nada: cuando el primer mensaje llega desde un anuncio, Driony lo detecta y guarda en el contacto:
 
 - **Procedencia**: *anuncio*, con el titular y el identificador del anuncio;
 - la **fuente** «Anuncio de Meta»;
@@ -34,4 +34,4 @@ Con la API `stats/*` puedes cruzar fuente, embudo y vendedor en tu propio panel.
 
 ## Conversiones de vuelta a Meta
 
-Trimmo guarda los identificadores que Meta necesita para atribuir resultados a los anuncios: el `ctwa_clid` de cada conversación que vino de un anuncio y el `lead_id` de cada lead de formulario. Con ellos se pueden enviar a Meta las etapas del embudo (lead calificado, venta ganada) mediante la Conversions API, para que las campañas optimicen hacia clientes de verdad y no solo hacia clics. Si te interesa configurarlo, escríbenos.
+Driony guarda los identificadores que Meta necesita para atribuir resultados a los anuncios: el `ctwa_clid` de cada conversación que vino de un anuncio y el `lead_id` de cada lead de formulario. Con ellos se pueden enviar a Meta las etapas del embudo (lead calificado, venta ganada) mediante la Conversions API, para que las campañas optimicen hacia clientes de verdad y no solo hacia clics. Si te interesa configurarlo, escríbenos.

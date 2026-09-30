@@ -1,4 +1,4 @@
-# Trimmo
+# Driony
 
 **CRM para WhatsApp con agentes de IA.** Centraliza las conversaciones de varios
 números en una bandeja en tiempo real, automatiza la atención con bots y flujos

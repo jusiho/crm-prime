@@ -15,10 +15,12 @@ import type {
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { TenantService } from "../../infra/tenant/tenant.service";
+import { PlansService } from "../plans/plans.service";
 
 @Injectable()
 export class SourceService {
   constructor(
+    private readonly plans: PlansService,
     private readonly prisma: PrismaService,
     private readonly tenant: TenantService,
   ) {}
@@ -98,6 +100,7 @@ export class SourceService {
     // empresa, y la extensión acota la consulta a la organización en curso.
     const existing = await this.prisma.user.findFirst({ where: { email } });
     if (existing) throw new ConflictException("Ese correo ya está registrado");
+    await this.plans.assertCanAdd("users");
 
     const passwordHash = await bcrypt.hash(input.password, 10);
     const user = await this.prisma.user.create({

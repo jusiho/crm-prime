@@ -1,6 +1,6 @@
 # Empezar
 
-Trimmo es un CRM para vender por WhatsApp: una bandeja con todos tus números, agentes de IA que responden y califican, un embudo por proceso y flujos sin código. Esta guía te lleva de cero a tu primera conversación.
+Driony es un CRM para vender por WhatsApp: una bandeja con todos tus números, agentes de IA que responden y califican, un embudo por proceso y flujos sin código. Esta guía te lleva de cero a tu primera conversación.
 
 ## Crear tu empresa
 
@@ -8,7 +8,7 @@ Trimmo es un CRM para vender por WhatsApp: una bandeja con todos tus números, a
 2. Te proponemos un **subdominio** a partir del nombre (`tu-empresa.trimmo.lat`). Puedes cambiarlo antes de terminar; después ya no, porque es la dirección que compartirás con tu equipo.
 3. Al terminar entras directamente en tu panel, como administrador.
 
-## Primeros pasos, dentro de Trimmo
+## Primeros pasos, dentro de Driony
 
 Al entrar por primera vez te recibe **Primeros pasos**: una lista de ocho pasos (conectar el número, activar la IA, personalizar el agente, cargar el catálogo, subir conocimiento, probar el agente, recibir la primera conversación e invitar al equipo). Cada paso se marca solo cuando lo haces de verdad, no al pulsar una casilla; los que no apliquen a tu negocio se pueden omitir. La tarjeta del menú lateral muestra el avance a todos los administradores y se puede ocultar cuando ya no haga falta.
 
@@ -48,7 +48,7 @@ Los contactos que entran por WhatsApp reciben la fuente **WhatsApp** automática
 
 El selector de idioma está arriba a la derecha (Español / English). Afecta al panel; los mensajes que envías a tus clientes los escribes tú o tu agente en el idioma que quieras.
 
-## Dos formas de usar Trimmo
+## Dos formas de usar Driony
 
 - **En la nube** (`trimmo.lat`): nosotros lo alojamos, tú entras y trabajas. Es lo que describe esta documentación.
 - **Open source**: el mismo CRM, instalado en tu propio servidor, para una sola empresa — [Versión open source](/docs/autoalojado).

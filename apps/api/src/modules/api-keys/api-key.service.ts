@@ -10,6 +10,7 @@ import type {
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { TenantService } from "../../infra/tenant/tenant.service";
 import { runInOrg, runUnscoped } from "../../infra/tenant/tenant.context";
+import { PlansService } from "../plans/plans.service";
 
 // Formato: crm_<8 hex de prefijo>_<48 hex de secreto>
 const PREFIX_BYTES = 4;
@@ -44,6 +45,7 @@ export class ApiKeyService {
 
   constructor(
 
+    private readonly plans: PlansService,
     private readonly prisma: PrismaService,
 
     private readonly tenant: TenantService,
@@ -62,6 +64,7 @@ export class ApiKeyService {
     input: CreateApiKeyInput,
     userId: string | null,
   ): Promise<CreatedApiKey> {
+    await this.plans.assertFeature("api");
     const prefix = `crm_${randomBytes(PREFIX_BYTES).toString("hex")}`;
     const secretPart = randomBytes(SECRET_BYTES).toString("hex");
     const secret = `${prefix}_${secretPart}`;

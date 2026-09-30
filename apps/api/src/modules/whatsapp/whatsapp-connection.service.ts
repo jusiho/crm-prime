@@ -14,6 +14,7 @@ import { PrismaService } from "../../infra/prisma/prisma.service";
 import { TenantService } from "../../infra/tenant/tenant.service";
 import { runUnscoped, tenancyMode } from "../../infra/tenant/tenant.context";
 import { IntegrationSettingsService } from "../integrations/integration-settings.service";
+import { PlansService } from "../plans/plans.service";
 
 export interface WhatsappCreds {
   token: string;
@@ -27,6 +28,7 @@ export class WhatsappConnectionService {
   private readonly version = process.env.WHATSAPP_GRAPH_VERSION ?? "v21.0";
 
   constructor(
+    private readonly plans: PlansService,
     private readonly prisma: PrismaService,
     private readonly tenant: TenantService,
     private readonly settings: IntegrationSettingsService,
@@ -247,6 +249,15 @@ export class WhatsappConnectionService {
 
   // ── Conectar un número (desde el Embedded Signup) ────────────
   async connect(input: ConnectWhatsappInput): Promise<WhatsappChannel[]> {
+    // Plan: reconectar un número que ya está no cuenta; uno nuevo sí. La
+    // coexistencia (seguir usando el celular) es una característica de plan.
+    const yaConectado = await this.prisma.whatsappConnection.findFirst({
+      where: { phoneNumberId: input.phoneNumberId },
+      select: { isActive: true },
+    });
+    if (!yaConectado?.isActive) await this.plans.assertCanAdd("numbers");
+    if (input.mode === "coexistence") await this.plans.assertFeature("coexistence");
+
     const token = input.code
       ? await this.exchangeCode(input.code)
       : input.accessToken!;

@@ -26,7 +26,8 @@
     "test:intake": "tsx --test test/pipeline-intake.test.ts",
     "test:promptassist": "tsx --test test/prompt-assistant.test.ts",
     "test:money": "tsx --test test/money.test.ts",
-    "test:onboarding": "tsx --test test/onboarding.test.ts"
+    "test:onboarding": "tsx --test test/onboarding.test.ts",
+    "test:plans": "tsx --test test/plans.test.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

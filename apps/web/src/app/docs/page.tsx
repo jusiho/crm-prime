@@ -9,7 +9,7 @@ export default function DocsIndexPage() {
     <article className="docs-article">
       <h1>Documentación</h1>
       <p className="docs-lede">
-        Todo lo que necesitas para vender por WhatsApp con Trimmo: desde conectar
+        Todo lo que necesitas para vender por WhatsApp con Driony: desde conectar
         tu número hasta integrar el CRM con tu sistema.
       </p>
       {docGroups().map((g) => (

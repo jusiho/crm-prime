@@ -1,6 +1,6 @@
 # Conectar WhatsApp
 
-Trimmo trabaja sobre la **WhatsApp Business Platform** de Meta (la "API de WhatsApp"). Hay dos maneras de conectar un número; la primera es la normal.
+Driony trabaja sobre la **WhatsApp Business Platform** de Meta (la "API de WhatsApp"). Hay dos maneras de conectar un número; la primera es la normal.
 
 ## Con el botón «Conectar WhatsApp»
 
@@ -15,21 +15,22 @@ No hay que copiar tokens ni configurar webhooks: la plataforma se encarga.
 
 ### Coexistencia: seguir usando el celular
 
-Con Coexistencia, el número funciona a la vez en la app del celular y en Trimmo:
+Con Coexistencia, el número funciona a la vez en la app del celular y en Driony:
 
 - lo que te escriben aparece en los dos;
 - lo que respondes desde el celular también se ve en la bandeja, y **pausa a la IA** en esa conversación durante unos minutos para que no os piséis;
 - las respuestas del CRM salen por el mismo número.
 
-Al conectar, Trimmo importa los contactos y el historial reciente del celular (Meta solo lo permite en las 24 horas siguientes a conectar).
+Al conectar, Driony importa los contactos y el historial reciente del celular (Meta solo lo permite en las 24 horas siguientes a conectar).
 
 #### Quién puede activarla
 
 La Coexistencia **no la activa cada empresa por su cuenta**. Meta solo la habilita a través del registro integrado (*Embedded Signup*) de un **proveedor tecnológico aprobado** (Tech Provider o Solution Partner con acceso avanzado a la API de WhatsApp). En la práctica:
 
-- Se activa únicamente con el botón **Conectar WhatsApp** de Trimmo, una vez que Meta apruebe la plataforma.
+- Se activa únicamente con el botón **Conectar WhatsApp** de Driony, una vez que Meta apruebe la plataforma.
 - **No** se consigue con un token pegado a mano ni con tu propia app de desarrollador: por esa vía el número queda en modo API (solo desde el CRM).
 - Si al pulsar el botón Meta muestra el error #2655111, la aprobación aún no ha llegado.
+- En la nube de Driony está incluida **a partir del plan Pro** ([Planes y límites](/docs/planes)). Con el plan Gratis, el mismo botón conecta el número en modo API.
 
 ### Varios números
 
@@ -57,6 +58,6 @@ Es una regla de WhatsApp, no del CRM: puedes escribir libremente a quien te haya
 | Meta dice **«la app de socio no tiene los permisos avanzados…» (#2655111)** al pulsar el botón | Tu cuenta de Facebook no tiene rol en la app de la plataforma y Meta aún no ha aprobado el acceso avanzado. Mientras tanto, conecta con tu propia app (arriba). |
 | **«Dominio de host desconocido de JSSDK»** | Solo puede pasar si abres el conector fuera de `trimmo.lat`. Vuelve a pulsar el botón desde tu panel. |
 | El número aparece con **«Token caducado»** | Pegaste un token temporal (caduca en 24 h). Genera uno permanente de usuario del sistema y pulsa **Actualizar token**. |
-| Envías pero **no recibes** | El webhook de tu app no apunta a Trimmo o el verify token no coincide (solo con app propia). Revisa la URL y suscribe `messages`. |
-| Con la app propia, **la cuenta de WhatsApp no está suscrita** a tu app | Compruébalo con `GET /{waba-id}/subscribed_apps`; Trimmo lo hace al añadir el número, pero Meta a veces lo exige de nuevo. |
+| Envías pero **no recibes** | El webhook de tu app no apunta a Driony o el verify token no coincide (solo con app propia). Revisa la URL y suscribe `messages`. |
+| Con la app propia, **la cuenta de WhatsApp no está suscrita** a tu app | Compruébalo con `GET /{waba-id}/subscribed_apps`; Driony lo hace al añadir el número, pero Meta a veces lo exige de nuevo. |
 | Quiero **Coexistencia** con mi propia app o con un token a mano | No es posible: Meta solo la activa a través de un proveedor tecnológico aprobado (Embedded Signup). Con app propia el número trabaja en modo API. |

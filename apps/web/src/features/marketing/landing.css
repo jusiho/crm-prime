@@ -714,7 +714,7 @@
   font-size: 15px;
 }
 
-/* ── Por qué Trimmo (antes / después) ───────────────────────── */
+/* ── Por qué Driony (antes / después) ───────────────────────── */
 .lp-compare {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -913,7 +913,7 @@
 }
 /* Marca en contorno al fondo, como en las landings de producto. */
 .lp-cta-band::after {
-  content: "TRIMMO";
+  content: "DRIONY";
   position: absolute;
   left: 50%;
   bottom: -0.22em;

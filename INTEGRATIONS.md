@@ -1,4 +1,4 @@
-# Integrar con Trimmo
+# Integrar con Driony
 
 Dos caminos, y normalmente se usan los dos a la vez:
 
@@ -40,7 +40,7 @@ curl https://tu-crm/api/public/v1/ping \
 
 ## 2. API pública
 
-Base: `https://tu-crm/api/public/v1`. En Trimmo SaaS, la dirección de tu
+Base: `https://tu-crm/api/public/v1`. En Driony SaaS, la dirección de tu
 empresa: **`https://acme.trimmo.lat/api/public/v1`** (también responde
 `https://api.trimmo.lat/api/public/v1`). Autenticación por
 `Authorization: Bearer crm_…` (también se acepta `x-api-key`).

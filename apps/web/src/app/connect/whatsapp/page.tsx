@@ -12,27 +12,31 @@ export const metadata = { title: "Conectar WhatsApp" };
 export default async function ConnectWhatsappPage({
   searchParams,
 }: {
-  searchParams: Promise<{ ticket?: string; embed?: string }>;
+  searchParams: Promise<{ ticket?: string; embed?: string; coexistence?: string }>;
 }) {
   const t = await getTranslator();
-  const { ticket, embed: embedParam } = await searchParams;
+  const { ticket, embed: embedParam, coexistence: coexParam } = await searchParams;
   const embed = embedParam === "1";
+  // Lo pone la API en la URL según el plan de la empresa; ella lo vuelve a
+  // comprobar al guardar, así que aquí solo decide qué ventana de Meta abrir.
+  const coexistence = coexParam !== "0";
 
   return (
     <main style={{ display: "grid", placeItems: "center", minHeight: "100vh", padding: embed ? 16 : 24 }}>
       <div style={{ width: "100%", maxWidth: 420 }}>
         {!embed && (
           <p style={{ margin: "0 0 14px", fontWeight: 700, fontSize: 16, letterSpacing: "-0.01em" }}>
-            Trimmo
+            Driony
           </p>
         )}
         {ticket ? (
           <ConnectWhatsappHub
             ticket={ticket}
             embed={embed}
+            coexistence={coexistence}
             t={{
               title: t("connect.title"),
-              subtitle: t("connect.subtitle"),
+              subtitle: coexistence ? t("connect.subtitle") : t("connect.subtitleApi"),
               loadingSdk: t("connect.loadingSdk"),
               continueWithMeta: t("connect.continueWithMeta"),
               waiting: t("connect.waiting"),

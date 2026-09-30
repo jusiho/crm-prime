@@ -1,5 +1,5 @@
 ---
-name: Trimmo
+name: Driony
 description: CRM para WhatsApp con agentes IA — la sala de control del vendedor, edición nocturna
 colors:
   violet: "#8a2be2"
@@ -166,13 +166,13 @@ components:
     padding: "12px 14px"
 ---
 
-# Design System: Trimmo
+# Design System: Driony
 
 ## 1. Overview
 
 **Creative North Star: "La Sala de Control, edición nocturna"**
 
-Trimmo sigue siendo el puesto de mando del vendedor: una sala a oscuras donde
+Driony sigue siendo el puesto de mando del vendedor: una sala a oscuras donde
 toda la operación —conversaciones en vivo, oportunidades, campañas— está a la
 vista y bajo control. Lo que cambia en esta edición es la materia de la sala. El
 fondo es un negro con tinte violeta (#07060c) sobre el que respiran tres brillos
@@ -293,7 +293,7 @@ Consolas) para código, ids y URLs.
 con carácter (expresiva, con ligaduras vivas) y una humanista neutra para
 trabajar. Contraste por eje expresiva/neutra, fuera de las fuentes-reflejo. La
 display aparece solo donde hay titular: h1–h3, el título de página de la
-cabecera, la marca «Trimmo», los números de paso de la landing. Todo lo demás
+cabecera, la marca «Driony», los números de paso de la landing. Todo lo demás
 —botones, campos, etiquetas, datos, mensajes— es Hanken. Así el paso de la
 landing a `/register` no cambia de voz. Si la descarga falla en el build, el CSS
 cae al stack del sistema sin romper nada.

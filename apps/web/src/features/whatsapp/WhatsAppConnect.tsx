@@ -11,6 +11,7 @@ import {
   requestWhatsappConnectTicket,
   testWhatsappChannel,
 } from "@/lib/bff";
+import { PlanGate, useMyPlan } from "@/features/plans/usePlan";
 
 const APP_ID = process.env.NEXT_PUBLIC_WHATSAPP_APP_ID ?? "";
 const CONFIG_ID = process.env.NEXT_PUBLIC_WHATSAPP_CONFIG_ID ?? "";
@@ -80,7 +81,7 @@ export function WhatsAppConnect({ hub = false }: { hub?: boolean }) {
     if (!hub) return;
     function onMessage(e: MessageEvent) {
       if (!hubOriginRef.current || e.origin !== hubOriginRef.current) return;
-      if (e.data?.type !== "trimmo:whatsapp-connected") return;
+      if (e.data?.type !== "driony:whatsapp-connected") return;
       setHubUrl(null);
       setHubPending(false);
       setJustConnected(true);
@@ -231,6 +232,12 @@ export function WhatsAppConnect({ hub = false }: { hub?: boolean }) {
         proveedor aprobado, con el botón «Conectar WhatsApp»: no se puede activar
         por cuenta propia. Un número añadido a mano trabaja en modo API.
       </p>
+
+      {/* Plan Gratis: el botón conecta en modo API; la coexistencia es de Pro. */}
+      <PlanGate feature="coexistence">
+        Con tu plan, «Conectar WhatsApp» deja el número en modo API: se atiende solo desde
+        Driony. Con la coexistencia sigues usando el número también en el celular.
+      </PlanGate>
 
       {connectError && (
         <p style={{ color: "#ff6b6b", fontSize: 13 }}>{connectError}</p>
@@ -558,7 +565,7 @@ function ManualConnect({
             usando el número en la app de WhatsApp Business del celular) no se
             puede activar por cuenta propia: Meta solo la habilita a través del
             registro integrado de un <strong>proveedor tecnológico aprobado</strong>,
-            con acceso avanzado. En Trimmo la da el botón «Conectar WhatsApp»
+            con acceso avanzado. En Driony la da el botón «Conectar WhatsApp»
             cuando Meta apruebe la plataforma. Si al pulsarlo Meta mostró el error
             #2655111, es eso: aún no está aprobado.
           </span>
@@ -874,6 +881,9 @@ function Empty({
   connecting: boolean;
   onConnect: () => void;
 }) {
+  // Plan sin coexistencia: el conector deja el número en modo API.
+  const { data: myPlan } = useMyPlan();
+  const apiOnly = !!myPlan?.saas && !myPlan.plan.features.coexistence;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -881,10 +891,20 @@ function Empty({
         <strong style={{ fontSize: 16 }}>Sin números conectados</strong>
       </div>
       <p style={{ color: "var(--muted)", fontSize: 14, margin: 0 }}>
-        Pulsa el botón y se abrirá la ventana oficial de Meta. Elige tu cuenta y
-        número; si ese número ya lo usas en la app del celular,{" "}
-        <strong>escanea el QR con tu WhatsApp Business</strong> para activar la
-        Coexistencia. Repite el proceso por cada número que quieras añadir.
+        {apiOnly ? (
+          <>
+            Pulsa el botón y se abrirá la ventana oficial de Meta. Elige tu cuenta de
+            empresa y el número: quedará conectado en <strong>modo API</strong>, atendido
+            desde Driony. Repite el proceso por cada número que quieras añadir.
+          </>
+        ) : (
+          <>
+            Pulsa el botón y se abrirá la ventana oficial de Meta. Elige tu cuenta y
+            número; si ese número ya lo usas en la app del celular,{" "}
+            <strong>escanea el QR con tu WhatsApp Business</strong> para activar la
+            Coexistencia. Repite el proceso por cada número que quieras añadir.
+          </>
+        )}
       </p>
       <div>
         <button onClick={onConnect} disabled={!ready || connecting} style={waBtn}>

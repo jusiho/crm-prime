@@ -54,7 +54,7 @@ export function defaultNodeData(type: FlowNodeType): FlowNodeData {
 }
 
 /** Tipo MIME del arrastre desde la paleta al lienzo. */
-export const DRAG_MIME = "application/x-trimmo-flow-node";
+export const DRAG_MIME = "application/x-driony-flow-node";
 
 /** Bloques con una salida "por defecto" (sin handle): todos menos la condición y el salto. */
 export function hasDefaultOutput(type: string | undefined): boolean {

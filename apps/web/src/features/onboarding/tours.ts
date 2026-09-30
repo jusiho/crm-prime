@@ -210,7 +210,7 @@ export const TOURS: TourDef[] = [
       {
         target: "[data-tour=wa-manual]",
         title: "¿Tienes tu propia app de Meta?",
-        body: "Añade el número a mano con el Phone number ID y el token. Trabaja en modo API: las respuestas salen solo desde Trimmo.",
+        body: "Añade el número a mano con el Phone number ID y el token. Trabaja en modo API: las respuestas salen solo desde Driony.",
         placement: "top",
       },
     ],
@@ -225,9 +225,9 @@ export const TOUR_BY_KEY: Record<TourKey, TourDef> = Object.fromEntries(
 ) as Record<TourKey, TourDef>;
 
 /** Nombre del evento con el que cualquier pantalla pide abrir un tour. */
-export const TOUR_EVENT = "trimmo:tour";
+export const TOUR_EVENT = "driony:tour";
 /** Al navegar a otra pantalla para ver su tour, se deja la clave aquí. */
-export const TOUR_FORCE_KEY = "trimmo:tour:force";
+export const TOUR_FORCE_KEY = "driony:tour:force";
 
 export function requestTour(key: TourKey): void {
   window.dispatchEvent(new CustomEvent(TOUR_EVENT, { detail: { key } }));

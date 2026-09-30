@@ -17,6 +17,7 @@ export interface DocEntry {
 export const DOCS: DocEntry[] = [
   { group: "Primeros pasos", slug: "empezar", file: "empezar.md", title: "Empezar", summary: "Crear tu empresa, tu subdominio y tu equipo." },
   { group: "Primeros pasos", slug: "whatsapp", file: "whatsapp.md", title: "Conectar WhatsApp", summary: "Con el botón de la plataforma o con tu propia app de Meta." },
+  { group: "Primeros pasos", slug: "planes", file: "planes.md", title: "Planes y límites", summary: "Qué incluye cada plan en la nube y cómo cambiarlo." },
   { group: "Uso diario", slug: "bandeja", file: "bandeja.md", title: "Bandeja", summary: "Conversaciones, asignación, etiquetas y los dos modos de la IA." },
   { group: "Uso diario", slug: "embudos", file: "embudos.md", title: "Embudos", summary: "Varios embudos, entrada automática desde WhatsApp y descarte." },
   { group: "Uso diario", slug: "difusiones", file: "difusiones.md", title: "Difusiones y plantillas", summary: "Envíos masivos con plantillas aprobadas por Meta." },
@@ -25,7 +26,7 @@ export const DOCS: DocEntry[] = [
   { group: "Automatización", slug: "meta-ads", file: "meta-ads.md", title: "Anuncios y leads de Meta", summary: "Lead Ads, click-to-WhatsApp y atribución." },
   { group: "Integrar", slug: "api", file: "api.md", title: "API pública", summary: "Claves, endpoints, errores y la dirección de tu empresa." },
   { group: "Integrar", slug: "webhooks", file: "webhooks.md", title: "Webhooks salientes", summary: "Avisos a tu sistema, firma, reintentos y n8n." },
-  { group: "Integrar", slug: "autoalojado", file: "autoalojado.md", title: "Versión open source", summary: "Instalar Trimmo en tu propio servidor." },
+  { group: "Integrar", slug: "autoalojado", file: "autoalojado.md", title: "Versión open source", summary: "Instalar Driony en tu propio servidor." },
 ];
 
 export function findDoc(slug: string): DocEntry | undefined {

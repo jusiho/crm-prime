@@ -20,7 +20,7 @@ export function OrgNotFound({ slug, baseDomain }: { slug: string; baseDomain: st
         . Puede que la dirección esté mal escrita.
       </p>
       <p style={{ color: "var(--muted)", lineHeight: 1.6 }}>
-        Si tu empresa ya usa Trimmo, pídele la dirección exacta a quien la dio
+        Si tu empresa ya usa Driony, pídele la dirección exacta a quien la dio
         de alta.
       </p>
       <Link href={`https://${baseDomain}/signup`} style={boton}>

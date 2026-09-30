@@ -28,6 +28,8 @@ import { WebhooksOutModule } from "./modules/webhooks-out/webhooks-out.module";
 import { IntegrationsModule } from "./modules/integrations/integrations.module";
 import { OrganizationsModule } from "./modules/organizations/organizations.module";
 import { OnboardingModule } from "./modules/onboarding/onboarding.module";
+import { PlansModule } from "./modules/plans/plans.module";
+import { PlatformModule } from "./modules/platform/platform.module";
 import { HealthController } from "./health.controller";
 
 @Module({
@@ -55,6 +57,8 @@ import { HealthController } from "./health.controller";
     CampaignsModule,
     QuickRepliesModule,
     OnboardingModule,
+    PlansModule,
+    PlatformModule,
     MetaLeadsModule,
     SourcesModule,
     TagsModule,

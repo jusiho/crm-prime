@@ -12,7 +12,7 @@ const CONTACT = process.env.NEXT_PUBLIC_CONTACT_EMAIL ?? "contacto@trimmo.lat";
 const NAV = [
   { id: "capacidades", label: "Capacidades" },
   { id: "como", label: "Cómo funciona" },
-  { id: "porque", label: "Por qué Trimmo" },
+  { id: "porque", label: "Por qué Driony" },
   { id: "planes", label: "Planes" },
 ];
 
@@ -34,7 +34,7 @@ const FAQ = [
   },
   {
     q: "¿Cuánto cuesta la inteligencia artificial?",
-    a: "La IA se paga a tu proveedor (OpenAI, Anthropic o cualquier API compatible) con tu propia clave, no a Trimmo. Cada respuesta registra sus tokens y su coste en dólares, y puedes ponerle un tope mensual a cada agente.",
+    a: "La IA se paga a tu proveedor (OpenAI, Anthropic o cualquier API compatible) con tu propia clave, no a Driony. Cada respuesta registra sus tokens y su coste en dólares, y puedes ponerle un tope mensual a cada agente.",
   },
   {
     q: "¿Qué incluye empezar gratis en la nube?",
@@ -125,11 +125,11 @@ export function Landing() {
 
       <header className="lp-nav" data-scrolled={scrolled}>
         <div className="lp-wrap lp-nav__inner">
-          <Link href="/" className="lp-brand" aria-label="Trimmo, inicio">
+          <Link href="/" className="lp-brand" aria-label="Driony, inicio">
             <span className="lp-brand__mark">
               <Logo />
             </span>
-            Trimmo
+            Driony
           </Link>
           <nav className="lp-nav__links" aria-label="Secciones">
             {NAV.map((n) => (
@@ -200,7 +200,7 @@ export function Landing() {
             <figure className="lp-shot lp-shot--hero lp-anim" style={{ animationDelay: "0.2s" }}>
               <img
                 src="/landing/bandeja.webp"
-                alt="La bandeja de Trimmo: conversaciones de WhatsApp de varios números, con filtros de pendientes y el agente de IA en modo Copilot"
+                alt="La bandeja de Driony: conversaciones de WhatsApp de varios números, con filtros de pendientes y el agente de IA en modo Copilot"
                 width={2160}
                 height={1350}
                 decoding="async"
@@ -211,7 +211,7 @@ export function Landing() {
         </section>
 
         {/* ── Banda violeta a todo ancho, en marquesina ── */}
-        <section className="lp-band" data-paused={paused} aria-label="Lo que incluye Trimmo">
+        <section className="lp-band" data-paused={paused} aria-label="Lo que incluye Driony">
           <div className="lp-band__track">
             {[0, 1].map((copy) => (
               <div className="lp-band__group" key={copy} aria-hidden={copy === 1}>
@@ -242,7 +242,7 @@ export function Landing() {
               <h2>Toda tu operación de ventas, en una sola pantalla.</h2>
               <p className="lp-lede">
                 Deja de saltar entre el celular, hojas de cálculo y notas sueltas.
-                Trimmo junta tus conversaciones, tu embudo y tu IA en un mismo lugar.
+                Driony junta tus conversaciones, tu embudo y tu IA en un mismo lugar.
               </p>
             </div>
 
@@ -295,7 +295,7 @@ export function Landing() {
                 <div className="lp-card__media">
                   <img
                     src="/landing/embudo.webp"
-                    alt="El embudo de ventas de Trimmo con las etapas Nuevo, Contactado, Calificado, Propuesta y Ganado"
+                    alt="El embudo de ventas de Driony con las etapas Nuevo, Contactado, Calificado, Propuesta y Ganado"
                     width={2241}
                     height={630}
                     loading="lazy"
@@ -417,7 +417,7 @@ export function Landing() {
           </div>
         </section>
 
-        {/* ── Por qué Trimmo ── */}
+        {/* ── Por qué Driony ── */}
         <section className="lp-section" id="porque">
           <div className="lp-wrap">
             <div className="lp-head lp-reveal">
@@ -442,7 +442,7 @@ export function Landing() {
                 ))}
               </div>
               <div className="lp-col lp-col--good">
-                <div className="lp-col__label">Con Trimmo</div>
+                <div className="lp-col__label">Con Driony</div>
                 {[
                   "Respuesta en segundos, las 24 horas",
                   "Todo en una bandeja, con dueño claro",
@@ -466,7 +466,7 @@ export function Landing() {
         <section className="lp-section" id="planes">
           <div className="lp-wrap">
             <div className="lp-head lp-reveal">
-              <h2>Dos formas de tener Trimmo.</h2>
+              <h2>Dos formas de tener Driony.</h2>
               <p className="lp-lede">
                 El mismo CRM, con el mismo código abierto en el núcleo. Elige si lo
                 instalas tú o si lo alojamos nosotros.
@@ -506,7 +506,7 @@ export function Landing() {
               </article>
 
               <article className="lp-plan lp-plan--cloud lp-reveal">
-                <div className="lp-plan__tag">Nube · gestionado por Trimmo</div>
+                <div className="lp-plan__tag">Nube · gestionado por Driony</div>
                 <h3>Nosotros lo alojamos</h3>
                 <p className="lp-plan__price">Empieza gratis, sin tarjeta</p>
                 <p>
@@ -581,7 +581,7 @@ export function Landing() {
             <span className="lp-brand__mark" style={{ width: 26, height: 26 }}>
               <Logo />
             </span>
-            Trimmo
+            Driony
           </span>
           <nav className="lp-foot__links" aria-label="Pie de página">
             <a href="#capacidades">Capacidades</a>
@@ -592,7 +592,7 @@ export function Landing() {
             <a href={`mailto:${CONTACT}`}>Contacto</a>
             <Link href="/privacy">Privacidad</Link>
           </nav>
-          <span>© 2026 Trimmo</span>
+          <span>© 2026 Driony</span>
         </div>
       </footer>
     </div>
@@ -626,7 +626,7 @@ function MobileMenu({ onClose }: { onClose: () => void }) {
           <span className="lp-brand__mark">
             <Logo />
           </span>
-          Trimmo
+          Driony
         </span>
         <button type="button" className="lp-menu__close" aria-label="Cerrar menú" onClick={onClose}>
           <Close />

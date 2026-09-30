@@ -1,6 +1,6 @@
 # Versión open source
 
-Trimmo es código abierto bajo licencia **AGPL-3.0**. Puedes instalar el CRM completo en tu propio servidor, para una empresa, con tus datos en tu base y tus propias claves. El código está en [GitHub](https://github.com/jusiho/crm-prime).
+Driony es código abierto bajo licencia **AGPL-3.0**. Puedes instalar el CRM completo en tu propio servidor, para una empresa, con tus datos en tu base y tus propias claves. El código está en [GitHub](https://github.com/jusiho/crm-prime).
 
 ## Qué incluye
 

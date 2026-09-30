@@ -23,6 +23,7 @@ import { PrismaService } from "../../infra/prisma/prisma.service";
 import { TenantService } from "../../infra/tenant/tenant.service";
 import { OrganizationService } from "../organizations/organization.service";
 import { runUnscoped, tenancyMode } from "../../infra/tenant/tenant.context";
+import { isPlatformAdmin } from "../../common/utils/platform-admin";
 
 interface DeviceMeta {
   platform: Platform;
@@ -91,12 +92,7 @@ export class AuthService {
         role,
       },
     });
-    return {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      role: user.role as Role,
-    };
+    return this.toPublicUser(user);
   }
 
   // ── Login ──────────────────────────────────────────────────
@@ -280,6 +276,16 @@ export class AuthService {
       throw new UnauthorizedException("Usuario inactivo");
     }
 
+    // Empresa suspendida desde la consola de plataforma: las sesiones que
+    // quedaban abiertas se cortan en el siguiente refresco.
+    const empresa = await this.prisma.organization.findUnique({
+      where: { id: session.user.orgId },
+      select: { isActive: true },
+    });
+    if (empresa && !empresa.isActive) {
+      throw new UnauthorizedException("Empresa suspendida");
+    }
+
     // Rotación: emitir un nuevo refresh y marcar el viejo como rotado.
     const next = await this.createRefreshToken(session.id);
     await this.prisma.refreshToken.update({
@@ -302,16 +308,26 @@ export class AuthService {
     if (stored) await this.revokeSession(stored.sessionId);
   }
 
-  // ── Cuenta / perfil ────────────────────────────────────────
-  async getMe(userId: string): Promise<PublicUser> {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user) throw new UnauthorizedException("Usuario no encontrado");
+  /** Lo que la web guarda en sesión. `platformAdmin` solo tiene sentido en SaaS. */
+  private toPublicUser(
+    user: { id: string; email: string; name: string | null; role: string },
+    orgSlug?: string,
+  ): PublicUser {
     return {
       id: user.id,
       email: user.email,
       name: user.name,
       role: user.role as Role,
+      orgSlug,
+      platformAdmin: tenancyMode === "multi" && isPlatformAdmin(user.email),
     };
+  }
+
+  // ── Cuenta / perfil ────────────────────────────────────────
+  async getMe(userId: string): Promise<PublicUser> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException("Usuario no encontrado");
+    return this.toPublicUser(user);
   }
 
   async updateProfile(userId: string, name: string): Promise<PublicUser> {
@@ -319,12 +335,7 @@ export class AuthService {
       where: { id: userId },
       data: { name: name.trim() },
     });
-    return {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      role: user.role as Role,
-    };
+    return this.toPublicUser(user);
   }
 
   // Cambia la contraseña verificando la actual. Por seguridad, revoca todas
@@ -448,13 +459,7 @@ export class AuthService {
       select: { slug: true },
     });
 
-    const publicUser: PublicUser = {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      role: user.role as Role,
-      orgSlug: org?.slug,
-    };
+    const publicUser = this.toPublicUser(user, org?.slug);
 
     return {
       accessToken,

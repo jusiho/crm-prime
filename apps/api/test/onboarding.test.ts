@@ -85,7 +85,7 @@ test("los pasos se marcan solos con los datos, y el orden es el del camino al va
   const f = fresh();
   f.whatsapp = 1;
   f.products = 12;
-  f.agents[0]!.systemPrompt = "Eres Trimmo Bot, vendes cursos de música…";
+  f.agents[0]!.systemPrompt = "Eres Driony Bot, vendes cursos de música…";
   f.conversations = 3;
   f.users = 2;
   const { svc } = service(f);

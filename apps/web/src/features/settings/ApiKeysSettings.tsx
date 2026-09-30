@@ -18,6 +18,7 @@ import {
   revokeApiKey,
 } from "@/lib/bff";
 import { confirmDialog } from "@/lib/confirm";
+import { PlanGate } from "@/features/plans/usePlan";
 import { toast } from "@/lib/toast";
 
 /**
@@ -39,6 +40,7 @@ export function ApiKeysSettings() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <PlanGate feature="api" />
       <header>
         <h3 style={{ margin: "0 0 4px" }}>Claves de API</h3>
         <p style={muted}>

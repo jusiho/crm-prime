@@ -1,4 +1,4 @@
-# Contribuir a Trimmo
+# Contribuir a Driony
 
 Gracias por el interés. Este documento explica cómo está montado el repo y qué
 se espera de un cambio para que entre.

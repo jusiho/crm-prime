@@ -52,11 +52,14 @@ type Estado =
 export function ConnectWhatsappHub({
   ticket,
   embed = false,
+  coexistence = true,
   t,
 }: {
   ticket: string;
   /** Va dentro de un iframe del panel: sin marco propio y sin salir de aquí al acabar. */
   embed?: boolean;
+  /** Plan con coexistencia: se abre el flujo que deja el número también en el celular. */
+  coexistence?: boolean;
   t: HubTexts;
 }) {
   const [estado, setEstado] = useState<Estado>({ tipo: "cargando" });
@@ -125,12 +128,12 @@ export function ConnectWhatsappHub({
       // Solo al origen del panel de esa empresa, que es quien nos alberga.
       const origen = new URL(url).origin;
       if (window.parent !== window) {
-        window.parent.postMessage({ type: "trimmo:whatsapp-connected" }, origen);
+        window.parent.postMessage({ type: "driony:whatsapp-connected" }, origen);
         return;
       }
       const abridor = window.opener as Window | null;
       if (abridor && !abridor.closed) {
-        abridor.postMessage({ type: "trimmo:whatsapp-connected" }, origen);
+        abridor.postMessage({ type: "driony:whatsapp-connected" }, origen);
         window.close();
         // Si el navegador no deja cerrar, se navega igual al panel.
         setTimeout(() => window.location.assign(url), 300);
@@ -155,7 +158,13 @@ export function ConnectWhatsappHub({
       return;
     }
     setEstado({ tipo: "guardando" });
-    const r = await connectWithTicket({ ticket, code, phoneNumberId, wabaId });
+    const r = await connectWithTicket({
+      ticket,
+      code,
+      phoneNumberId,
+      wabaId,
+      mode: coexistence ? "coexistence" : "api",
+    });
     if (r.ok) setEstado({ tipo: "hecho", url: r.returnUrl });
     else setEstado({ tipo: "error", mensaje: r.error });
   }
@@ -189,7 +198,9 @@ export function ConnectWhatsappHub({
           override_default_response_type: true,
           extras: {
             setup: {},
-            featureType: "whatsapp_business_app_onboarding",
+            // Con coexistencia, el flujo de Meta que deja el número también en
+            // la app del celular; sin ella, el registro normal (modo API).
+            ...(coexistence ? { featureType: "whatsapp_business_app_onboarding" } : {}),
             sessionInfoVersion: "3",
           },
         },

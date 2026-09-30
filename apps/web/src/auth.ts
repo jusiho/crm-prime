@@ -95,6 +95,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           name: tokens.user.name ?? undefined,
           role: tokens.user.role,
           orgSlug: tokens.user.orgSlug,
+          platformAdmin: tokens.user.platformAdmin === true,
           accessToken: tokens.accessToken,
           refreshToken: tokens.refreshToken,
           accessTokenExpires: Date.now() + tokens.expiresIn * 1000,
@@ -112,6 +113,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.role = (user as any).role;
         // Para mandar a su subdominio a quien entra por el dominio raíz.
         token.orgSlug = (user as any).orgSlug;
+        // Operador del SaaS: ve la consola de plataforma.
+        token.platformAdmin = (user as any).platformAdmin === true;
       }
       // Sin refresco aquí: `auth()` descarta la cookie que devolvería, así que
       // el refresh token rotado se perdería. Lo hace el middleware.
@@ -121,6 +124,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (session.user) {
         (session.user as any).role = token.role;
         (session.user as any).orgSlug = token.orgSlug;
+        (session.user as any).platformAdmin = token.platformAdmin === true;
       }
       return session;
     },

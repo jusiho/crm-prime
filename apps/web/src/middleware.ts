@@ -160,6 +160,7 @@ export async function middleware(req: NextRequest) {
     accessTokenExpires: Date.now() + tokens.expiresIn * 1000,
     role: tokens.user.role,
     orgSlug: tokens.user.orgSlug ?? session.token.orgSlug,
+    platformAdmin: tokens.user.platformAdmin ?? session.token.platformAdmin,
   };
   return forward(req, await sessionCookieWrites(reader, session.name, token));
 }

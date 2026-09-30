@@ -82,7 +82,7 @@ export function GettingStarted({ role }: { role?: string }) {
           </ProgressRing>
         </div>
         <div className="gs-hero__text">
-          <h1>{complete ? "Tu empresa está lista" : "Pon Trimmo en marcha"}</h1>
+          <h1>{complete ? "Tu empresa está lista" : "Pon Driony en marcha"}</h1>
           <p>
             {complete
               ? `Completaste la configuración inicial${completedOn ? ` el ${completedOn}` : ""}. A partir de aquí, todo lo demás es vender.`
@@ -107,7 +107,7 @@ export function GettingStarted({ role }: { role?: string }) {
           <NextCard href="/difusiones" icon="megaphone" title="Difusiones" text="Envíos masivos con plantillas aprobadas por Meta." />
           <NextCard href="/flows" icon="flow" title="Flujos" text="Automatiza conversaciones paso a paso, sin código." />
           <NextCard href="/settings" icon="target" title="Anuncios de Meta" text="Leads de Lead Ads y click-to-WhatsApp, con atribución." />
-          <NextCard href="/docs/api" icon="key" title="API y webhooks" text="Conecta Trimmo con tu sistema o con n8n." external />
+          <NextCard href="/docs/api" icon="key" title="API y webhooks" text="Conecta Driony con tu sistema o con n8n." external />
         </section>
       )}
 

@@ -188,7 +188,7 @@ function seed() {
 }
 
 // ── Main ──────────────────────────────────────────────────────
-console.log(c.bold("\nTrimmo · instalación"));
+console.log(c.bold("\nDriony · instalación"));
 
 setupEnv();
 startDocker();

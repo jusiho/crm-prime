@@ -168,7 +168,7 @@ export class WebhookOutService {
           "Content-Type": "application/json",
           "X-CRM-Event": job.event,
           "X-CRM-Signature": signature,
-          "User-Agent": "trimmo-webhooks/1",
+          "User-Agent": "driony-webhooks/1",
         },
         body,
         signal: controller.signal,

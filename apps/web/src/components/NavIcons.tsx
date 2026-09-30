@@ -73,7 +73,8 @@ export type IconName =
   // Primeros pasos y tours
   | "rocket"
   | "arrow-right"
-  | "minus";
+  | "minus"
+  | "lock";
 
 export function NavIcon({ name, size = 18 }: { name: IconName; size?: number }) {
   const p = {
@@ -107,6 +108,13 @@ export function NavIcon({ name, size = 18 }: { name: IconName; size?: number }) 
       return (
         <svg {...p}>
           <path d="M5 12h14" />
+        </svg>
+      );
+    case "lock":
+      return (
+        <svg {...p}>
+          <rect x="4" y="11" width="16" height="10" rx="2" />
+          <path d="M8 11V7a4 4 0 0 1 8 0v4" />
         </svg>
       );
     case "inbox":

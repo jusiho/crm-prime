@@ -201,3 +201,27 @@ test("el alta de una empresa funciona con el rol restringido", async () => {
   );
   assert.equal(ajenos.length, 0);
 });
+
+test("la consola de plataforma agrega todas las empresas con el rol restringido", async () => {
+  // Es el único sitio que lee todas las empresas a la vez: va con runUnscoped
+  // y en SQL. Se comprueba contra el esquema real, que es donde se rompería.
+  const { PlatformService } = await import("../src/modules/platform/platform.service");
+  const svc = new PlatformService(prisma);
+
+  const overview = await svc.overview();
+  assert.ok(overview.orgs >= 2, "hay al menos las dos empresas sembradas");
+  assert.ok(Array.isArray(overview.signupsByDay));
+  assert.ok(overview.byPlan.some((p) => p.plan === "free"));
+
+  const orgs = await svc.orgs("");
+  const a = orgs.find((o) => o.id === "o_a");
+  assert.ok(a, "la empresa o_a aparece en el listado");
+  assert.equal(a.contacts, 1, "los agregados se calculan por empresa");
+  assert.ok((await svc.orgs(a.slug)).some((o) => o.id === "o_a"), "la búsqueda por subdominio funciona");
+  assert.equal((await svc.orgs("zzz-no-existe")).length, 0);
+
+  // Cambiar de plan y suspender pasan por la misma tabla sin RLS.
+  const cambiada = await svc.update("o_b", { plan: "pro" });
+  assert.equal(cambiada.plan, "pro");
+  await svc.update("o_b", { plan: "free" });
+});

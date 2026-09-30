@@ -11,7 +11,7 @@ const API_URL = process.env.API_URL ?? "http://localhost:3001";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslator();
-  return { title: `Trimmo — ${t("auth.signUpTitle")}` };
+  return { title: `Driony — ${t("auth.signUpTitle")}` };
 }
 
 export default async function RegisterPage({
@@ -66,10 +66,10 @@ export default async function RegisterPage({
         <LanguageSwitcher />
       </div>
       <div style={{ width: 360, maxWidth: "100%" }}>
-        {/* La misma marca que en la landing: el visitante sabe que sigue en Trimmo. */}
-        <Link href="/" style={brandLink} aria-label="Trimmo, inicio">
-          <span className="brand-mark" style={brandMark}>T</span>
-          <span className="brand-name">Trimmo</span>
+        {/* La misma marca que en la landing: el visitante sabe que sigue en Driony. */}
+        <Link href="/" style={brandLink} aria-label="Driony, inicio">
+          <span className="brand-mark" style={brandMark}>D</span>
+          <span className="brand-name">Driony</span>
         </Link>
         <form action={register} style={card}>
         <h1 style={{ marginTop: 0 }}>{t("auth.signUpTitle")}</h1>

@@ -10,10 +10,12 @@ import { AiSettings } from "./AiSettings";
 import { ApiKeysSettings } from "./ApiKeysSettings";
 import { IntegrationsSettings } from "./IntegrationsSettings";
 import { WebhooksOutSettings } from "./WebhooksOutSettings";
+import { PlanSettings } from "@/features/plans/PlanSettings";
 import { PipelinesSettings } from "./PipelinesSettings";
 import { CustomFieldsSettings, SourcesSettings } from "./SettingsPanels";
 
 type TabKey =
+  | "plan"
   | "tags"
   | "quickReplies"
   | "channels"
@@ -27,6 +29,7 @@ type TabKey =
   | "webhooksOut";
 
 const TABS: { key: TabKey; label: string; icon: IconName }[] = [
+  { key: "plan", label: "Plan", icon: "trophy" },
   { key: "tags", label: "Etiquetas", icon: "tag" },
   { key: "quickReplies", label: "Respuestas rápidas", icon: "zap" },
   { key: "channels", label: "Canales", icon: "whatsapp" },
@@ -65,6 +68,7 @@ export function SettingsManager() {
       </nav>
 
       <div style={{ minWidth: 0 }}>
+        {tab === "plan" && <PlanSettings />}
         {tab === "tags" && <TagsManager />}
         {tab === "quickReplies" && <QuickRepliesSettings />}
         {tab === "channels" && <WhatsAppConnect />}

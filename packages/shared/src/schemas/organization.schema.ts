@@ -30,8 +30,8 @@ export const RESERVED_SUBDOMAINS: ReadonlySet<string> = new Set([
   "cdn", "static", "assets", "media", "img", "images", "files", "download",
   "ftp", "vpn", "proxy", "gateway", "git", "ci", "registry",
   // Marca y legales
-  // La propia marca: que nadie registre "trimmo" y se haga pasar por oficial.
-  "trimmo", "about", "legal", "privacy", "terms", "security", "abuse",
+  // La propia marca (y la anterior): que nadie se haga pasar por oficial.
+  "driony", "trimmo", "about", "legal", "privacy", "terms", "security", "abuse",
   "postmaster", "webmaster", "hostmaster", "noc", "soc",
   // Genéricos que confunden
   "account", "accounts", "auth", "login", "signup", "register", "oauth",

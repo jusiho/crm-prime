@@ -20,7 +20,8 @@ const PREFIX = "v1";
 // claves de OpenAI y Anthropic— deja de poder descifrarse, en silencio y sin
 // error hasta que alguien intente usarlo.
 //
-// Sobrevive al renombrado a Trimmo por eso, no por descuido.
+// Sobrevive a los renombrados (CRM prime → Trimmo → Driony) por eso, no por
+// descuido: la sal es la del primer nombre y así se queda.
 const SALT = "crm-prime.ai-secrets";
 
 function masterKey(): Buffer {

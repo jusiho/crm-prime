@@ -1,6 +1,10 @@
 "use client";
 
 import type {
+  MyPlanDto,
+  PlatformOrg,
+  PlatformOverview,
+  UpdatePlatformOrgInput,
   OnboardingDto,
   OnboardingStepKey,
   TourKey,
@@ -1495,4 +1499,35 @@ export async function dismissOnboarding(dismissed: boolean): Promise<void> {
 /** Un tour visto: si falla, no pasa nada grave (volverá a salir). */
 export async function markTourSeen(key: TourKey): Promise<void> {
   await bffFetch(`/api/bff/onboarding/tours/${key}`, { method: "POST" }).catch(() => undefined);
+}
+
+// ── Planes y consola de plataforma ─────────────────────────
+
+export async function fetchMyPlan(): Promise<MyPlanDto> {
+  const res = await bffFetch("/api/bff/plans/me");
+  if (!res.ok) throw new Error("No se pudo cargar tu plan");
+  return res.json();
+}
+
+export async function fetchPlatformOverview(): Promise<PlatformOverview> {
+  const res = await bffFetch("/api/bff/platform/overview");
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudieron cargar las cifras"));
+  return res.json();
+}
+
+export async function fetchPlatformOrgs(search = ""): Promise<PlatformOrg[]> {
+  const qs = search ? `?search=${encodeURIComponent(search)}` : "";
+  const res = await bffFetch(`/api/bff/platform/orgs${qs}`);
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudieron cargar las empresas"));
+  return res.json();
+}
+
+export async function updatePlatformOrg(id: string, input: UpdatePlatformOrgInput): Promise<PlatformOrg> {
+  const res = await bffFetch(`/api/bff/platform/orgs/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo guardar"));
+  return res.json();
 }

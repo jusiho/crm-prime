@@ -14,6 +14,7 @@ import {
 } from "@/lib/bff";
 import { CampaignWizard } from "./CampaignWizard";
 import { TemplatesPanel } from "./TemplatesPanel";
+import { PlanGate } from "@/features/plans/usePlan";
 import { badge, box, ghostBtn, primaryBtn, STATUS_COLOR } from "./styles";
 
 type Tab = "campaigns" | "templates";
@@ -50,6 +51,7 @@ export function CampaignsManager() {
 
   return (
     <div style={{ maxWidth: 980, margin: "0 auto", padding: 24 }}>
+      <PlanGate feature="broadcasts" />
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div style={{ display: "flex", gap: 6 }}>
           <TabBtn active={tab === "campaigns"} onClick={() => setTab("campaigns")}>

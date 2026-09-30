@@ -9,6 +9,7 @@ import { OnboardingNavCard } from "@/features/onboarding/OnboardingNavCard";
 
 export type NavKey =
   | "gettingStarted"
+  | "platform"
   | "inbox"
   | "contacts"
   | "pipeline"
@@ -29,6 +30,8 @@ type Item = {
   labelKey: MessageKey;
   icon: IconName;
   adminOnly?: boolean;
+  /** Solo el operador del SaaS (no confundir con ADMIN de una empresa). */
+  platformOnly?: boolean;
 };
 type Group = { labelKey: MessageKey; items: Item[] };
 
@@ -81,6 +84,18 @@ const NAV: Group[] = [
       },
     ],
   },
+  {
+    labelKey: "nav.groupPlatform",
+    items: [
+      {
+        key: "platform",
+        href: "/platform",
+        labelKey: "nav.platform",
+        icon: "globe",
+        platformOnly: true,
+      },
+    ],
+  },
 ];
 
 const COOKIE = "sidebar-collapsed";
@@ -94,10 +109,12 @@ export function SideNav({
   role,
   active,
   initialCollapsed,
+  platformAdmin = false,
 }: {
   role?: string;
   active: NavKey;
   initialCollapsed: boolean;
+  platformAdmin?: boolean;
 }) {
   const t = useT();
   const [collapsed, setCollapsed] = useState(initialCollapsed);
@@ -114,8 +131,8 @@ export function SideNav({
       <div style={{ ...brand, justifyContent: collapsed ? "center" : "space-between" }}>
         {!collapsed && (
           <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-            <span className="brand-mark" style={brandMark}>T</span>
-            <span className="brand-name" style={{ fontWeight: 700, fontSize: 16 }}>Trimmo</span>
+            <span className="brand-mark" style={brandMark}>D</span>
+            <span className="brand-name" style={{ fontWeight: 700, fontSize: 16 }}>Driony</span>
           </div>
         )}
         <button
@@ -143,7 +160,7 @@ export function SideNav({
         )}
         {NAV.map((group) => {
           const items = group.items.filter(
-            (it) => !it.adminOnly || role === "ADMIN",
+            (it) => (!it.adminOnly || role === "ADMIN") && (!it.platformOnly || platformAdmin),
           );
           if (items.length === 0) return null;
           return (

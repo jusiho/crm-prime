@@ -68,7 +68,7 @@ export function useInboxNotifications(
       try {
         const n = new Notification(nombreDe(c), {
           body: relevantes.length > 1 ? `${previewDe(c)} (+${relevantes.length - 1})` : previewDe(c),
-          tag: `trimmo-${c.id}`,
+          tag: `driony-${c.id}`,
         });
         n.onclick = () => {
           window.focus();

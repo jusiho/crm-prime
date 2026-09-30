@@ -1,9 +1,9 @@
 import Link from "next/link";
 
 export const metadata = {
-  title: "Política de privacidad — Trimmo",
+  title: "Política de privacidad — Driony",
   description:
-    "Qué datos trata Trimmo, con qué fin, con quién los comparte y cómo ejercer tus derechos o pedir su eliminación.",
+    "Qué datos trata Driony, con qué fin, con quién los comparte y cómo ejercer tus derechos o pedir su eliminación.",
 };
 
 /**
@@ -16,7 +16,7 @@ export const metadata = {
  * sin tocar el código.
  */
 export default function PrivacyPage() {
-  const company = process.env.NEXT_PUBLIC_COMPANY_NAME ?? "Trimmo";
+  const company = process.env.NEXT_PUBLIC_COMPANY_NAME ?? "Driony";
   const email = process.env.NEXT_PUBLIC_CONTACT_EMAIL ?? "contacto@trimmo.lat";
   const domain = (process.env.SAAS_BASE_DOMAIN ?? "trimmo.lat").split(":")[0];
 
@@ -24,7 +24,7 @@ export default function PrivacyPage() {
     <main style={page}>
       <header style={top}>
         <Link href="/" style={brand}>
-          Trimmo
+          Driony
         </Link>
         <span style={{ color: "var(--muted)", fontSize: 13 }}>Legal</span>
       </header>
@@ -36,7 +36,7 @@ export default function PrivacyPage() {
 
       <p style={lede}>
         Esta política explica qué datos trata <strong>{company}</strong> al
-        prestar el servicio Trimmo en <strong>{domain}</strong> (y en los
+        prestar el servicio Driony en <strong>{domain}</strong> (y en los
         subdominios de cada empresa, como <em>tu-empresa.{domain}</em>), con
         qué fin, con quién los comparte y cómo puedes ejercer tus derechos o
         pedir que se eliminen. Está escrita para leerse entera en unos minutos.
@@ -52,7 +52,7 @@ export default function PrivacyPage() {
 
       <Section id="ambito" title="1. A qué aplica esta política">
         <p>
-          Aplica al servicio en la nube que operamos en {domain}. Trimmo también
+          Aplica al servicio en la nube que operamos en {domain}. Driony también
           se distribuye como software de código abierto que cualquiera puede
           instalar en sus propios servidores; en ese caso, quien lo instala es
           quien trata los datos y quien debe publicar su propia política. Esta
@@ -62,7 +62,7 @@ export default function PrivacyPage() {
 
       <Section id="papeles" title="2. Dos papeles distintos">
         <p>
-          Trimmo lo usan empresas para atender a sus clientes por WhatsApp. Eso
+          Driony lo usan empresas para atender a sus clientes por WhatsApp. Eso
           nos coloca en dos papeles:
         </p>
         <ul>
@@ -79,7 +79,7 @@ export default function PrivacyPage() {
           </li>
         </ul>
         <p>
-          Si eres cliente de una empresa que usa Trimmo y quieres ejercer tus
+          Si eres cliente de una empresa que usa Driony y quieres ejercer tus
           derechos sobre tus conversaciones, dirígete primero a esa empresa.
           Nosotros la ayudamos a atenderte.
         </p>
@@ -134,7 +134,7 @@ export default function PrivacyPage() {
 
       <Section id="meta" title="5. Datos obtenidos de Meta (WhatsApp, Facebook)">
         <p>
-          Trimmo se conecta a la WhatsApp Business Platform y, si la empresa lo
+          Driony se conecta a la WhatsApp Business Platform y, si la empresa lo
           decide, a Facebook Lead Ads, mediante las APIs de Meta. Los datos que
           obtenemos por esa vía se usan únicamente para prestar el servicio a la
           empresa que conectó su cuenta, conforme a las Condiciones de la
@@ -143,7 +143,7 @@ export default function PrivacyPage() {
         <ul>
           <li>Solo pedimos los permisos necesarios para gestionar la cuenta de WhatsApp Business y enviar y recibir mensajes en nombre de la empresa.</li>
           <li>Los tokens de acceso se guardan cifrados y se eliminan al desconectar el número o la página desde el panel.</li>
-          <li>La empresa puede revocar el acceso en cualquier momento desde Trimmo (desconectar) o desde su configuración de Meta Business.</li>
+          <li>La empresa puede revocar el acceso en cualquier momento desde Driony (desconectar) o desde su configuración de Meta Business.</li>
         </ul>
       </Section>
 
@@ -230,7 +230,7 @@ export default function PrivacyPage() {
             {email}
           </a>{" "}
           desde el correo con el que estás registrado, o indica de qué empresa
-          eres cliente si tu relación con Trimmo es a través de una de ellas.
+          eres cliente si tu relación con Driony es a través de una de ellas.
           Respondemos en un plazo máximo de 30 días. Si crees que no hemos
           atendido tu solicitud, puedes acudir a la autoridad de protección de
           datos de tu país.
@@ -246,13 +246,13 @@ export default function PrivacyPage() {
           <li>
             <strong>Desconectar WhatsApp o Facebook.</strong> En el panel de tu
             empresa, en WhatsApp → Desconectar (o en Ajustes → Meta Leads para
-            las páginas). Los tokens de acceso se eliminan en el acto y Trimmo
+            las páginas). Los tokens de acceso se eliminan en el acto y Driony
             deja de recibir datos de esa cuenta.
           </li>
           <li>
             <strong>Retirar la app en Meta.</strong> Desde tu configuración de
             Meta Business (Integraciones → Apps conectadas) puedes retirar el
-            acceso de Trimmo; el resultado es el mismo.
+            acceso de Driony; el resultado es el mismo.
           </li>
           <li>
             <strong>Eliminar la cuenta y todos sus datos.</strong> Escribe a{" "}
@@ -266,7 +266,7 @@ export default function PrivacyPage() {
           </li>
         </ol>
         <p>
-          Si eres cliente de una empresa que usa Trimmo y quieres que se borren
+          Si eres cliente de una empresa que usa Driony y quieres que se borren
           tus conversaciones con ella, pídeselo a esa empresa; puede hacerlo
           desde su panel y nosotros la ayudamos si hace falta.
         </p>
@@ -274,7 +274,7 @@ export default function PrivacyPage() {
 
       <Section id="menores" title="14. Menores">
         <p>
-          Trimmo es una herramienta para empresas y no está dirigida a menores
+          Driony es una herramienta para empresas y no está dirigida a menores
           de 18 años. No abrimos cuentas a menores a sabiendas.
         </p>
       </Section>
@@ -299,7 +299,7 @@ export default function PrivacyPage() {
 
       <footer style={foot}>
         <Link href="/" style={link}>
-          ← Volver a Trimmo
+          ← Volver a Driony
         </Link>
       </footer>
     </main>

@@ -68,6 +68,9 @@ export const publicUserSchema = z.object({
   email: z.string().email(),
   name: z.string().nullable(),
   role: z.nativeEnum(Role),
+  // Operador del SaaS (PLATFORM_ADMIN_EMAILS): ve la consola de plataforma.
+  // Es distinto de ADMIN, que es "administrador de su empresa".
+  platformAdmin: z.boolean().optional(),
 });
 export type PublicUser = z.infer<typeof publicUserSchema>;
 

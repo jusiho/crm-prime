@@ -23,6 +23,7 @@ import { PrismaService } from "../../infra/prisma/prisma.service";
 import { OneTimeTicketService } from "../../infra/tickets/one-time-ticket.service";
 import { runInOrg, runUnscoped } from "../../infra/tenant/tenant.context";
 import { WhatsappConnectionService } from "./whatsapp-connection.service";
+import { PlansService } from "../plans/plans.service";
 
 const PROPOSITO = "whatsapp-connect";
 
@@ -47,6 +48,7 @@ export class ConnectHubController {
     private readonly tickets: OneTimeTicketService,
     private readonly connection: WhatsappConnectionService,
     private readonly prisma: PrismaService,
+    private readonly plans: PlansService,
   ) {}
 
   /** Emite el pase y la URL del conector. Solo administradores. */
@@ -55,7 +57,8 @@ export class ConnectHubController {
   @Roles(Role.ADMIN)
   async ticket(@CurrentUser() user: AccessTokenClaims): Promise<ConnectTicketResult> {
     const base = env("SAAS_BASE_DOMAIN");
-    if (!base) return { ticket: null, connectUrl: null };
+    const coexistence = (await this.plans.current()).features.coexistence;
+    if (!base) return { ticket: null, connectUrl: null, coexistence };
 
     // Quince minutos: escanear el QR de coexistencia lleva su rato.
     const ticket = await this.tickets.issue(
@@ -63,9 +66,12 @@ export class ConnectHubController {
       { sub: user.sub, org: user.org },
       "15m",
     );
+    // El conector lanza el flujo con o sin coexistencia según el plan. La API
+    // vuelve a comprobarlo al guardar (connect), así que la URL no decide nada.
     return {
       ticket,
-      connectUrl: `${protocolo(base)}://${base}/connect/whatsapp?ticket=${encodeURIComponent(ticket)}`,
+      connectUrl: `${protocolo(base)}://${base}/connect/whatsapp?ticket=${encodeURIComponent(ticket)}&coexistence=${coexistence ? 1 : 0}`,
+      coexistence,
     };
   }
 

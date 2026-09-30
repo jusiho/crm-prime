@@ -1,4 +1,4 @@
-# Trimmo
+# Driony
 
 **A WhatsApp CRM with AI agents.** It brings the conversations of all your
 numbers into one real-time inbox, automates replies with AI agents and visual

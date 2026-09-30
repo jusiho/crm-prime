@@ -81,6 +81,8 @@ export type DisconnectWhatsappInput = z.infer<typeof disconnectWhatsappSchema>;
 export interface ConnectTicketResult {
   ticket: string | null;
   connectUrl: string | null;
+  /** Si el plan de la empresa incluye la coexistencia (el conector elige el flujo). */
+  coexistence: boolean;
 }
 
 /** Lo que el conector manda a la API al terminar el Embedded Signup. */
