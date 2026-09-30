@@ -1,7 +1,7 @@
 # Multi-tenant y modo enterprise
 
 Diseño para que varias empresas usen la misma instalación, cada una bajo su
-subdominio (`acme.trimmo.lat`) y con su propia gestión de usuarios.
+subdominio (`acme.driony.com`) y con su propia gestión de usuarios.
 
 **Estado:** fases 1 y 2 completas (22/09/2026). El esquema es multi-inquilino,
 las consultas se filtran solas y, con el rol restringido, la base rechaza lo
@@ -108,7 +108,7 @@ desastre cuando la capa 1 falla.
 ```prisma
 model Organization {
   id        String   @id @default(cuid())
-  slug      String   @unique   // "acme" → acme.trimmo.lat
+  slug      String   @unique   // "acme" → acme.driony.com
   name      String
   plan      String   @default("enterprise")
   isActive  Boolean  @default(true)
@@ -190,7 +190,7 @@ viene la pantalla de acceso por subdominio.
 ### Infraestructura
 
 ```
-*.trimmo.lat   A   →   tu servidor
+*.driony.com   A   →   tu servidor
 ```
 
 Certificado **wildcard** de Let's Encrypt por reto **DNS-01**. El HTTP-01 no
@@ -333,7 +333,7 @@ le sale el error `#2655111`. Para no depender de ese plazo —y para quien
 prefiera su propia app— el campo por organización sigue vivo con otro
 significado: es la app **propia** de esa empresa. Guarda su App ID, App secret
 y verify token en Ajustes › Integraciones, apunta el webhook de su app a
-`acme.trimmo.lat/api/v1/webhooks/whatsapp` (`OrgWebhookController`) y añade el
+`acme.driony.com/api/v1/webhooks/whatsapp` (`OrgWebhookController`) y añade el
 número a mano con un token permanente. El subdominio elige la empresa; la
 firma con **su** secreto autentica (sin secreto no entra nada: la ruta es
 pública); y el worker exige que el número del evento sea de esa empresa
@@ -399,7 +399,7 @@ falle en vez de continuar.
 |---|---|---|
 | Quién lo despliega | El propio negocio, en su servidor | Tú, una sola instalación |
 | Organizaciones | **Una** | Muchas |
-| Acceso | `crm.sunegocio.com`, su dominio | `acme.trimmo.lat` |
+| Acceso | `crm.sunegocio.com`, su dominio | `acme.driony.com` |
 | Usuarios | Los suyos, en su base | Los suyos, aislados por `orgId` |
 | App de Meta | La suya | La tuya (§5) |
 
@@ -661,9 +661,9 @@ en todo:
 - Y el fallo a mitad —fila creada, DNS sí, certificado no— obliga a escribir
   lógica de compensación para un problema que no existía.
 
-**Con comodín no hay nada que automatizar.** Un registro DNS `*.trimmo.lat`,
+**Con comodín no hay nada que automatizar.** Un registro DNS `*.driony.com`,
 un certificado comodín por reto DNS-01 (HTTP-01 no puede emitirlos) y **un solo
-proxy host** `*.trimmo.lat → crm-web:3000`. A partir de ahí, dar de alta una
+proxy host** `*.driony.com → crm-web:3000`. A partir de ahí, dar de alta una
 empresa es insertar una fila.
 
 Esa fila se inserta **acotada a la empresa que se está creando**, no con la
@@ -680,13 +680,13 @@ El precio del comodín es que la renovación es un punto único de fallo: si
 caduca el token del DNS, caen todas las empresas a la vez. Conviene vigilar el
 vencimiento.
 
-El comodín cubre **un solo nivel**: `acme.trimmo.lat` sí, `a.b.trimmo.lat` no.
+El comodín cubre **un solo nivel**: `acme.driony.com` sí, `a.b.driony.com` no.
 Por eso el middleware rechaza los slugs con punto.
 
 ### El dominio raíz no inicia sesión
 
-`trimmo.lat/login` pregunta **cuál es tu empresa** y salta a
-`acme.trimmo.lat/login`, que es donde está el formulario de verdad. Igual que
+`driony.com/login` pregunta **cuál es tu empresa** y salta a
+`acme.driony.com/login`, que es donde está el formulario de verdad. Igual que
 Slack con el workspace. No es estética: en SaaS el correo no identifica a nadie
 por sí solo —puede existir en dos empresas—, así que un login "sin empresa"
 sería una búsqueda a ver a quién encuentra. La API lo rechaza con 400 en modo
@@ -702,11 +702,11 @@ coincidir con una de las entradas", sin comodines. Con un subdominio por
 empresa, eso obligaría a tocar Meta en cada alta: justo lo que el comodín
 evitaba en DNS, de vuelta por otra puerta.
 
-Así que el SDK carga en un solo sitio, `trimmo.lat/connect/whatsapp`, listado
+Así que el SDK carga en un solo sitio, `driony.com/connect/whatsapp`, listado
 una vez. El usuario no lo nota: el panel de la empresa lo enseña **en un modal,
 dentro de un iframe** servido desde el dominio raíz. Meta mira el dominio del
 marco que llama a `FB.login`, no el de la página que lo contiene, así que desde
-`acme.trimmo.lat` se abre la ventana de Meta sin salir de ahí — lo mismo que
+`acme.driony.com` se abre la ventana de Meta sin salir de ahí — lo mismo que
 se ve en Kommo. El middleware pone `Content-Security-Policy: frame-ancestors`
 en `/connect/…` para que solo los subdominios de la plataforma puedan
 enmarcarlo.
@@ -717,10 +717,10 @@ qué, 15 minutos). Al terminar el Embedded Signup, el conector entrega el pase y
 el resultado de Meta a la API, que abre el contexto de esa empresa y guarda el
 número; después avisa al panel por `postMessage` (solo a su origen), que
 refresca la lista y cierra el modal. Abierto como página suelta, devuelve al
-usuario a `acme.trimmo.lat/whatsapp`. Es el patrón de Shopify o Slack: el OAuth
+usuario a `acme.driony.com/whatsapp`. Es el patrón de Shopify o Slack: el OAuth
 ocurre en un dominio central y después se entrega.
 
-En Meta, entonces, solo hace falta `trimmo.lat` en *App Domains* y en *Allowed
+En Meta, entonces, solo hace falta `driony.com` en *App Domains* y en *Allowed
 Domains for the JavaScript SDK*. Y el día que se vendan dominios propios
 (`crm.acme.com`) el conector sigue valiendo igual.
 
@@ -731,18 +731,18 @@ sigue cargando el SDK en el panel; usa el mismo mecanismo y se moverá igual.
 
 ### La API también bajo el subdominio de cada empresa
 
-Al estilo Kommo: `acme.trimmo.lat/api/public/v1/contacts`. Es la misma API y
+Al estilo Kommo: `acme.driony.com/api/public/v1/contacts`. Es la misma API y
 la misma clave; lo que se añade es una comprobación de **coherencia**: si la
 llamada entra por la dirección de una empresa, la clave tiene que ser de esa
 empresa (403 si no). No concede nada —la clave ya lo hizo—, evita usar una
 clave contra la dirección equivocada. En el proxy es una ubicación más en el
 host comodín: `/api/public/` y `/api/v1/webhooks/` → API; el resto → web.
-`api.trimmo.lat` se queda para lo que necesita una URL fija: el webhook de
+`api.driony.com` se queda para lo que necesita una URL fija: el webhook de
 Meta y el WebSocket.
 
 ### El subdominio no da acceso
 
-`Host` lo controla quien llama: `curl -H "Host: otra.trimmo.lat"` dice lo que
+`Host` lo controla quien llama: `curl -H "Host: otra.driony.com"` dice lo que
 quiera. Así que el subdominio hace **una sola cosa**: elegir a quién buscar en
 la pantalla de acceso. El `orgId` del token sale de la fila del usuario, y toda
 consulta se filtra por el token, nunca por el `Host`.
@@ -774,10 +774,10 @@ del paso 1 (el subdominio se lo llevó alguien mientras rellenabas la cuenta),
 el formulario vuelve a ese paso con el campo marcado.
 
 **Entrar sin volver a escribir la contraseña.** La sesión es una cookie de
-`acme.trimmo.lat`, y el alta ocurre en `trimmo.lat`: desde ahí no se puede
+`acme.driony.com`, y el alta ocurre en `driony.com`: desde ahí no se puede
 dejar al usuario dentro. Lo que cruza el dominio es un **pase** — un JWT con
 `purpose: "handoff"`, dos minutos de vida y `jti` de un solo uso — que el alta
-devuelve y que `acme.trimmo.lat/handoff?token=…` canjea por una sesión real.
+devuelve y que `acme.driony.com/handoff?token=…` canjea por una sesión real.
 Viaja en la URL, así que acaba en el historial y quizá en un log; por eso no
 sirve dos veces ni dura más que un redirect. Repetirlo lleva al acceso normal
 con un aviso, nunca a un error en blanco.

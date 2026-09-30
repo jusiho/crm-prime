@@ -12,8 +12,8 @@ export interface TicketClaims {
 /**
  * Pases firmados de un solo uso.
  *
- * Sirven para cruzar un límite que una cookie no cruza: de `trimmo.lat` a
- * `acme.trimmo.lat` tras el alta, o del panel de una empresa al conector de
+ * Sirven para cruzar un límite que una cookie no cruza: de `driony.com` a
+ * `acme.driony.com` tras el alta, o del panel de una empresa al conector de
  * Meta en el dominio raíz. Un pase dice "este usuario de esta empresa quiere
  * hacer esto", va firmado, caduca pronto y **solo vale una vez**.
  *

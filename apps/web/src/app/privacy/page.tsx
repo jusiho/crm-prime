@@ -17,8 +17,8 @@ export const metadata = {
  */
 export default function PrivacyPage() {
   const company = process.env.NEXT_PUBLIC_COMPANY_NAME ?? "Driony";
-  const email = process.env.NEXT_PUBLIC_CONTACT_EMAIL ?? "contacto@trimmo.lat";
-  const domain = (process.env.SAAS_BASE_DOMAIN ?? "trimmo.lat").split(":")[0];
+  const email = process.env.NEXT_PUBLIC_CONTACT_EMAIL ?? "contacto@driony.com";
+  const domain = (process.env.SAAS_BASE_DOMAIN ?? "driony.com").split(":")[0];
 
   return (
     <main style={page}>

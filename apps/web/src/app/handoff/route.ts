@@ -3,7 +3,7 @@ import { AuthError } from "next-auth";
 import { signIn } from "@/auth";
 
 /**
- * Última parada del alta: `acme.trimmo.lat/handoff?token=…`.
+ * Última parada del alta: `acme.driony.com/handoff?token=…`.
  *
  * Canjea el pase por una sesión de ESTE subdominio y manda al panel. Es una
  * ruta y no una página porque no hay nada que enseñar: si el pase vale, el

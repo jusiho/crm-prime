@@ -2,7 +2,7 @@
 
 Con la API tu sistema **llama** al CRM para leer o escribir. Para que el CRM **te avise** de lo que pasa, usa los [webhooks salientes](/docs/webhooks). Normalmente se usan los dos.
 
-La documentación interactiva de todos los endpoints, con «probar» desde el navegador, está en `https://api.trimmo.lat/api/docs`.
+La documentación interactiva de todos los endpoints, con «probar» desde el navegador, está en `https://api.driony.com/api/docs`.
 
 ## Conseguir una clave
 
@@ -20,7 +20,7 @@ La documentación interactiva de todos los endpoints, con «probar» desde el na
 La clave se muestra **una sola vez**. Si la pierdes, crea otra y revoca la anterior; se guarda solo su hash.
 
 ```bash
-curl https://tu-empresa.trimmo.lat/api/public/v1/ping \
+curl https://tu-empresa.driony.com/api/public/v1/ping \
   -H "Authorization: Bearer crm_a1b2c3d4_…"
 # { "ok": true, "key": "n8n-pedidos", "scopes": ["contacts:write"] }
 ```
@@ -29,7 +29,7 @@ curl https://tu-empresa.trimmo.lat/api/public/v1/ping \
 
 ## La dirección de tu empresa
 
-Base: **`https://tu-empresa.trimmo.lat/api/public/v1`** (también responde `https://api.trimmo.lat/api/public/v1`). Autenticación por `Authorization: Bearer crm_…` (también se acepta `x-api-key`).
+Base: **`https://tu-empresa.driony.com/api/public/v1`** (también responde `https://api.driony.com/api/public/v1`). Autenticación por `Authorization: Bearer crm_…` (también se acepta `x-api-key`).
 
 **La clave decide de qué empresa son los datos**, nunca la dirección. Una clave creada en el panel de Acme solo alcanza los datos de Acme; usada contra la dirección de otra empresa responde `403`, para que un error de copia y pega no pase desapercibido.
 
@@ -39,7 +39,7 @@ La versión va en la ruta: cuando exista `v2`, `v1` seguirá funcionando.
 
 ```bash
 # Listar, con filtros y paginación por cursor
-curl "https://tu-empresa.trimmo.lat/api/public/v1/contacts?limit=50&tag=interesado" \
+curl "https://tu-empresa.driony.com/api/public/v1/contacts?limit=50&tag=interesado" \
   -H "Authorization: Bearer $CRM_KEY"
 ```
 
@@ -65,12 +65,12 @@ Para la página siguiente pasa `nextCursor` como `cursor`. Se usa cursor y no `o
 
 ```bash
 # Crear
-curl -X POST https://tu-empresa.trimmo.lat/api/public/v1/contacts \
+curl -X POST https://tu-empresa.driony.com/api/public/v1/contacts \
   -H "Authorization: Bearer $CRM_KEY" -H "Content-Type: application/json" \
   -d '{"phone":"51999888777","name":"Ana","tags":["erp"],"fields":{"pais":"Peru"}}'
 
 # Actualizar (los campos se fusionan; `tags` reemplaza el juego entero)
-curl -X PATCH https://tu-empresa.trimmo.lat/api/public/v1/contacts/cmu0… \
+curl -X PATCH https://tu-empresa.driony.com/api/public/v1/contacts/cmu0… \
   -H "Authorization: Bearer $CRM_KEY" -H "Content-Type: application/json" \
   -d '{"name":"Ana Pérez","fields":{"ciudad":"Lima"}}'
 ```
@@ -81,12 +81,12 @@ El teléfono se normaliza a E.164: da igual `51999888777`, `+51 999 888 777` o `
 
 ```bash
 # Crear (si el contacto no existe, se crea)
-curl -X POST https://tu-empresa.trimmo.lat/api/public/v1/deals \
+curl -X POST https://tu-empresa.driony.com/api/public/v1/deals \
   -H "Authorization: Bearer $CRM_KEY" -H "Content-Type: application/json" \
   -d '{"phone":"51999888777","title":"Pedido #4821","value":1250,"currency":"PEN"}'
 
 # Mover de etapa, por NOMBRE
-curl -X PATCH https://tu-empresa.trimmo.lat/api/public/v1/deals/cmu0…/stage \
+curl -X PATCH https://tu-empresa.driony.com/api/public/v1/deals/cmu0…/stage \
   -H "Authorization: Bearer $CRM_KEY" -H "Content-Type: application/json" \
   -d '{"stage":"Ganado"}'
 ```
@@ -96,7 +96,7 @@ Se trabaja con el **nombre** de la etapa, no con su id: tu sistema no tiene por 
 ## Mensajes
 
 ```bash
-curl -X POST https://tu-empresa.trimmo.lat/api/public/v1/messages \
+curl -X POST https://tu-empresa.driony.com/api/public/v1/messages \
   -H "Authorization: Bearer $CRM_KEY" -H "Content-Type: application/json" \
   -d '{"phone":"51999888777","text":"Tu pedido salió hoy 📦"}'
 ```
@@ -106,9 +106,9 @@ curl -X POST https://tu-empresa.trimmo.lat/api/public/v1/messages \
 ## Métricas
 
 ```bash
-curl "https://tu-empresa.trimmo.lat/api/public/v1/stats/summary?days=30" -H "Authorization: Bearer $CRM_KEY"
-curl  https://tu-empresa.trimmo.lat/api/public/v1/stats/funnel        -H "Authorization: Bearer $CRM_KEY"
-curl  https://tu-empresa.trimmo.lat/api/public/v1/stats/sellers       -H "Authorization: Bearer $CRM_KEY"
+curl "https://tu-empresa.driony.com/api/public/v1/stats/summary?days=30" -H "Authorization: Bearer $CRM_KEY"
+curl  https://tu-empresa.driony.com/api/public/v1/stats/funnel        -H "Authorization: Bearer $CRM_KEY"
+curl  https://tu-empresa.driony.com/api/public/v1/stats/sellers       -H "Authorization: Bearer $CRM_KEY"
 ```
 
 Pensados para alimentar un Metabase, un Looker o un panel propio.
@@ -118,7 +118,7 @@ Pensados para alimentar un Metabase, un Looker o un panel propio.
 Si solo quieres meter leads desde una landing o un formulario, basta una clave con `leads:write`:
 
 ```bash
-curl -X POST https://tu-empresa.trimmo.lat/api/v1/webhooks/lead \
+curl -X POST https://tu-empresa.driony.com/api/v1/webhooks/lead \
   -H "Authorization: Bearer $CRM_KEY" -H "Content-Type: application/json" \
   -d '{"phone":"51999888777","name":"Ana","source":"Facebook Ads",
        "tags":["nuevo"],"fields":{"ciudad":"Lima"}}'

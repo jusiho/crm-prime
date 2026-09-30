@@ -18,7 +18,7 @@ export async function buscarEmpresa(formData: FormData): Promise<void> {
   const crudo = String(formData.get("slug") ?? "")
     .trim()
     .toLowerCase()
-    // Aceptar que peguen la dirección entera: "acme.trimmo.lat" → "acme".
+    // Aceptar que peguen la dirección entera: "acme.driony.com" → "acme".
     .replace(/^https?:\/\//, "")
     .replace(new RegExp(`\.${base.split(":")[0]!.replace(/\./g, "\.")}.*$`), "");
 

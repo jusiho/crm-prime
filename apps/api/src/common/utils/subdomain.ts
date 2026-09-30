@@ -6,10 +6,10 @@ const NO_SON_EMPRESA = new Set(["www", "api", "app", "admin"]);
 /**
  * Saca el subdominio de empresa de un `Host`, o `undefined` si no lo hay.
  *
- *   acme.trimmo.lat        → "acme"
- *   trimmo.lat             → undefined   (dominio raíz)
- *   api.trimmo.lat         → undefined   (infraestructura)
- *   a.b.trimmo.lat         → undefined   (dos niveles: el comodín no llega)
+ *   acme.driony.com        → "acme"
+ *   driony.com             → undefined   (dominio raíz)
+ *   api.driony.com         → undefined   (infraestructura)
+ *   a.b.driony.com         → undefined   (dos niveles: el comodín no llega)
  *   localhost:3001         → undefined   (sin dominio base configurado)
  *
  * Lo que devuelve NUNCA concede acceso: el `Host` lo controla quien llama.

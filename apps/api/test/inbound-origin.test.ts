@@ -1,6 +1,6 @@
 /**
  * Un webhook que entra por la ruta de una empresa (su propia app de Meta,
- * `acme.trimmo.lat/api/v1/webhooks/whatsapp`) solo puede hablar de números de
+ * `acme.driony.com/api/v1/webhooks/whatsapp`) solo puede hablar de números de
  * esa empresa. Lo que se comprueba aquí es la atadura en el worker: aunque la
  * firma sea válida para la empresa A, un evento sobre un número de B se
  * descarta. Por el webhook de la plataforma no hay atadura: la empresa sale

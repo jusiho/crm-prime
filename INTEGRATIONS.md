@@ -41,14 +41,14 @@ curl https://tu-crm/api/public/v1/ping \
 ## 2. API pública
 
 Base: `https://tu-crm/api/public/v1`. En Driony SaaS, la dirección de tu
-empresa: **`https://acme.trimmo.lat/api/public/v1`** (también responde
-`https://api.trimmo.lat/api/public/v1`). Autenticación por
+empresa: **`https://acme.driony.com/api/public/v1`** (también responde
+`https://api.driony.com/api/public/v1`). Autenticación por
 `Authorization: Bearer crm_…` (también se acepta `x-api-key`).
 
 **La clave decide de qué empresa son los datos**, nunca la dirección. Una
 clave creada en el panel de Acme solo alcanza los contactos, oportunidades y
 mensajes de Acme — y usada contra la dirección de otra empresa
-(`globex.trimmo.lat/api/…`) responde `403`, para que un error de copia y pega
+(`globex.driony.com/api/…`) responde `403`, para que un error de copia y pega
 no pase desapercibido.
 
 La versión va en la ruta: cuando exista `v2`, `v1` seguirá funcionando.

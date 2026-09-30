@@ -1,6 +1,6 @@
 # Planes y límites
 
-En la nube de Driony (`tu-empresa.trimmo.lat`) cada empresa tiene un plan. El plan dice cuántos números de WhatsApp y cuántos usuarios puedes tener, y qué características incluye. En la [versión de código abierto](/docs/autoalojado) no hay planes: todo es ilimitado.
+En la nube de Driony (`tu-empresa.driony.com`) cada empresa tiene un plan. El plan dice cuántos números de WhatsApp y cuántos usuarios puedes tener, y qué características incluye. En la [versión de código abierto](/docs/autoalojado) no hay planes: todo es ilimitado.
 
 | | Gratis | Pro | Empresa |
 |---|---|---|---|

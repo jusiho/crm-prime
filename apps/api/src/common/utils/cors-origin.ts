@@ -4,14 +4,14 @@ import { env } from "./env";
  * Qué orígenes pueden llamar a la API desde un navegador.
  *
  * Con una sola empresa bastaba una lista fija en `WEB_ORIGIN`. Con subdominios
- * por empresa no: cada alta crearía un origen nuevo (`acme.trimmo.lat`,
- * `globex.trimmo.lat`…) y habría que redesplegar para que el navegador de ese
+ * por empresa no: cada alta crearía un origen nuevo (`acme.driony.com`,
+ * `globex.driony.com`…) y habría que redesplegar para que el navegador de ese
  * cliente pudiera hablar con la API. Sería un alta que no termina hasta que
  * alguien toca el servidor.
  *
  * Por eso se acepta **cualquier subdominio de primer nivel** del dominio base,
  * que es exactamente lo que cubre el certificado comodín. Ni más ni menos:
- * `acme.trimmo.lat` sí, `algo.acme.trimmo.lat` no, `trimmo.lat.otrositio.com`
+ * `acme.driony.com` sí, `algo.acme.driony.com` no, `driony.com.otrositio.com`
  * tampoco — y ese último es el que importa, porque es el que intentaría alguien
  * que quisiera colarse comprobando el final de la cadena a lo bruto.
  */

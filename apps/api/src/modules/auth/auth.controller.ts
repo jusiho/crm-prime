@@ -76,7 +76,7 @@ export class AuthController {
     //    del navegador. Quien conoce el subdominio real es el middleware de
     //    Next, y lo manda explícito.
     // 2. Del `Host`, para quien llame directo a la API (una app móvil contra
-    //    `acme.trimmo.lat`).
+    //    `acme.driony.com`).
     //
     // Aceptarlo del cuerpo es seguro porque **solo elige a quién buscar**. Sin
     // la contraseña no se entra, y el `orgId` del token sale de la fila del

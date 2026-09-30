@@ -18,29 +18,29 @@ beforeEach(() => {
 
 test("sin cabecera Origin se deja pasar (no es un navegador)", () => {
   // El webhook de Meta y las llamadas servidor a servidor caen aquí.
-  process.env.SAAS_BASE_DOMAIN = "trimmo.lat";
+  process.env.SAAS_BASE_DOMAIN = "driony.com";
   assert.equal(isAllowedOrigin(undefined), true);
   assert.equal(isAllowedOrigin(null), true);
 });
 
 test("acepta el dominio base y cualquier subdominio de empresa", () => {
-  process.env.SAAS_BASE_DOMAIN = "trimmo.lat";
+  process.env.SAAS_BASE_DOMAIN = "driony.com";
   for (const o of [
-    "https://trimmo.lat",
-    "https://acme.trimmo.lat",
-    "https://globex.trimmo.lat",
-    "https://empresa-con-guion.trimmo.lat",
+    "https://driony.com",
+    "https://acme.driony.com",
+    "https://globex.driony.com",
+    "https://empresa-con-guion.driony.com",
   ]) {
     assert.equal(isAllowedOrigin(o), true, `debería aceptar ${o}`);
   }
 });
 
 test("rechaza dominios que solo SE PARECEN al nuestro", () => {
-  process.env.SAAS_BASE_DOMAIN = "trimmo.lat";
+  process.env.SAAS_BASE_DOMAIN = "driony.com";
   const impostores = [
-    "https://trimmo.lat.atacante.com", // el clásico: termina en otra cosa
-    "https://notrimmo.lat",            // sin el punto separador
-    "https://acme.trimmo.lat.evil.co",
+    "https://driony.com.atacante.com", // el clásico: termina en otra cosa
+    "https://nodriony.com",            // sin el punto separador
+    "https://acme.driony.com.evil.co",
     "https://evil.com",
   ];
   for (const o of impostores) {
@@ -49,12 +49,12 @@ test("rechaza dominios que solo SE PARECEN al nuestro", () => {
 });
 
 test("rechaza subdominios de segundo nivel (el comodín tampoco los cubre)", () => {
-  process.env.SAAS_BASE_DOMAIN = "trimmo.lat";
-  assert.equal(isAllowedOrigin("https://algo.acme.trimmo.lat"), false);
+  process.env.SAAS_BASE_DOMAIN = "driony.com";
+  assert.equal(isAllowedOrigin("https://algo.acme.driony.com"), false);
 });
 
 test("WEB_ORIGIN sigue valiendo para orígenes de fuera del dominio", () => {
-  process.env.SAAS_BASE_DOMAIN = "trimmo.lat";
+  process.env.SAAS_BASE_DOMAIN = "driony.com";
   process.env.WEB_ORIGIN = "https://panel.otrodominio.com";
   assert.equal(isAllowedOrigin("https://panel.otrodominio.com"), true);
   assert.equal(isAllowedOrigin("https://otro.otrodominio.com"), false);

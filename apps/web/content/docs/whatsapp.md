@@ -42,7 +42,7 @@ Si prefieres usar tu propia app de desarrollador de Meta (o mientras la platafor
 
 1. En [developers.facebook.com](https://developers.facebook.com) crea una app de tipo **Negocio** y añádele el producto **WhatsApp**.
 2. En **Ajustes › Integraciones → Tu propia app de Meta**, pega el **App ID**, el **App secret** (Configuración › Básica de tu app) y un **verify token** que inventes tú. Guarda.
-3. En tu app → WhatsApp → Configuración → **Webhooks**: URL de devolución de llamada = la que te muestra esa pantalla (`https://tu-empresa.trimmo.lat/api/v1/webhooks/whatsapp`) y el verify token que guardaste. Suscribe `messages` (y `message_echoes`).
+3. En tu app → WhatsApp → Configuración → **Webhooks**: URL de devolución de llamada = la que te muestra esa pantalla (`https://tu-empresa.driony.com/api/v1/webhooks/whatsapp`) y el verify token que guardaste. Suscribe `messages` (y `message_echoes`).
 4. En **WhatsApp → Añadir un número a mano**: el *Phone number ID*, el *WABA ID* y un token **permanente** (usuario del sistema con los permisos `whatsapp_business_messaging` y `whatsapp_business_management`).
 
 Con tu propia app el número trabaja en **modo API**: se atiende solo desde el CRM. La Coexistencia con el celular no se puede activar por esta vía: solo la habilita Meta a través de un proveedor aprobado, con el botón de la plataforma (ver «Quién puede activarla», más arriba).
@@ -56,7 +56,7 @@ Es una regla de WhatsApp, no del CRM: puedes escribir libremente a quien te haya
 | Lo que ves | Qué es |
 |---|---|
 | Meta dice **«la app de socio no tiene los permisos avanzados…» (#2655111)** al pulsar el botón | Tu cuenta de Facebook no tiene rol en la app de la plataforma y Meta aún no ha aprobado el acceso avanzado. Mientras tanto, conecta con tu propia app (arriba). |
-| **«Dominio de host desconocido de JSSDK»** | Solo puede pasar si abres el conector fuera de `trimmo.lat`. Vuelve a pulsar el botón desde tu panel. |
+| **«Dominio de host desconocido de JSSDK»** | Solo puede pasar si abres el conector fuera de `driony.com`. Vuelve a pulsar el botón desde tu panel. |
 | El número aparece con **«Token caducado»** | Pegaste un token temporal (caduca en 24 h). Genera uno permanente de usuario del sistema y pulsa **Actualizar token**. |
 | Envías pero **no recibes** | El webhook de tu app no apunta a Driony o el verify token no coincide (solo con app propia). Revisa la URL y suscribe `messages`. |
 | Con la app propia, **la cuenta de WhatsApp no está suscrita** a tu app | Compruébalo con `GET /{waba-id}/subscribed_apps`; Driony lo hace al añadir el número, pero Meta a veces lo exige de nuevo. |

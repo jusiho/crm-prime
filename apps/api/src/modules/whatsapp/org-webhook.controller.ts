@@ -24,7 +24,7 @@ import { normalizeWebhook, type MetaWebhookBody } from "./webhook.types";
 
 /**
  * Webhook de WhatsApp para la **app de Meta propia** de una empresa:
- * `acme.trimmo.lat/api/v1/webhooks/whatsapp`.
+ * `acme.driony.com/api/v1/webhooks/whatsapp`.
  *
  * Existe porque el Embedded Signup solo incorpora clientes cuando Meta ha
  * dado a la plataforma acceso avanzado a los permisos de WhatsApp. Mientras

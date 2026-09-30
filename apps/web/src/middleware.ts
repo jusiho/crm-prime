@@ -11,7 +11,7 @@ import {
 /**
  * El middleware hace dos cosas independientes, en este orden:
  *
- *   1. Resuelve el subdominio de la empresa: `acme.trimmo.lat` → "acme".
+ *   1. Resuelve el subdominio de la empresa: `acme.driony.com` → "acme".
  *   2. Renueva el access token si está a punto de caducar.
  *
  * Van juntas porque las dos necesitan tocar las cabeceras de la petición antes
@@ -24,7 +24,7 @@ import {
  * firmado dentro del token, y lo comprueba el backend.
  *
  * La diferencia importa. El `Host` lo controla quien llama: con
- * `curl -H "Host: otra-empresa.trimmo.lat"` cualquiera puede decir lo que
+ * `curl -H "Host: otra-empresa.driony.com"` cualquiera puede decir lo que
  * quiera. Si el subdominio decidiera el acceso, eso sería toda la intrusión.
  *
  * ── Sobre el refresco: por qué aquí ───────────────────────────
@@ -64,7 +64,7 @@ const RAIZ_PERMITIDAS = ["/signup", "/handoff", "/api/", "/connect/", "/docs", "
  *
  * El dominio raíz no tiene app: es la portada y el alta. Quien llega ahí con
  * sesión (un marcador viejo, una sesión de antes del cambio) tiene que acabar
- * en `acme.trimmo.lat`, que es donde vive su cookie de verdad y su panel.
+ * en `acme.driony.com`, que es donde vive su cookie de verdad y su panel.
  */
 function redirigirASuEmpresa(req: NextRequest, orgSlug: unknown): NextResponse | null {
   if (!BASE || typeof orgSlug !== "string" || !orgSlug) return null;

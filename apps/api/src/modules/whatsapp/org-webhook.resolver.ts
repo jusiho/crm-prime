@@ -6,7 +6,7 @@ import { hostDe, subdominioDe } from "../../common/utils/subdomain";
 
 /**
  * Qué empresa es la de una ruta de webhook bajo subdominio
- * (`acme.trimmo.lat/api/v1/webhooks/whatsapp`).
+ * (`acme.driony.com/api/v1/webhooks/whatsapp`).
  *
  * El subdominio solo **elige a quién mirar**, igual que en el login: lo que
  * autentica después es la firma con el app secret que esa empresa guardó. La

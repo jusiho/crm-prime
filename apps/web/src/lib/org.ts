@@ -12,7 +12,7 @@ export interface OrgPublic {
  *
  * Son tres estados y no dos, y confundirlos se nota: "no hay subdominio" y
  * "hay un subdominio que no corresponde a ninguna empresa" llevan a pantallas
- * distintas. Si se tratan igual, `loquesea.trimmo.lat` enseña un formulario de
+ * distintas. Si se tratan igual, `loquesea.driony.com` enseña un formulario de
  * acceso que no puede funcionar nunca, y el visitante no sabe si se equivocó de
  * dirección o si el sitio está roto.
  */

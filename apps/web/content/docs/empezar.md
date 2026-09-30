@@ -4,8 +4,8 @@ Driony es un CRM para vender por WhatsApp: una bandeja con todos tus números, a
 
 ## Crear tu empresa
 
-1. Entra en [trimmo.lat/signup](/signup) y escribe el nombre de tu empresa, tu nombre y tu correo.
-2. Te proponemos un **subdominio** a partir del nombre (`tu-empresa.trimmo.lat`). Puedes cambiarlo antes de terminar; después ya no, porque es la dirección que compartirás con tu equipo.
+1. Entra en [driony.com/signup](/signup) y escribe el nombre de tu empresa, tu nombre y tu correo.
+2. Te proponemos un **subdominio** a partir del nombre (`tu-empresa.driony.com`). Puedes cambiarlo antes de terminar; después ya no, porque es la dirección que compartirás con tu equipo.
 3. Al terminar entras directamente en tu panel, como administrador.
 
 ## Primeros pasos, dentro de Driony
@@ -16,7 +16,7 @@ Cada pantalla tiene además un **tour guiado** de un minuto que se abre solo la 
 
 Tu empresa vive en su propio subdominio. Los datos de cada empresa están separados de los de cualquier otra, también en la base de datos.
 
-> **Para entrar después:** `tu-empresa.trimmo.lat/login`. Si vas a `trimmo.lat/login`, te preguntamos cuál es tu empresa y te llevamos allí, igual que hace Slack con los espacios de trabajo.
+> **Para entrar después:** `tu-empresa.driony.com/login`. Si vas a `driony.com/login`, te preguntamos cuál es tu empresa y te llevamos allí, igual que hace Slack con los espacios de trabajo.
 
 ## Invitar a tu equipo
 
@@ -50,5 +50,5 @@ El selector de idioma está arriba a la derecha (Español / English). Afecta al 
 
 ## Dos formas de usar Driony
 
-- **En la nube** (`trimmo.lat`): nosotros lo alojamos, tú entras y trabajas. Es lo que describe esta documentación.
+- **En la nube** (`driony.com`): nosotros lo alojamos, tú entras y trabajas. Es lo que describe esta documentación.
 - **Open source**: el mismo CRM, instalado en tu propio servidor, para una sola empresa — [Versión open source](/docs/autoalojado).

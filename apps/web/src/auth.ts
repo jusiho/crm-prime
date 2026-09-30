@@ -8,8 +8,8 @@ const API_URL = process.env.API_URL ?? "http://localhost:3001";
  * Con subdominios por empresa, `AUTH_URL` NO puede estar fijado.
  *
  * Auth.js lo usa como origen único para construir las redirecciones y las
- * cookies de sesión. Con `AUTH_URL=https://trimmo.lat`, entrar en
- * `acme.trimmo.lat` creaba la cookie en el subdominio y después redirigía al
+ * cookies de sesión. Con `AUTH_URL=https://driony.com`, entrar en
+ * `acme.driony.com` creaba la cookie en el subdominio y después redirigía al
  * dominio raíz — donde esa cookie no existe. El usuario veía la portada sin
  * sesión y parecía que el alta "no había redirigido".
  *

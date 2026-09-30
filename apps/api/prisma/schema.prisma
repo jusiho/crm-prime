@@ -144,7 +144,7 @@ enum AiMessageRole {
 // es un esquema donde la consulta sin filtrar acaba llegando a producción.
 model Organization {
   id        String   @id @default(cuid())
-  slug      String   @unique // "acme" → acme.trimmo.lat
+  slug      String   @unique // "acme" → acme.driony.com
   name      String
   plan      String   @default("free")
   isActive  Boolean  @default(true)

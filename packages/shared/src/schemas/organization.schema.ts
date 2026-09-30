@@ -4,7 +4,7 @@ import { z } from "zod";
  * Subdominios que no se pueden registrar como empresa.
  *
  * No es una lista de nombres feos: cada uno rompe algo concreto si se lo queda
- * un cliente. Si alguien registra la empresa "api", `api.trimmo.lat` deja de
+ * un cliente. Si alguien registra la empresa "api", `api.driony.com` deja de
  * ser tu API. Si registra "mail", pierdes el correo del dominio.
  *
  * Es más fácil añadir uno mañana que quitárselo a un cliente que ya lo usa, así
@@ -113,7 +113,7 @@ export interface RegisterOrgResult {
   /**
    * Pase de un solo uso y dos minutos de vida para entrar en el subdominio
    * nuevo sin volver a teclear la contraseña. La sesión es una cookie de
-   * `acme.trimmo.lat`, y desde `trimmo.lat` no se puede crear: hay que cruzar
+   * `acme.driony.com`, y desde `driony.com` no se puede crear: hay que cruzar
    * el dominio, y esto es lo que cruza con él.
    */
   handoffToken: string;

@@ -47,7 +47,7 @@ type Estado =
  * Lo normal es verla **dentro de un modal del panel de la empresa** (`embed`):
  * un iframe servido desde el dominio raíz. Meta mira el dominio del marco que
  * llama a `FB.login`, no el de la página de fuera, así que el usuario no sale
- * de `acme.trimmo.lat` y aun así el SDK arranca en `trimmo.lat`.
+ * de `acme.driony.com` y aun así el SDK arranca en `driony.com`.
  */
 export function ConnectWhatsappHub({
   ticket,
@@ -180,7 +180,7 @@ export function ConnectWhatsappHub({
     const vigilante = setTimeout(() => {
       setEstado((e) =>
         e.tipo === "esperando"
-          ? { tipo: "error", mensaje: "No se abrió la ventana de Meta. Permite las ventanas emergentes para trimmo.lat y vuelve a intentarlo." }
+          ? { tipo: "error", mensaje: "No se abrió la ventana de Meta. Permite las ventanas emergentes para driony.com y vuelve a intentarlo." }
           : e,
       );
     }, 8_000);

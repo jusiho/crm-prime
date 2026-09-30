@@ -33,7 +33,7 @@ const PROPOSITO = "whatsapp-connect";
  * Meta solo deja que su SDK de JavaScript arranque en dominios listados a
  * mano en el panel de la app, sin comodines. Con un subdominio por empresa,
  * eso obligaría a tocar Meta en cada alta. Así que el SDK corre siempre en el
- * dominio raíz —`trimmo.lat/connect/whatsapp`, listado una sola vez— y lo que
+ * dominio raíz —`driony.com/connect/whatsapp`, listado una sola vez— y lo que
  * cruza desde el panel de la empresa hasta allí es un pase firmado de un solo
  * uso que dice quién es y de qué empresa. Al terminar, el pase se canjea
  * junto con el resultado de Meta, se abre el contexto de esa empresa y el

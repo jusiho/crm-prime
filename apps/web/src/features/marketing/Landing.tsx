@@ -6,7 +6,7 @@ import Link from "next/link";
 import "./landing.css";
 
 const GITHUB = "https://github.com/jusiho/crm-prime";
-const CONTACT = process.env.NEXT_PUBLIC_CONTACT_EMAIL ?? "contacto@trimmo.lat";
+const CONTACT = process.env.NEXT_PUBLIC_CONTACT_EMAIL ?? "contacto@driony.com";
 
 // Secciones del nav: la etiqueta coincide con el título al que lleva.
 const NAV = [
@@ -38,7 +38,7 @@ const FAQ = [
   },
   {
     q: "¿Qué incluye empezar gratis en la nube?",
-    a: "Tu espacio en tu-empresa.trimmo.lat con la bandeja, los agentes, los flujos y las difusiones, sin tarjeta. Si en algún momento hay un plan de pago que te aplique, te lo contamos antes de cobrarte nada.",
+    a: "Tu espacio en tu-empresa.driony.com con la bandeja, los agentes, los flujos y las difusiones, sin tarjeta. Si en algún momento hay un plan de pago que te aplique, te lo contamos antes de cobrarte nada.",
   },
   {
     q: "¿Puedo instalarlo yo en mi servidor?",
@@ -510,7 +510,7 @@ export function Landing() {
                 <h3>Nosotros lo alojamos</h3>
                 <p className="lp-plan__price">Empieza gratis, sin tarjeta</p>
                 <p>
-                  Tu espacio en <b>tu-empresa.trimmo.lat</b> en dos minutos. Sin
+                  Tu espacio en <b>tu-empresa.driony.com</b> en dos minutos. Sin
                   servidores ni actualizaciones que hacer, y con tus datos aislados de
                   los de cualquier otra empresa. Si algún día hay un plan de pago que te
                   aplique, lo sabrás antes de que te cobremos nada.

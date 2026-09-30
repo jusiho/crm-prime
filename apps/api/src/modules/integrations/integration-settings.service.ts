@@ -163,7 +163,7 @@ export class IntegrationSettingsService {
   // plataforma acceso avanzado a los permisos de WhatsApp. Mientras tanto —o
   // si lo prefiere— una empresa puede usar su propia app de Meta: guarda aquí
   // su App ID, App secret y verify token, apunta el webhook de su app a
-  // `acme.trimmo.lat/api/v1/webhooks/whatsapp` y añade el número a mano con
+  // `acme.driony.com/api/v1/webhooks/whatsapp` y añade el número a mano con
   // su token. Solo cuenta lo guardado en la base: el entorno es de la
   // plataforma.
 
@@ -211,7 +211,7 @@ export class IntegrationSettingsService {
     return this.whatsappApp();
   }
 
-  /** `https://acme.trimmo.lat/api/v1/webhooks/whatsapp`, o null sin dominio base. */
+  /** `https://acme.driony.com/api/v1/webhooks/whatsapp`, o null sin dominio base. */
   private async ownWebhookUrl(): Promise<string | null> {
     const base = env("SAAS_BASE_DOMAIN");
     if (!base) return null;

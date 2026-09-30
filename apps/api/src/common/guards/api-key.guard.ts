@@ -66,7 +66,7 @@ export class ApiKeyGuard implements CanActivate {
         );
       }
       // La API también se sirve bajo el subdominio de cada empresa
-      // (acme.trimmo.lat/api/public/…), al estilo Kommo. Si la llamada entra
+      // (acme.driony.com/api/public/…), al estilo Kommo. Si la llamada entra
       // por la dirección de una empresa, la clave tiene que ser de ESA
       // empresa. No es lo que concede el acceso —eso ya lo hizo la clave—,
       // es lo que impide usar una clave de Acme contra la dirección de Globex
