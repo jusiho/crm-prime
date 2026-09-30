@@ -14,15 +14,23 @@ Las keys se guardan cifradas y solo las usa tu empresa. Cada respuesta se cobra 
 
 ## Crear un agente
 
-En **Agentes IA → Nuevo agente**:
+La forma más fácil es **Agentes IA › Con ayuda** (o «Armar mi agente» en Primeros pasos): un asistente te hace cinco preguntas, qué vendes y a quién, cuál es su misión, qué puede hacer, cuándo te pasa el chat y cómo empieza, y con tus respuestas redacta las instrucciones. Al terminar puedes probarlo en una conversación simulada. Si tu agente principal todavía tiene las instrucciones genéricas, el asistente lo configura a él en vez de crear otro.
 
-- **Instrucciones**: quién es, qué vende, cómo habla, qué no debe hacer. Es el texto más importante.
-- **Modelo y esfuerzo**: un modelo rápido y barato para preguntas frecuentes; uno potente para ventas complejas. El esfuerzo regula cuánto "piensa" antes de responder.
-- **Herramientas**: qué puede consultar y hacer (abajo).
-- **Número**: el agente atiende ese número; sin número, es el de respaldo.
-- **Autopilot por defecto**: las conversaciones nuevas arrancan respondiendo solas. Si no, arrancan en Copilot (ver [Bandeja](/docs/bandeja#copilot-y-autopilot)).
-- **Bienvenida**, **horario** (fuera de horario responde un mensaje fijo) y **palabras clave** que disparan una acción.
-- **Escalado**: umbrales de confianza y de enfado del cliente a partir de los cuales pasa a una persona.
+Para hacerlo a mano, **Agentes IA › Nuevo**. Arriba, siempre a la vista, están las tres decisiones clave:
+
+- **Activo o pausado**: pausado, no responde a nadie.
+- **Atiende**: el número de WhatsApp que atiende. Sin número, atiende todos los que no tengan un agente propio.
+- **En los chats nuevos**: **Responde solo** (contesta sin esperar a nadie; tu equipo puede tomar el control de cualquier chat) o **Te sugiere** (redacta cada respuesta y espera a que alguien la revise y la envíe). Ver [Bandeja](/docs/bandeja#copilot-y-autopilot).
+
+Debajo, cinco pestañas:
+
+- **Qué dice**: el nombre y **cómo debe atender**, lo más importante del agente: qué vendes y a quién, el tono de tu marca, qué no debe hacer y cuándo pasarte el chat. Si todavía tiene las instrucciones genéricas, te lo avisa y el asistente te las redacta.
+- **Qué puede hacer**: lo que puede consultar para responder bien (productos y precios, tu información, la ficha del cliente) y lo que puede hacer en el CRM para ahorrarte trabajo (etiquetar, mover en el embudo, enviar fotos…).
+- **Cuándo responde**: saludo automático, horario de atención y respuestas fijas por palabra clave.
+- **Cuándo te pasa el chat**: palabras que lo pasan a tu equipo al momento y cuánta señal necesita para apartarse por su cuenta.
+- **Modelo y gasto**: qué IA usa, con lo que cuesta cada 1.000 respuestas, y un **límite de gasto al mes en dólares**. En *Ajustes avanzados*, cuánto piensa antes de responder y cuántas consultas puede hacer por respuesta.
+
+La barra de abajo te dice si hay **cambios sin guardar**, y al guardar lo confirma. Ctrl+S (Cmd+S en Mac) guarda desde cualquier pestaña. Si cambias de agente con cambios pendientes, Driony te avisa antes de perderlos.
 
 ## Asistente de redacción
 
@@ -39,7 +47,7 @@ Usa tu propio modelo (Ajustes › Inteligencia Artificial) y conoce tu contexto 
 | Consulta | Qué hace |
 |---|---|
 | `search_knowledge` | Busca en tu [base de conocimiento](#base-de-conocimiento) |
-| `search_products` | Busca en tu catálogo (Productos) |
+| `search_products` | Busca en tu catálogo (Productos), también por sus características como talla o color |
 | `search_contact` | Lee la ficha del contacto |
 
 | Acción | Qué hace |
@@ -79,6 +87,17 @@ A cada contacto se le cotiza en la moneda de **su país**, que Driony deduce del
 
 - El agente recibe los precios de `search_products` ya en la moneda del cliente. Si un producto no tiene precio en esa moneda, le da el precio base con su moneda, sin inventar una conversión.
 - Las oportunidades nuevas nacen en la moneda del contacto, y se puede cambiar en su detalle. Cada columna del embudo suma por separado cada moneda.
+
+## Campos del catálogo
+
+El catálogo sirve para productos, servicios, talleres o lo que vendas. En **Productos › Campos** decides qué datos guardas de cada uno: talla o color, duración o modalidad, fecha de inicio y cupos… No hay campos fijos.
+
+- **Tipos**: texto corto, texto largo, número (con unidad, como `min` o `cupos`), fecha, hora, sí / no, una opción de una lista, varias opciones y enlace.
+- **Configuración de cada campo**: texto de ayuda, obligatorio, si se ve en la tarjeta y si lo usa el agente de IA. Apaga esto último para datos internos, como el costo o el proveedor. El orden se cambia con las flechas.
+- **Ideas para empezar**: grupos listos para tiendas, servicios, talleres y uso interno. Un clic los añade y después se pueden cambiar.
+- **Importar por CSV**: añade una columna con el nombre del campo; la plantilla de ejemplo ya la incluye. Las fechas aceptan `31/12/2026`, los sí / no aceptan `si` o `no`, y en las listas se rechaza un valor que no esté entre las opciones.
+- **Agente de IA**: recibe los campos visibles en `search_products` y también encuentra productos por ellos (por ejemplo, «taller los jueves»). Los campos internos no se le envían ni se usan para buscar.
+- Si borras un campo, sus valores no se pierden: reaparecen al volver a crearlo con el mismo nombre.
 
 ## Base de conocimiento
 

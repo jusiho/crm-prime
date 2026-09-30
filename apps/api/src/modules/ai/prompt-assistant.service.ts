@@ -44,6 +44,7 @@ export class PromptAssistantService {
     let model = "—";
     try {
       const res = await this.llm.generate({
+        feature: "prompt_assistant",
         system,
         messages,
         effort: "high",

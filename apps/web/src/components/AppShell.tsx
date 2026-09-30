@@ -18,6 +18,7 @@ export type { NavKey };
 // entrada en el menú.
 const TITLE_KEYS: Record<NavKey, string> = {
   gettingStarted: "gettingStarted",
+  dashboard: "dashboard",
   platform: "platform",
   inbox: "inbox",
   contacts: "contacts",

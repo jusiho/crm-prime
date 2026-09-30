@@ -1,6 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import type { Classification } from "@crm/shared";
 import { AiSettingsService } from "../ai-settings.service";
+import { AiUsageService } from "../ai-usage.service";
 import type { LLMProvider } from "../llm.provider";
 import type { LlmRequest, LlmResponse } from "../llm.types";
 import { AnthropicLLMProvider } from "./anthropic-llm.provider";
@@ -25,6 +26,7 @@ export class RoutingLLMProvider implements LLMProvider {
     private readonly openai: OpenAILLMProvider,
     private readonly anthropic: AnthropicLLMProvider,
     private readonly fake: FakeLLMProvider,
+    private readonly usage: AiUsageService,
   ) {}
 
   get name(): string {
@@ -33,7 +35,15 @@ export class RoutingLLMProvider implements LLMProvider {
 
   async generate(req: LlmRequest): Promise<LlmResponse> {
     const provider = await this.pick(req.model);
-    return provider.generate(req);
+    const res = await provider.generate(req);
+    this.usage.record({
+      feature: req.feature ?? "agent",
+      model: res.model,
+      inputTokens: res.usage.inputTokens,
+      outputTokens: res.usage.outputTokens,
+      conversationId: req.conversationId,
+    });
+    return res;
   }
 
   async classify(text: string): Promise<Classification> {

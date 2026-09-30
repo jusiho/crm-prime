@@ -9,6 +9,8 @@ export const productDtoSchema = z.object({
   currency: z.string(),
   // Precios en otras monedas (el de arriba es el precio base).
   prices: z.array(z.object({ currency: z.string(), amount: z.number() })).default([]),
+  // Campos personalizados de producto (key → valor).
+  attributes: z.record(z.string()).default({}),
   imageUrl: z.string().nullable(),
   isActive: z.boolean(),
   createdAt: z.string(),
@@ -41,6 +43,8 @@ const pricesField = z
     (list) => new Set(list.map((p) => p.currency)).size === list.length,
     "Hay una moneda repetida en los precios",
   );
+// Valores de campos personalizados: key → texto. Vacío = sin valor.
+const attributesField = z.record(z.string().max(2000)).refine((o) => Object.keys(o).length <= 50, "Demasiados campos");
 const imageUrlField = z
   .string()
   .url("La URL de la imagen debe empezar por http:// o https://")
@@ -53,6 +57,7 @@ export const createProductSchema = z.object({
   price: priceField.default(0),
   currency: currencyField.default("USD"),
   prices: pricesField.default([]),
+  attributes: attributesField.default({}),
   imageUrl: imageUrlField.default(null),
   isActive: z.boolean().default(true),
 });
@@ -66,6 +71,8 @@ export const updateProductSchema = z.object({
   currency: currencyField.optional(),
   // Si viene, sustituye la lista entera de precios adicionales.
   prices: pricesField.optional(),
+  // Si viene, sustituye todos los valores de campos personalizados.
+  attributes: attributesField.optional(),
   imageUrl: imageUrlField.optional(),
   isActive: z.boolean().optional(),
 });
@@ -168,6 +175,7 @@ export const productImportRowSchema = z.object({
   price: priceField,
   currency: currencyField.default("USD"),
   prices: pricesField.default([]),
+  attributes: attributesField.default({}),
   imageUrl: imageUrlField.default(null),
   isActive: z.boolean().default(true),
 });
@@ -178,9 +186,191 @@ export type ProductImportRow = z.infer<typeof productImportRowSchema>;
  * en español qué le falta. Lo usan la vista previa y la API, así que lo que se
  * ve antes de importar es lo que se guarda.
  */
+// ── Campos personalizados del catálogo ───────────────────────
+// Libres: sirven igual para productos (talla, color), servicios (duración,
+// modalidad) o talleres (fecha, cupos, lugar). Los valores se guardan como
+// texto en Product.attributes; el tipo decide cómo se editan y se validan.
+export const productFieldTypes = [
+  "text",
+  "longtext",
+  "number",
+  "date",
+  "time",
+  "boolean",
+  "select",
+  "multiselect",
+  "url",
+] as const;
+export type ProductFieldType = (typeof productFieldTypes)[number];
+
+/** Tipos cuyo valor es una opción de una lista. */
+export const isListFieldType = (t: string) => t === "select" || t === "multiselect";
+
+export const productFieldDtoSchema = z.object({
+  id: z.string(),
+  key: z.string(),
+  label: z.string(),
+  type: z.enum(productFieldTypes),
+  options: z.array(z.string()),
+  /** Unidad que acompaña a un número: "horas", "cupos", "kg". */
+  unit: z.string().nullable(),
+  /** Ayuda para quien rellena el campo; el agente de IA también la lee. */
+  help: z.string().nullable(),
+  required: z.boolean(),
+  showOnCard: z.boolean(),
+  aiVisible: z.boolean(),
+  order: z.number(),
+});
+export type ProductFieldDto = z.infer<typeof productFieldDtoSchema>;
+
+const fieldOptions = z
+  .array(z.string().trim().min(1).max(80))
+  .max(100, "Máximo 100 opciones")
+  .transform((l) => [...new Set(l)]);
+const fieldText = (max: number) =>
+  z
+    .string()
+    .trim()
+    .max(max)
+    .nullish()
+    .transform((v) => v || null);
+
+export const createProductFieldSchema = z.object({
+  label: z.string().trim().min(1, "Ponle un nombre").max(80),
+  type: z.enum(productFieldTypes).default("text"),
+  options: fieldOptions.default([]),
+  unit: fieldText(20),
+  help: fieldText(200),
+  required: z.boolean().default(false),
+  showOnCard: z.boolean().default(true),
+  aiVisible: z.boolean().default(true),
+});
+export type CreateProductFieldInput = z.input<typeof createProductFieldSchema>;
+
+export const updateProductFieldSchema = z.object({
+  label: z.string().trim().min(1).max(80).optional(),
+  type: z.enum(productFieldTypes).optional(),
+  options: fieldOptions.optional(),
+  unit: fieldText(20).optional(),
+  help: fieldText(200).optional(),
+  required: z.boolean().optional(),
+  showOnCard: z.boolean().optional(),
+  aiVisible: z.boolean().optional(),
+});
+export type UpdateProductFieldInput = z.input<typeof updateProductFieldSchema>;
+
+export const reorderProductFieldsSchema = z.object({ ids: z.array(z.string()).min(1).max(200) });
+
+type FieldShape = { label: string; type: string; options: string[]; unit?: string | null; required?: boolean };
+
+/** Separador de valores en los campos de varias opciones. */
+export const MULTI_SEPARATOR = ", ";
+export const splitMulti = (v: string) =>
+  v
+    .split(/[,;|]/)
+    .map((x) => x.trim())
+    .filter(Boolean);
+
+/** Cómo se muestra un valor guardado: con su unidad, fechas legibles… */
+export function formatFieldValue(field: { type: string; unit?: string | null }, value: string): string {
+  if (!value) return "";
+  if (field.type === "number" && field.unit) return `${value} ${field.unit}`;
+  if (field.type === "date" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const [y, m, d] = value.split("-");
+    return `${d}/${m}/${y}`;
+  }
+  return value;
+}
+
+/** Un campo personalizado con la columna del archivo que lo trae. */
+export interface ProductFieldColumn {
+  key: string;
+  label: string;
+  type: string;
+  options: string[];
+  unit?: string | null;
+  required?: boolean;
+  column: string | null;
+}
+
+/**
+ * Empareja los campos personalizados de producto con columnas del archivo por
+ * su nombre ("Talla", "color"…), sin usar las que ya son campos fijos.
+ */
+export function guessProductFieldColumns(
+  headers: string[],
+  fields: (FieldShape & { key: string })[],
+  taken: (string | null)[],
+): ProductFieldColumn[] {
+  const used = new Set(taken.filter(Boolean) as string[]);
+  return fields.map((f) => {
+    const wanted = [normalizeHeader(f.label), normalizeHeader(f.key), normalizeHeader(f.key.replace(/_/g, " "))];
+    const column = headers.find((h) => !used.has(h) && wanted.includes(normalizeHeader(h))) ?? null;
+    if (column) used.add(column);
+    return { ...f, column };
+  });
+}
+
+/** Valor de un campo personalizado leído de un CSV, validado según su tipo. */
+export function parseFieldValue(
+  raw: string,
+  field: FieldShape,
+): { ok: true; value: string } | { ok: false; error: string } {
+  const v = raw.trim();
+  const bad = (why: string) => ({ ok: false as const, error: `${field.label}: "${v}" ${why}` });
+  if (!v) return field.required ? { ok: false, error: `Falta «${field.label}»` } : { ok: true, value: "" };
+  switch (field.type) {
+    case "number": {
+      // "3 horas" o "20 cupos": se queda el número.
+      const n = parseImportPrice(v.replace(/[^\d.,-]+$/g, "").trim());
+      return n === null ? bad("no es un número") : { ok: true, value: String(n) };
+    }
+    case "boolean": {
+      const t = normalizeHeader(v);
+      if (TRUTHY.includes(t)) return { ok: true, value: "Sí" };
+      if (FALSY.includes(t)) return { ok: true, value: "No" };
+      return bad("no es sí o no");
+    }
+    case "date": {
+      const iso = v.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+      const dmy = v.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/);
+      const [y, m, d] = iso ? [iso[1], iso[2], iso[3]] : dmy ? [dmy[3], dmy[2], dmy[1]] : [];
+      if (!y || !m || !d || Number(m) < 1 || Number(m) > 12 || Number(d) < 1 || Number(d) > 31) {
+        return bad("no es una fecha (usa 31/12/2026)");
+      }
+      return { ok: true, value: `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}` };
+    }
+    case "time": {
+      const t = v.match(/^(\d{1,2})[:.h](\d{2})/i);
+      if (!t || Number(t[1]) > 23 || Number(t[2]) > 59) return bad("no es una hora (usa 18:30)");
+      return { ok: true, value: `${t[1]!.padStart(2, "0")}:${t[2]}` };
+    }
+    case "url":
+      return /\s/.test(v) ? bad("no es un enlace") : { ok: true, value: /^https?:\/\//i.test(v) ? v : `https://${v}` };
+    case "select":
+    case "multiselect": {
+      const parts = field.type === "select" ? [v] : splitMulti(v);
+      const hits: string[] = [];
+      for (const part of parts) {
+        const hit = field.options.find((o) => normalizeHeader(o) === normalizeHeader(part));
+        if (!hit && field.options.length) {
+          return { ok: false, error: `${field.label}: "${part}" no es una de las opciones (${field.options.join(", ")})` };
+        }
+        hits.push(hit ?? part);
+      }
+      return { ok: true, value: [...new Set(hits)].join(MULTI_SEPARATOR) };
+    }
+    case "longtext":
+      return { ok: true, value: v.slice(0, 2000) };
+    default:
+      return { ok: true, value: v.slice(0, 500) };
+  }
+}
+
 export function toProductImportRow(
   record: Record<string, string>,
   mapping: Record<ProductImportField, string | null>,
+  fieldColumns: ProductFieldColumn[] = [],
 ): { ok: true; value: ProductImportRow } | { ok: false; error: string } {
   const get = (field: ProductImportField): string => {
     const column = mapping[field];
@@ -213,6 +403,16 @@ export function toProductImportRow(
     if (!prices.some((p) => p.currency === cur)) prices.push({ currency: cur, amount });
   }
 
+  // Campos personalizados de producto.
+  const attributes: Record<string, string> = {};
+  for (const f of fieldColumns) {
+    // Sin columna no se exige: al actualizar se conserva el valor que ya tenía.
+    if (!f.column) continue;
+    const parsedField = parseFieldValue(record[f.column] ?? "", f);
+    if (!parsedField.ok) return { ok: false, error: parsedField.error };
+    if (parsedField.value) attributes[f.key] = parsedField.value;
+  }
+
   const rawImage = get("imageUrl");
   const imageUrl = rawImage
     ? /^https?:\/\//i.test(rawImage)
@@ -227,6 +427,7 @@ export function toProductImportRow(
     price,
     currency,
     prices,
+    attributes,
     imageUrl,
     isActive: parseImportBoolean(get("isActive")),
   });

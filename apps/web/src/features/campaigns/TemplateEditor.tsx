@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
+import { toast } from "@/lib/toast";
 import type {
   CreateTemplateInput,
   HeaderFormat,
@@ -127,7 +128,10 @@ export function TemplateEditor({
         ? updateTemplate(template.id, payload)
         : createTemplate({ ...payload, name, submitToMeta } as CreateTemplateInput);
     },
-    onSuccess: onSaved,
+    onSuccess: () => {
+      toast.success(editing ? "Plantilla guardada" : "Plantilla creada");
+      onSaved();
+    },
   });
 
   function setHeaderFormat(value: HeaderFormat | "NONE") {

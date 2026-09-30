@@ -19,8 +19,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
         },
         // Toda mutación que falle avisa con un toast de error, sin tener que
         // cablearlo componente por componente.
+        // Si la mutación ya trae su propio onError, se le deja a ella: si no,
+        // el error saldría dos veces.
         mutationCache: new MutationCache({
-          onError: (error) => {
+          onError: (error, _variables, _context, mutation) => {
+            if (mutation.options.onError) return;
             const msg =
               error instanceof Error ? error.message : "Ocurrió un error";
             toast.error(msg);

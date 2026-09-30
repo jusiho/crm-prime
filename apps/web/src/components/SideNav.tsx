@@ -9,6 +9,7 @@ import { OnboardingNavCard } from "@/features/onboarding/OnboardingNavCard";
 
 export type NavKey =
   | "gettingStarted"
+  | "dashboard"
   | "platform"
   | "inbox"
   | "contacts"
@@ -39,6 +40,7 @@ const NAV: Group[] = [
   {
     labelKey: "nav.groupSales",
     items: [
+      { key: "dashboard", href: "/dashboard", labelKey: "nav.dashboard", icon: "chart" },
       { key: "inbox", href: "/", labelKey: "nav.inbox", icon: "inbox" },
       { key: "contacts", href: "/contacts", labelKey: "nav.contacts", icon: "user" },
       { key: "pipeline", href: "/pipeline", labelKey: "nav.pipeline", icon: "pipeline" },

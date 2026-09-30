@@ -15,6 +15,7 @@ import { BotsController } from "./bots.controller";
 import { FlowsController } from "./flows.controller";
 import { AiSettingsController } from "./ai-settings.controller";
 import { CopilotController } from "./copilot.controller";
+import { AiUsageController } from "./ai-usage.controller";
 import { CopilotService } from "./copilot.service";
 import { MessagingModule } from "../messaging/messaging.module";
 import { KnowledgeModule } from "../knowledge/knowledge.module";
@@ -28,6 +29,7 @@ import { OnboardingModule } from "../onboarding/onboarding.module";
     FlowsController,
     AiSettingsController,
     CopilotController,
+    AiUsageController,
   ],
   providers: [
     AgentService,

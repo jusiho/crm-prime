@@ -1,3 +1,4 @@
+import type { AiFeature } from "@crm/shared";
 // Tipos del adaptador de LLM — provider-agnósticos.
 // La lógica del agente (AgentService) depende solo de esto, nunca del SDK.
 
@@ -39,6 +40,9 @@ export interface LlmRequest {
   effort?: string; // low | medium | high | xhigh | max
   maxTokens?: number;
   model?: string; // modelo elegido por el bot; el proveedor lo usa si le corresponde
+  /** Para qué es la llamada: la usa el informe de consumo de la empresa. */
+  feature?: AiFeature;
+  conversationId?: string;
 }
 
 export type LlmStopReason =

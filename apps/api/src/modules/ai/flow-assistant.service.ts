@@ -54,6 +54,7 @@ export class FlowAssistantService {
     let model = "—";
     try {
       const res = await this.llm.generate({
+        feature: "flow_assistant",
         system,
         messages,
         effort: "high",

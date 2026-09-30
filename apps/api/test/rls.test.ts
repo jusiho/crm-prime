@@ -225,3 +225,15 @@ test("la consola de plataforma agrega todas las empresas con el rol restringido"
   assert.equal(cambiada.plan, "pro");
   await svc.update("o_b", { plan: "free" });
 });
+
+test("el panel funciona con el rol restringido y solo cuenta lo de su empresa", async () => {
+  // Son consultas SQL crudas: la capa de Prisma no las filtra, así que se
+  // comprueba aquí que llevan el filtro de empresa y que RLS no las rompe.
+  const { DashboardService } = await import("../src/modules/dashboard/dashboard.service");
+  const svc = new DashboardService(prisma, { orgId: () => "o_a" } as any);
+  const r = await ctx.runInOrg("o_a", () => svc.get("30d", "America/Lima"));
+  assert.equal(r.tz, "America/Lima");
+  assert.equal(r.daily.length >= 30, true);
+  assert.equal(r.heatmap.length, 7);
+  assert.equal(r.funnel.pipelines.every((p: { id: string }) => p.id === "pl_a"), true, "solo embudos propios");
+});

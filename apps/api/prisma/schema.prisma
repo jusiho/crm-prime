@@ -151,33 +151,56 @@ model Organization {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users              User[]
-  contacts           Contact[]
-  customFields       CustomField[]
-  products           Product[]
-  productPrices      ProductPrice[]
-  sources            Source[]
-  tags               Tag[]
-  conversations      Conversation[]
-  messages           Message[]
-  templates          Template[]
-  pipelines          Pipeline[]
-  pipelineStages     PipelineStage[]
-  deals              Deal[]
-  knowledgeDocs      KnowledgeDoc[]
-  whatsappConns      WhatsappConnection[]
-  apiKeys            ApiKey[]
-  webhookSubs        WebhookSubscription[]
-  agentConfigs       AgentConfig[]
-  flows              Flow[]
-  metaPages          MetaPage[]
-  quickReplies       QuickReply[]
-  aiSetting          AiSetting?
-  integrationSetting IntegrationSetting?
-  onboarding         OnboardingState?
+  users                User[]
+  contacts             Contact[]
+  customFields         CustomField[]
+  products             Product[]
+  productPrices        ProductPrice[]
+  productFields        ProductField[]
+  sources              Source[]
+  tags                 Tag[]
+  conversations        Conversation[]
+  messages             Message[]
+  templates            Template[]
+  pipelines            Pipeline[]
+  pipelineStages       PipelineStage[]
+  deals                Deal[]
+  knowledgeDocs        KnowledgeDoc[]
+  whatsappConns        WhatsappConnection[]
+  apiKeys              ApiKey[]
+  webhookSubs          WebhookSubscription[]
+  agentConfigs         AgentConfig[]
+  flows                Flow[]
+  metaPages            MetaPage[]
+  quickReplies         QuickReply[]
+  aiSetting            AiSetting?
+  integrationSetting   IntegrationSetting?
+  onboarding           OnboardingState?
   knowledgeSuggestions KnowledgeSuggestion[]
+  aiUsage              AiUsage[]
 
   @@map("organizations")
+}
+
+// Consumo de IA: una fila por llamada al modelo, sea del agente, del copiloto,
+// de los asistentes, de la clasificación o de los embeddings. Es la fuente del
+// informe de consumo de cada empresa; el coste se calcula al leer con la
+// tabla de precios de @crm/shared (ai-usage.ts), así un precio corregido
+// arregla también el histórico.
+model AiUsage {
+  id             String   @id @default(cuid())
+  orgId          String
+  feature        String // agent | classify | copilot | playground | prompt_assistant | flow_assistant | knowledge_gaps | knowledge_index
+  model          String
+  inputTokens    Int      @default(0)
+  outputTokens   Int      @default(0)
+  conversationId String?
+  createdAt      DateTime @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, createdAt])
+  @@map("ai_usage")
 }
 
 // Preguntas que los clientes hacen y la base de conocimiento no cubre. Las
@@ -420,13 +443,39 @@ model Product {
   updatedAt   DateTime @updatedAt
 
   // Precios en otras monedas; `price`/`currency` de arriba es el base.
-  prices ProductPrice[]
+  prices     ProductPrice[]
+  // Valores de los campos personalizados de producto (key → valor), según
+  // las definiciones de ProductField.
+  attributes Json?
 
   org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@unique([orgId, sku])
   @@index([isActive])
   @@map("products")
+}
+
+// Campos personalizados de producto (talla, color, material, garantía…).
+// Aparte de CustomField, que es de contactos: cada catálogo tiene los suyos.
+model ProductField {
+  id         String   @id @default(cuid())
+  orgId      String
+  key        String // clave en Product.attributes
+  label      String
+  type       String   @default("text") // ver productFieldTypes en @crm/shared
+  options    String[]
+  unit       String? // "horas", "cupos"… junto a un número
+  help       String? // ayuda para el equipo y el agente de IA
+  required   Boolean  @default(false)
+  showOnCard Boolean  @default(true)
+  aiVisible  Boolean  @default(true)
+  order      Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, key])
+  @@map("product_fields")
 }
 
 // Precio explícito de un producto en una moneda distinta de la base. Sin
@@ -835,20 +884,23 @@ model PipelineStage {
 }
 
 model Deal {
-  id        String   @id @default(cuid())
-  orgId     String
-  contactId String
-  stageId   String
-  ownerId   String? // vendedor responsable del deal
-  title     String
-  value     Decimal? @db.Decimal(12, 2)
-  currency  String   @default("USD")
+  id            String    @id @default(cuid())
+  orgId         String
+  contactId     String
+  stageId       String
+  ownerId       String? // vendedor responsable del deal
+  title         String
+  value         Decimal?  @db.Decimal(12, 2)
+  currency      String    @default("USD")
   // Descartada: no era una venta (soporte, spam…) o nadie la atendió a tiempo.
   // No se borra: cuenta para el embudo y vuelve sola si el contacto escribe.
   discardedAt   DateTime?
   discardReason String? // "manual" | "auto" | texto libre
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  // Cuándo entró en una etapa de ganado o perdido. Lo mantiene un trigger de
+  // la base (migración deal_closed_at), venga el cambio de donde venga.
+  closedAt      DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   contact Contact       @relation(fields: [contactId], references: [id], onDelete: Cascade)
   stage   PipelineStage @relation(fields: [stageId], references: [id], onDelete: Restrict)

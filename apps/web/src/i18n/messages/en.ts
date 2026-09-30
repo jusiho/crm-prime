@@ -40,6 +40,7 @@ export const en = {
     myAccount: "My account",
     language: "Language",
     gettingStarted: "Getting started",
+    dashboard: "Dashboard",
     help: "Help",
     helpTour: "Tour of this screen",
     helpDocs: "Documentation",
@@ -62,6 +63,7 @@ export const en = {
     settings: { title: "Settings", subtitle: "Tags, channels, sources and more" },
     gettingStarted: { title: "Getting started", subtitle: "Set up Driony step by step" },
     platform: { title: "Platform console", subtitle: "Every company, signups and plans" },
+    dashboard: { title: "Dashboard", subtitle: "How your business is doing" },
   },
   // Tarjeta de Primeros pasos en el menú lateral.
   onboarding: {

@@ -24,7 +24,7 @@ export function ConfirmHost() {
   if (!c) return null;
 
   return (
-    <div className="confirm-backdrop" onClick={() => resolveConfirm(false)}>
+    <div className="confirm-backdrop confirm-backdrop--top" onClick={() => resolveConfirm(false)}>
       <div
         className="confirm-dialog"
         onClick={(e) => e.stopPropagation()}

@@ -105,6 +105,7 @@ export class KnowledgeGapsService {
     ]);
 
     const res = await this.llm.generate({
+      feature: "knowledge_gaps",
       system: FAQ_GAPS_SYSTEM,
       messages: [
         {

@@ -30,6 +30,7 @@ import { OrganizationsModule } from "./modules/organizations/organizations.modul
 import { OnboardingModule } from "./modules/onboarding/onboarding.module";
 import { PlansModule } from "./modules/plans/plans.module";
 import { PlatformModule } from "./modules/platform/platform.module";
+import { DashboardModule } from "./modules/dashboard/dashboard.module";
 import { HealthController } from "./health.controller";
 
 @Module({
@@ -59,6 +60,7 @@ import { HealthController } from "./health.controller";
     OnboardingModule,
     PlansModule,
     PlatformModule,
+    DashboardModule,
     MetaLeadsModule,
     SourcesModule,
     TagsModule,

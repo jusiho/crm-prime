@@ -1,12 +1,14 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   priceColumnCurrency,
   PRODUCT_IMPORT_FIELDS,
   csvToRecords,
   guessColumnMapping,
+  formatFieldValue,
+  guessProductFieldColumns,
   parseCsv,
   toCsv,
   toProductImportRow,
@@ -14,7 +16,7 @@ import {
   type ProductImportField,
   type ProductImportRow,
 } from "@crm/shared";
-import { importProducts } from "@/lib/bff";
+import { fetchProductFields, importProducts } from "@/lib/bff";
 import { NavIcon } from "@/components/NavIcons";
 
 type Mapping = Record<ProductImportField, string | null>;
@@ -45,15 +47,26 @@ export function ImportProductsDialog({
   const [updateExisting, setUpdateExisting] = useState(true);
   const [readError, setReadError] = useState<string | null>(null);
   const [result, setResult] = useState<ImportProductsResult | null>(null);
+  const { data: fields = [] } = useQuery({ queryKey: ["product-fields"], queryFn: fetchProductFields });
+  // Columna elegida a mano para cada campo personalizado (si no, se adivina por el nombre).
+  const [fieldPick, setFieldPick] = useState<Record<string, string | null>>({});
+
+  const fieldColumns = useMemo(() => {
+    if (!parsed || !mapping) return [];
+    return guessProductFieldColumns(parsed.headers, fields, Object.values(mapping)).map((c) =>
+      c.key in fieldPick ? { ...c, column: fieldPick[c.key] ?? null } : c,
+    );
+  }, [parsed, mapping, fields, fieldPick]);
+  const usedFields = fieldColumns.filter((c) => c.column);
 
   // Cada fila del archivo, ya convertida a producto o con su motivo de error.
   const rows = useMemo(() => {
     if (!parsed || !mapping) return [];
     return parsed.records.map((record, i) => ({
       line: i + 2, // +2: la 1 es la cabecera
-      ...toProductImportRow(record, mapping),
+      ...toProductImportRow(record, mapping, fieldColumns),
     }));
-  }, [parsed, mapping]);
+  }, [parsed, mapping, fieldColumns]);
 
   const valid = rows.filter((r) => r.ok) as {
     line: number;
@@ -95,17 +108,39 @@ export function ImportProductsDialog({
       }
       setParsed({ fileName: file.name, headers: table.headers, records });
       setMapping(guessColumnMapping(table.headers));
+      setFieldPick({});
     } catch (e) {
       setReadError(`No se pudo leer el archivo: ${(e as Error).message}`);
     }
   }
 
   function downloadTemplate() {
+    // Una columna por cada campo personalizado, con un valor de ejemplo válido.
+    const sample = (f: (typeof fields)[number]): string => {
+      switch (f.type) {
+        case "select":
+          return f.options[0] ?? "";
+        case "multiselect":
+          return f.options.slice(0, 2).join(", ");
+        case "number":
+          return "1";
+        case "date":
+          return "31/01/2026";
+        case "time":
+          return "18:30";
+        case "boolean":
+          return "si";
+        case "url":
+          return "https://misitio.com";
+        default:
+          return f.required ? "…" : "";
+      }
+    };
     const csv = toCsv(
-      ["nombre", "sku", "precio", "moneda", "precio_USD", "precio_MXN", "descripcion", "imagen", "activo"],
+      ["nombre", "sku", "precio", "moneda", "precio_USD", "precio_MXN", "descripcion", "imagen", "activo", ...fields.map((f) => f.label)],
       [
-        ["Camiseta azul", "CAM-001", "59.90", "PEN", "16", "290", "Algodón 100%", "https://misitio.com/camiseta.jpg", "si"],
-        ["Gorra negra", "GOR-002", "29.90", "PEN", "8", "", "", "", "si"],
+        ["Camiseta azul", "CAM-001", "59.90", "PEN", "16", "290", "Algodón 100%", "https://misitio.com/camiseta.jpg", "si", ...fields.map(sample)],
+        ["Gorra negra", "GOR-002", "29.90", "PEN", "8", "", "", "", "si", ...fields.map(() => "")],
       ],
     );
     const url = URL.createObjectURL(
@@ -126,7 +161,7 @@ export function ImportProductsDialog({
     <div className="confirm-backdrop" onClick={onClose}>
       <div
         className="confirm-dialog"
-        style={{ width: 720, maxHeight: "86vh", overflowY: "auto" }}
+        style={{ width: "min(720px, calc(100vw - 32px))", maxHeight: "86vh", overflowY: "auto" }}
         onClick={(e) => e.stopPropagation()}
       >
         <h3 style={{ margin: "0 0 4px" }}>Importar productos desde CSV</h3>
@@ -225,6 +260,33 @@ export function ImportProductsDialog({
                     </label>
                   ))}
                 </div>
+                {fieldColumns.length > 0 && (
+                  <>
+                    <h4 style={{ margin: "16px 0 8px" }}>Tus campos</h4>
+                    <div style={mapGrid}>
+                      {fieldColumns.map((c) => (
+                        <label key={c.key} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                          <span style={{ width: 110, fontSize: 13, color: "var(--muted)" }}>
+                            {c.label}
+                            {c.required && <span style={{ color: "#e08a8a" }}> *</span>}
+                          </span>
+                          <select
+                            style={select}
+                            value={c.column ?? ""}
+                            onChange={(e) => setFieldPick({ ...fieldPick, [c.key]: e.target.value || null })}
+                          >
+                            <option value="">— sin usar —</option>
+                            {parsed.headers.map((h) => (
+                              <option key={h} value={h}>
+                                {h}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      ))}
+                    </div>
+                  </>
+                )}
                 {(() => {
                   const extra = parsed.headers.filter((h) => priceColumnCurrency(h));
                   return (
@@ -257,6 +319,11 @@ export function ImportProductsDialog({
                         <th style={th}>SKU</th>
                         <th style={th}>Precio</th>
                         <th style={th}>Activo</th>
+                        {usedFields.map((c) => (
+                          <th key={c.key} style={th}>
+                            {c.label}
+                          </th>
+                        ))}
                       </tr>
                     </thead>
                     <tbody>
@@ -277,9 +344,14 @@ export function ImportProductsDialog({
                                 )}
                               </td>
                               <td style={td}>{r.value.isActive ? "Sí" : "No"}</td>
+                              {usedFields.map((c) => (
+                                <td key={c.key} style={td}>
+                                  {formatFieldValue(c, r.value.attributes?.[c.key] ?? "") || "—"}
+                                </td>
+                              ))}
                             </>
                           ) : (
-                            <td style={{ ...td, color: "#e08a8a" }} colSpan={4}>
+                            <td style={{ ...td, color: "#e08a8a" }} colSpan={4 + usedFields.length}>
                               {r.error}
                             </td>
                           )}

@@ -22,6 +22,18 @@ import {
   type UpdateProductInput,
 } from "@crm/shared";
 import type { Prisma } from "@prisma/client";
+
+/** Valores de campos personalizados sin vacíos, solo texto. */
+function clean(raw: unknown): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+    for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+      if (typeof v === "string" && v.trim()) out[k] = v.trim();
+      else if (typeof v === "number") out[k] = String(v);
+    }
+  }
+  return out;
+}
 import { ZodValidationPipe } from "../../common/pipes/zod-validation.pipe";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { PrismaService } from "../../infra/prisma/prisma.service";
@@ -71,6 +83,7 @@ export class ProductsController {
         currency: body.currency,
         imageUrl: body.imageUrl,
         isActive: body.isActive,
+        attributes: clean(body.attributes) as Prisma.InputJsonValue,
       },
     });
     await this.setPrices(p.id, p.currency, body.prices);
@@ -132,14 +145,26 @@ export class ProductsController {
         };
 
         if (existing) {
-          await this.prisma.product.update({ where: { id: existing.id }, data });
+          // Los campos personalizados del archivo se suman a los que ya tenía.
+          const merged = {
+            ...((existing.attributes as Record<string, string> | null) ?? {}),
+            ...clean(row.attributes),
+          };
+          await this.prisma.product.update({
+            where: { id: existing.id },
+            data: { ...data, attributes: merged as Prisma.InputJsonValue },
+          });
           // Las columnas precio_XXX del archivo actualizan esas monedas y
           // dejan intactas las demás.
           if (row.prices.length) await this.upsertPrices(existing.id, row.currency, row.prices);
           result.updated++;
         } else {
           const created = await this.prisma.product.create({
-            data: { ...data, orgId: this.tenant.orgId() },
+            data: {
+              ...data,
+              orgId: this.tenant.orgId(),
+              attributes: clean(row.attributes) as Prisma.InputJsonValue,
+            },
           });
           await this.setPrices(created.id, created.currency, row.prices);
           result.created++;
@@ -174,6 +199,7 @@ export class ProductsController {
         ...(body.currency !== undefined ? { currency: body.currency } : {}),
         ...(body.imageUrl !== undefined ? { imageUrl: body.imageUrl } : {}),
         ...(body.isActive !== undefined ? { isActive: body.isActive } : {}),
+        ...(body.attributes !== undefined ? { attributes: clean(body.attributes) as Prisma.InputJsonValue } : {}),
       },
     });
     if (body.prices !== undefined) await this.setPrices(p.id, p.currency, body.prices);
@@ -259,6 +285,7 @@ export class ProductsController {
     price: Prisma.Decimal;
     currency: string;
     prices?: { currency: string; amount: Prisma.Decimal }[];
+    attributes?: Prisma.JsonValue | null;
     imageUrl: string | null;
     isActive: boolean;
     createdAt: Date;
@@ -271,6 +298,7 @@ export class ProductsController {
       price: Number(p.price),
       currency: p.currency,
       prices: (p.prices ?? []).map((x) => ({ currency: x.currency, amount: Number(x.amount) })),
+      attributes: clean(p.attributes),
       imageUrl: p.imageUrl,
       isActive: p.isActive,
       createdAt: p.createdAt.toISOString(),

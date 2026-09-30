@@ -2,6 +2,7 @@
 
 import { NavIcon } from "@/components/NavIcons";
 import { useState } from "react";
+import { toast } from "@/lib/toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { confirmDialog } from "@/lib/confirm";
 import type { FlowSummary } from "@crm/shared";
@@ -25,7 +26,10 @@ export function FlowsManager() {
 
   const remove = useMutation({
     mutationFn: deleteFlow,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["flows"] }),
+    onSuccess: () => {
+      toast.success("Flujo eliminado");
+      queryClient.invalidateQueries({ queryKey: ["flows"] });
+    },
   });
 
   if (view.kind === "edit") {

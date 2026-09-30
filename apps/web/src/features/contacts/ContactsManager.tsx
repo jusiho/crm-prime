@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { toast } from "@/lib/toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { confirmDialog } from "@/lib/confirm";
 import {
@@ -340,7 +341,10 @@ function NewContactForm({
   const save = useMutation({
     mutationFn: () =>
       createContact({ name: name.trim() || null, phone: phone.trim(), sourceId }),
-    onSuccess: onSaved,
+    onSuccess: () => {
+      toast.success("Contacto creado");
+      onSaved();
+    },
   });
 
   return (

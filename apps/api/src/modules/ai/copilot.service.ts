@@ -224,7 +224,7 @@ export class CopilotService {
     req: { system: string; messages: LlmMessage[]; maxTokens: number; effort: string },
   ): Promise<string> {
     const started = Date.now();
-    const res = await this.llm.generate(req);
+    const res = await this.llm.generate({ ...req, feature: "copilot", conversationId });
     const text = res.content
       .filter((b): b is { type: "text"; text: string } => b.type === "text")
       .map((b) => b.text)

@@ -6,15 +6,24 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { NavIcon } from "@/components/NavIcons";
 import { confirmDialog } from "@/lib/confirm";
 import { toast } from "@/lib/toast";
-import { CURRENCIES, formatMoney, type CreateProductInput, type ProductDto } from "@crm/shared";
+import {
+  CURRENCIES,
+  formatFieldValue,
+  formatMoney,
+  type CreateProductInput,
+  type ProductDto,
+  type ProductFieldDto,
+} from "@crm/shared";
 import {
   createProduct,
   deleteProduct,
+  fetchProductFields,
   fetchProducts,
   updateProduct,
 } from "@/lib/bff";
 import { dangerBtn, ghostBtn, input, label, primaryBtn, smBtn } from "@/components/ui";
 import { ImportProductsDialog } from "./ImportProductsDialog";
+import { ProductFieldInput, ProductFieldsDialog } from "./ProductFieldsDialog";
 
 // Al pegar una imagen es fácil olvidar el esquema ("midominio.com/foto.jpg").
 // Se añade https:// para que no lo rechace la validación de URL.
@@ -32,6 +41,8 @@ export function ProductsManager() {
   const [filter, setFilter] = useState<Filter>("all");
   const [editing, setEditing] = useState<ProductDto | "new" | null>(null);
   const [importing, setImporting] = useState(false);
+  const [fieldsOpen, setFieldsOpen] = useState(false);
+  const { data: fields = [] } = useQuery({ queryKey: ["product-fields"], queryFn: fetchProductFields });
 
   const { data: products, isPending, isError } = useQuery({
     queryKey: ["products", search],
@@ -71,6 +82,9 @@ export function ProductsManager() {
           ))}
         </div>
         <div style={{ flex: 1 }} />
+        <button onClick={() => setFieldsOpen(true)} style={ghostBtn} title="Los datos que guardas de cada producto, servicio o taller">
+          <NavIcon name="tag" size={15} /> Campos{fields.length > 0 ? ` · ${fields.length}` : ""}
+        </button>
         <button onClick={() => setImporting(true)} style={ghostBtn} data-tour="products-import">
           <NavIcon name="file" size={15} /> Importar CSV
         </button>
@@ -78,6 +92,8 @@ export function ProductsManager() {
           <NavIcon name="plus" size={15} /> Nuevo producto
         </button>
       </div>
+
+      {fieldsOpen && <ProductFieldsDialog fields={fields} onClose={() => setFieldsOpen(false)} />}
 
       {importing && (
         <ImportProductsDialog onClose={() => setImporting(false)} onImported={refresh} />
@@ -88,6 +104,8 @@ export function ProductsManager() {
           // La clave reinicia el formulario al cambiar de producto.
           key={editing === "new" ? "new" : editing.id}
           product={editing === "new" ? null : editing}
+          fields={fields}
+          onManageFields={() => setFieldsOpen(true)}
           onClose={() => setEditing(null)}
           onSaved={() => {
             setEditing(null);
@@ -121,15 +139,16 @@ export function ProductsManager() {
 
       <div style={grid} data-tour="products-grid">
         {list.map((p) => (
-          <ProductCard key={p.id} product={p} onOpen={() => setEditing(p)} />
+          <ProductCard key={p.id} product={p} fields={fields} onOpen={() => setEditing(p)} />
         ))}
       </div>
     </div>
   );
 }
 
-function ProductCard({ product: p, onOpen }: { product: ProductDto; onOpen: () => void }) {
+function ProductCard({ product: p, fields, onOpen }: { product: ProductDto; fields: ProductFieldDto[]; onOpen: () => void }) {
   const [broken, setBroken] = useState(false);
+  const details = fields.filter((f) => f.showOnCard && p.attributes[f.key]).slice(0, 4);
   return (
     <button type="button" onClick={onOpen} style={card} className="product-card" aria-label={`Editar ${p.name}`}>
       <div style={thumb}>
@@ -157,6 +176,15 @@ function ProductCard({ product: p, onOpen }: { product: ProductDto; onOpen: () =
             {p.prices.map((x) => (
               <span key={x.currency} style={priceChip}>
                 {formatMoney(x.amount, x.currency)}
+              </span>
+            ))}
+          </span>
+        )}
+        {details.length > 0 && (
+          <span className="pf-chips">
+            {details.map((f) => (
+              <span key={f.key} className="pf-chip">
+                <span>{f.label}</span> {formatFieldValue(f, p.attributes[f.key]!)}
               </span>
             ))}
           </span>
@@ -194,10 +222,14 @@ function CurrencySelect({
 
 function ProductDrawer({
   product,
+  fields,
+  onManageFields,
   onClose,
   onSaved,
 }: {
   product: ProductDto | null;
+  fields: ProductFieldDto[];
+  onManageFields: () => void;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -209,6 +241,9 @@ function ProductDrawer({
   const [imageUrl, setImageUrl] = useState(product?.imageUrl ?? "");
   const [description, setDescription] = useState(product?.description ?? "");
   const [isActive, setIsActive] = useState(product?.isActive ?? true);
+  // Valores de los campos personalizados. Se conservan también los de campos
+  // borrados para no perderlos si se vuelven a crear.
+  const [attributes, setAttributes] = useState<Record<string, string>>(product?.attributes ?? {});
   // Precios en otras monedas (el importe como texto para escribir decimales).
   const [prices, setPrices] = useState<{ currency: string; amount: string }[]>(
     (product?.prices ?? []).map((p) => ({ currency: p.currency, amount: String(p.amount) })),
@@ -227,6 +262,9 @@ function ProductDrawer({
   }, [onClose]);
   useEffect(() => setPreviewBroken(false), [imageUrl]);
 
+  // Obligatorios que los controles nativos no pueden marcar (Sí/No, varias opciones).
+  const missing = fields.filter((f) => f.required && !(attributes[f.key] ?? "").trim());
+
   const save = useMutation({
     mutationFn: () => {
       const payload: CreateProductInput = {
@@ -240,6 +278,7 @@ function ProductDrawer({
         imageUrl: normalizeUrl(imageUrl),
         description: description.trim() || null,
         isActive,
+        attributes,
       };
       return isNew ? createProduct(payload) : updateProduct(product!.id, payload);
     },
@@ -277,7 +316,12 @@ function ProductDrawer({
           style={drawerBody}
           onSubmit={(e) => {
             e.preventDefault();
-            if (name.trim()) save.mutate();
+            if (!name.trim()) return;
+            if (missing.length) {
+              toast.error(`Falta completar: ${missing.map((f) => f.label).join(", ")}`);
+              return;
+            }
+            save.mutate();
           }}
         >
           <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
@@ -313,6 +357,40 @@ function ProductDrawer({
               onChange={(e) => setDescription(e.target.value)}
             />
           </Field>
+
+          <section style={section}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ fontWeight: 600, fontSize: 14, flex: 1 }}>Detalles</div>
+              <button type="button" onClick={onManageFields} style={{ ...ghostBtn, ...smBtn }}>
+                {fields.length ? "Editar campos" : "Añadir campos"}
+              </button>
+            </div>
+            {fields.length === 0 ? (
+              <div style={{ fontSize: 12.5, color: "var(--muted)", lineHeight: 1.45 }}>
+                Añade los datos que necesites: talla o color para productos, duración o
+                modalidad para servicios, fecha y cupos para talleres. El agente de IA los
+                usa para responder y buscar.
+              </div>
+            ) : (
+              <div className="pf-grid">
+                {fields.map((f) => (
+                  <Field
+                    key={f.id}
+                    text={f.required ? `${f.label} *` : f.label}
+                    hint={f.help ?? (f.aiVisible ? undefined : "Interno: el agente de IA no lo ve.")}
+                    wide={f.type === "longtext" || f.type === "multiselect"}
+                  >
+                    <ProductFieldInput
+                      field={f}
+                      style={input}
+                      value={attributes[f.key] ?? ""}
+                      onChange={(v) => setAttributes((a) => ({ ...a, [f.key]: v }))}
+                    />
+                  </Field>
+                ))}
+              </div>
+            )}
+          </section>
 
           <section style={section}>
             <div style={{ fontWeight: 600, fontSize: 14 }}>Precios</div>
@@ -423,9 +501,9 @@ function ProductDrawer({
   );
 }
 
-function Field({ text, hint, children }: { text: string; hint?: string; children: React.ReactNode }) {
+function Field({ text, hint, wide, children }: { text: string; hint?: string; wide?: boolean; children: React.ReactNode }) {
   return (
-    <label style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+    <label style={{ display: "flex", flexDirection: "column", gap: 5, minWidth: 0, gridColumn: wide ? "1 / -1" : undefined }}>
       <span style={{ ...label, marginBottom: 0 }}>{text}</span>
       {children}
       {hint && <span style={{ fontSize: 12, color: "var(--muted)" }}>{hint}</span>}

@@ -2,6 +2,7 @@
 
 import { NavIcon } from "@/components/NavIcons";
 import { useEffect, useRef, useState } from "react";
+import { toast } from "@/lib/toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { WhatsappChannel } from "@crm/shared";
 import {
@@ -55,11 +56,17 @@ export function WhatsAppConnect({ hub = false }: { hub?: boolean }) {
 
   const connect = useMutation({
     mutationFn: connectWhatsapp,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["wa-channels"] }),
+    onSuccess: () => {
+      toast.success("Número conectado");
+      queryClient.invalidateQueries({ queryKey: ["wa-channels"] });
+    },
   });
   const disconnect = useMutation({
     mutationFn: disconnectWhatsapp,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["wa-channels"] }),
+    onSuccess: () => {
+      toast.success("Número desconectado");
+      queryClient.invalidateQueries({ queryKey: ["wa-channels"] });
+    },
   });
 
   // Vuelta del conector: `?connected=1`. Se limpia de la URL para que un

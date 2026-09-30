@@ -1,6 +1,13 @@
 "use client";
 
 import type {
+  CreateProductFieldInput,
+  ProductFieldDto,
+  UpdateProductFieldInput,
+  DashboardDto,
+  DashboardPeriod,
+  AiUsagePeriod,
+  AiUsageReport,
   AcceptKnowledgeSuggestionInput,
   AiStatus,
   AnalyzeKnowledgeResult,
@@ -325,10 +332,7 @@ export async function createBot(input: CreateBotInput): Promise<BotDto> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
   });
-  if (!res.ok) {
-    const b = (await res.json().catch(() => null)) as { message?: string } | null;
-    throw new Error(b?.message ?? "No se pudo crear el bot");
-  }
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo crear el agente"));
   return res.json();
 }
 
@@ -341,10 +345,7 @@ export async function updateBot(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
   });
-  if (!res.ok) {
-    const b = (await res.json().catch(() => null)) as { message?: string } | null;
-    throw new Error(b?.message ?? "No se pudo guardar el bot");
-  }
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo guardar el agente"));
   return res.json();
 }
 
@@ -1259,6 +1260,48 @@ export async function deleteCustomField(id: string): Promise<void> {
   if (!res.ok) throw new Error("No se pudo eliminar el campo");
 }
 
+// ── Campos personalizados del catálogo ───────────────────────
+export async function fetchProductFields(): Promise<ProductFieldDto[]> {
+  const res = await bffFetch("/api/bff/product-fields");
+  if (!res.ok) throw new Error("No se pudieron cargar los campos");
+  return res.json();
+}
+
+export async function createProductField(input: CreateProductFieldInput): Promise<ProductFieldDto> {
+  const res = await bffFetch("/api/bff/product-fields", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo crear el campo"));
+  return res.json();
+}
+
+export async function updateProductField(id: string, input: UpdateProductFieldInput): Promise<ProductFieldDto> {
+  const res = await bffFetch(`/api/bff/product-fields/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo guardar el campo"));
+  return res.json();
+}
+
+export async function reorderProductFields(ids: string[]): Promise<ProductFieldDto[]> {
+  const res = await bffFetch("/api/bff/product-fields/order", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ids }),
+  });
+  if (!res.ok) throw new Error("No se pudo cambiar el orden");
+  return res.json();
+}
+
+export async function deleteProductField(id: string): Promise<void> {
+  const res = await bffFetch(`/api/bff/product-fields/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error("No se pudo eliminar el campo");
+}
+
 // ── Productos ────────────────────────────────────────────────
 export async function fetchProducts(search = ""): Promise<ProductDto[]> {
   const qs = search ? `?search=${encodeURIComponent(search)}` : "";
@@ -1629,4 +1672,18 @@ export async function acceptKnowledgeSuggestion(id: string, input: AcceptKnowled
 export async function dismissKnowledgeSuggestion(id: string): Promise<void> {
   const res = await bffFetch(`/api/bff/knowledge/suggestions/${id}/dismiss`, { method: "POST" });
   if (!res.ok) throw new Error(await errorMessage(res, "No se pudo descartar"));
+}
+
+export async function fetchAiUsage(period: AiUsagePeriod): Promise<AiUsageReport> {
+  const res = await bffFetch(`/api/bff/ai/usage?period=${period}`);
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo cargar el consumo de IA"));
+  return res.json();
+}
+
+export async function fetchDashboard(period: DashboardPeriod, tz: string, pipelineId?: string): Promise<DashboardDto> {
+  const qs = new URLSearchParams({ period, tz });
+  if (pipelineId) qs.set("pipelineId", pipelineId);
+  const res = await bffFetch(`/api/bff/dashboard?${qs.toString()}`);
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo cargar el panel"));
+  return res.json();
 }

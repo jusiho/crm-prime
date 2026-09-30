@@ -1,6 +1,6 @@
 import { Inject, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import type { Prisma } from "@prisma/client";
-import { contactCurrency, countryFromPhone, priceFor } from "@crm/shared";
+import { contactCurrency, countryFromPhone, estimateAiCost, formatFieldValue, priceFor } from "@crm/shared";
 import type {
   AiSuggestion,
   Classification,
@@ -9,6 +9,7 @@ import type {
   PlaygroundRequest,
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
+import { currentOrgId } from "../../infra/tenant/tenant.context";
 import { KnowledgeService } from "../knowledge/knowledge.service";
 import { AgentActionsService } from "./agent-actions.service";
 import { BotService } from "./bot.service";
@@ -20,18 +21,10 @@ import type {
 } from "./llm.types";
 import { isActionTool, resolveTools } from "./tools.registry";
 
-// Precios por millón de tokens (para estimar costo).
-const PRICES: Record<string, { in: number; out: number }> = {
-  "claude-opus-4-8": { in: 5, out: 25 },
-  "gpt-4o-mini": { in: 0.15, out: 0.6 },
-  "gpt-4o": { in: 2.5, out: 10 },
-};
 
-/** Coste estimado en USD de una llamada. 0 si el modelo no tiene precio aquí. */
+/** Coste estimado en USD de una llamada. 0 si el modelo no tiene precio conocido. */
 export function estimateCostUsd(model: string, input: number, output: number): number {
-  const p = PRICES[model] ?? PRICES[model.replace(/-\d{4}-\d{2}-\d{2}$/, "")];
-  if (!p) return 0;
-  return (input / 1e6) * p.in + (output / 1e6) * p.out;
+  return estimateAiCost(model, input, output) ?? 0;
 }
 
 @Injectable()
@@ -138,6 +131,8 @@ export class AgentService {
           effort,
           maxTokens: 1024,
           model: config?.model,
+          feature: "agent",
+          conversationId,
         });
         inputTokens += res.usage.inputTokens;
         outputTokens += res.usage.outputTokens;
@@ -332,6 +327,7 @@ export class AgentService {
     try {
       for (let i = 0; i < maxIterations; i++) {
         const res = await this.llm.generate({
+          feature: "playground",
           system,
           messages,
           tools: tools.length ? tools : undefined,
@@ -563,9 +559,18 @@ export class AgentService {
         sku: true,
         description: true,
         imageUrl: true,
+        attributes: true,
         prices: { select: { currency: true, amount: true } },
       } as const;
       const baseWhere = { isActive: true } as const;
+      // Campos personalizados (talla, color…): nombre legible para el agente.
+      // Solo los que el negocio deja ver a la IA.
+      const fieldDefs = await this.prisma.productField.findMany({
+        where: { aiVisible: true },
+        orderBy: { order: "asc" },
+        select: { key: true, label: true, type: true, unit: true },
+      });
+      const fieldDef = new Map(fieldDefs.map((f) => [f.key, f]));
 
       let rows = q
         ? await this.prisma.product.findMany({
@@ -582,6 +587,30 @@ export class AgentService {
             select,
           })
         : [];
+
+      // También por el valor de un campo personalizado ("talla M", "rojo").
+      // Solo en los campos visibles para la IA: los ocultos no se pueden sondear.
+      if (q && rows.length < MAX && fieldDefs.length) {
+        const orgId = currentOrgId();
+        const keys = fieldDefs.map((f) => f.key);
+        const byAttr = orgId
+          ? await this.prisma.$queryRaw<{ id: string }[]>`
+              SELECT id FROM products p
+              WHERE p."orgId" = ${orgId} AND p."isActive" AND EXISTS (
+                SELECT 1 FROM jsonb_each_text(COALESCE(p.attributes, '{}'::jsonb)) a
+                WHERE a.key = ANY(${keys}) AND a.value ILIKE ${"%" + q + "%"}
+              )
+              LIMIT ${MAX}`
+          : [];
+        const have = new Set(rows.map((r) => r.id));
+        const extra = byAttr.map((r) => r.id).filter((id) => !have.has(id));
+        if (extra.length) {
+          rows = [
+            ...rows,
+            ...(await this.prisma.product.findMany({ where: { id: { in: extra } }, select, take: MAX - rows.length })),
+          ];
+        }
+      }
 
       // Sin término o sin coincidencias → catálogo completo (hasta MAX).
       let listedAll = false;
@@ -615,6 +644,15 @@ export class AgentService {
         ...(clientCurrency ? { priceInClientCurrency: !hit.fallback } : {}),
         sku: p.sku,
         description: p.description,
+        ...(() => {
+          const attrs = (p.attributes as Record<string, string> | null) ?? {};
+          const details = Object.fromEntries(
+            Object.entries(attrs)
+              .filter(([k, v]) => fieldDef.has(k) && typeof v === "string" && v)
+              .map(([k, v]) => [fieldDef.get(k)!.label, formatFieldValue(fieldDef.get(k)!, v)]),
+          );
+          return Object.keys(details).length ? { details } : {};
+        })(),
         // Se expone solo si TIENE foto, no la URL: así el modelo sabe que
         // puede mandarla (con send_product_image) pero no puede inventarse
         // ni filtrar un enlace.

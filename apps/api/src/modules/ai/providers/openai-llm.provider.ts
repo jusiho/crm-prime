@@ -10,6 +10,7 @@ import type {
   LlmRequest,
   LlmResponse,
 } from "../llm.types";
+import { AiUsageService } from "../ai-usage.service";
 
 // Formas mínimas de la API de OpenAI (Chat Completions) que usamos.
 interface OaiToolCall {
@@ -48,7 +49,10 @@ export class OpenAILLMProvider implements LLMProvider {
   readonly name = "openai";
   private readonly logger = new Logger("OpenAILLM");
 
-  constructor(private readonly settings: AiSettingsService) {}
+  constructor(
+    private readonly settings: AiSettingsService,
+    private readonly usage: AiUsageService,
+  ) {}
 
   private async config(): Promise<{
     apiKey: string;
@@ -167,6 +171,12 @@ export class OpenAILLMProvider implements LLMProvider {
           },
         },
       }, cfg);
+      this.usage.record({
+        feature: "classify",
+        model: data.model ?? cfg.model,
+        inputTokens: data.usage?.prompt_tokens ?? 0,
+        outputTokens: data.usage?.completion_tokens ?? 0,
+      });
       const raw = data.choices[0]?.message?.content ?? "{}";
       return { ...fallback, ...(JSON.parse(raw) as Partial<Classification>) };
     } catch (e) {

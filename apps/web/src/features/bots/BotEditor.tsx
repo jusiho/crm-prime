@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { NavIcon } from "@/components/NavIcons";
+import { useEffect, useState } from "react";
+import { toast } from "@/lib/toast";
+import { confirmDialog } from "@/lib/confirm";
+import { NavIcon, type IconName } from "@/components/NavIcons";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   effortValues,
@@ -18,27 +20,20 @@ import {
 } from "@crm/shared";
 import type { PromptAssistantTarget } from "@crm/shared";
 import { createBot, updateBot } from "@/lib/bff";
-import { box, field, input, label as lbl, primaryBtn, ghostBtn, toggle } from "./styles";
+import { field, input, label as lbl, primaryBtn, ghostBtn } from "./styles";
 import { smBtn } from "@/components/ui";
 import { PromptAssistant } from "./PromptAssistant";
-
-// Modelos agrupados por proveedor. El proveedor activo (OpenAI o Anthropic) se
-// decide por la env del backend; aquí eliges el modelo dentro de ese proveedor.
-const MODEL_GROUPS: { label: string; models: string[] }[] = [
-  {
-    label: "OpenAI",
-    models: ["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini", "gpt-4.1"],
-  },
-  {
-    label: "Claude (Anthropic)",
-    models: [
-      "claude-opus-4-8",
-      "claude-opus-4-7",
-      "claude-sonnet-4-6",
-      "claude-haiku-4-5",
-    ],
-  },
-];
+import {
+  EFFORT_LABEL,
+  MODEL_OPTIONS,
+  TIMEZONES,
+  TOOL_COPY,
+  costPerReply,
+  isGenericPrompt,
+  tokensForUsd,
+  usd,
+  usdForTokens,
+} from "./agentCopy";
 
 const WEEKDAY_LABEL: Record<Weekday, string> = {
   mon: "Lunes",
@@ -51,9 +46,9 @@ const WEEKDAY_LABEL: Record<Weekday, string> = {
 };
 
 const ACTION_LABEL: Record<KeywordAction, string> = {
-  reply: "Responder texto",
-  handoff: "Pasar a humano",
-  set_off: "Apagar IA",
+  reply: "Responder con este texto",
+  handoff: "Pasar el chat a tu equipo",
+  set_off: "Apagar la IA en ese chat",
 };
 
 type Form = {
@@ -78,10 +73,7 @@ type Form = {
 };
 
 // Campos del editor que tienen botón de asistente de redacción.
-type AssistTarget = Extract<
-  PromptAssistantTarget,
-  "systemPrompt" | "welcomeMessage" | "outOfHoursMessage"
->;
+type AssistTarget = Extract<PromptAssistantTarget, "systemPrompt" | "welcomeMessage" | "outOfHoursMessage">;
 
 /**
  * Niveles de "cuándo rendirse", en vez del umbral 0–1 que nadie sabe elegir.
@@ -92,61 +84,22 @@ type AssistTarget = Extract<
  * cada valor de aquí corresponde a una combinación concreta de señales.
  */
 const HANDOFF_LEVELS = [
-  {
-    value: 0,
-    label: "Nunca por su cuenta",
-    hint: "Solo se aparta con las palabras de arriba. El agente intenta responderlo todo.",
-  },
-  {
-    value: 0.6,
-    label: "Solo si pide ayuda humana",
-    hint: "Se aparta cuando detecta que el cliente quiere hablar con alguien, aunque no use esas palabras exactas.",
-  },
-  {
-    value: 0.75,
-    label: "Si pide ayuda o está molesto (recomendado)",
-    hint: "Añade los casos en que el cliente suena enfadado o frustrado.",
-  },
-  {
-    value: 0.8,
-    label: "Ante cualquier señal",
-    hint: "También cuando el asunto es urgente. El agente resuelve menos casos, pero se equivoca menos.",
-  },
+  { value: 0, label: "Nunca por su cuenta", hint: "Solo te pasa el chat con las palabras de arriba. Intenta responderlo todo." },
+  { value: 0.6, label: "Si el cliente pide una persona", hint: "Aunque no use esas palabras exactas: lo detecta por cómo lo dice." },
+  { value: 0.75, label: "Si pide una persona o está molesto", hint: "Recomendado. Añade los casos en que el cliente suena enfadado o frustrado." },
+  { value: 0.8, label: "Ante cualquier duda", hint: "También si el asunto es urgente. Resuelve menos solo, pero se equivoca menos." },
 ] as const;
 
-const BUDGET_PRESETS = [
-  { value: 0, label: "Sin límite" },
-  { value: 200_000, label: "200 mil" },
-  { value: 500_000, label: "500 mil" },
-  { value: 1_000_000, label: "1 millón" },
-] as const;
+/** Presupuestos en dólares: es como piensa la gente, no en tokens. */
+const BUDGET_USD = [5, 20, 50] as const;
 
-// Una respuesta con su contexto ronda los 1.500 tokens. Sirve para dar una
-// idea de magnitud, no para presupuestar al céntimo.
-const TOKENS_PER_REPLY = 1500;
-
-/**
- * Un agente creado antes puede tener un umbral que no coincida con ninguno de
- * los niveles (p. ej. 0.65). Se marca el más cercano en vez de dejar la lista
- * sin nada seleccionado.
- */
 function nearestLevel(value: number): number {
-  return HANDOFF_LEVELS.reduce((best, l) =>
-    Math.abs(l.value - value) < Math.abs(best.value - value) ? l : best,
-  ).value;
-}
-
-function budgetHint(budget: number): string {
-  if (budget <= 0) {
-    return "Sin límite: el agente responde siempre. Vigila el consumo en la barra de abajo.";
-  }
-  const replies = Math.round(budget / TOKENS_PER_REPLY);
-  return `Alcanza para unas ${replies.toLocaleString("es")} respuestas al mes, aproximadamente.`;
+  return HANDOFF_LEVELS.reduce((best, l) => (Math.abs(l.value - value) < Math.abs(best.value - value) ? l : best)).value;
 }
 
 function iterationsHint(n: number): string {
-  if (n <= 2) return "Muy justo: responderá rápido, pero casi sin consultar el catálogo ni el contacto.";
-  if (n <= 8) return "Equilibrado: suficiente para buscar un producto y revisar la ficha del cliente.";
+  if (n <= 2) return "Muy justo: responde rápido, pero casi sin consultar tu catálogo ni la ficha del cliente.";
+  if (n <= 8) return "Equilibrado: le alcanza para buscar un producto y revisar la ficha del cliente.";
   return "Generoso: resuelve casos enredados, pero tarda más y gasta más en cada respuesta.";
 }
 
@@ -162,8 +115,7 @@ function defaultHours(): BusinessHours {
       sat: null,
       sun: null,
     },
-    outOfHoursMessage:
-      "¡Gracias por escribirnos! Ahora estamos fuera de horario, te responderemos pronto.",
+    outOfHoursMessage: "¡Gracias por escribirnos! Ahora estamos fuera de horario, te responderemos pronto.",
   };
 }
 
@@ -175,19 +127,14 @@ function toForm(bot: BotDto | null): Form {
       effort: "medium",
       systemPrompt:
         "Eres un asistente de ventas por WhatsApp. Responde en español, con tono cercano y profesional. Cuando el cliente pregunte por precios, productos o disponibilidad, usa la herramienta de catálogo (search_products) en vez de inventar. Si no tienes la información o el cliente lo amerita, escala a un humano.",
-      enabledTools: [
-        "search_contact",
-        "search_products",
-        "search_knowledge",
-        "handoff_to_human",
-      ],
+      enabledTools: ["search_contact", "search_products", "search_knowledge", "handoff_to_human"],
       maxIterations: 6,
       monthlyTokenBudget: 0,
       isActive: true,
       channelId: null,
       escalateOnNegativeSentiment: true,
       minConfidence: 0.75,
-      keywords: "humano, agente, reclamo",
+      keywords: "humano, persona, asesor, reclamo",
       autopilotByDefault: false,
       welcomeEnabled: false,
       welcomeMessage: "¡Hola! 👋 Gracias por escribirnos. ¿En qué te ayudamos?",
@@ -206,8 +153,7 @@ function toForm(bot: BotDto | null): Form {
     monthlyTokenBudget: bot.monthlyTokenBudget,
     isActive: bot.isActive,
     channelId: bot.channelId,
-    escalateOnNegativeSentiment:
-      bot.escalationRules.escalateOnNegativeSentiment ?? false,
+    escalateOnNegativeSentiment: bot.escalationRules.escalateOnNegativeSentiment ?? false,
     minConfidence: bot.escalationRules.minConfidence ?? 0.6,
     keywords: (bot.escalationRules.keywords ?? []).join(", "),
     autopilotByDefault: bot.autopilotByDefault,
@@ -219,6 +165,66 @@ function toForm(bot: BotDto | null): Form {
   };
 }
 
+type Tab = "dice" | "hace" | "cuando" | "persona" | "gasto";
+
+/** Límites del backend, para avisar antes de enviar. */
+const MAX_TEXT = 2000;
+const MAX_NAME = 120;
+
+// Un error de validación llega como "keywordTriggers.0.value: máximo 2000
+// caracteres". Se traduce a un nombre que la persona reconoce y a la
+// pestaña donde está el campo.
+const FIELD_LABELS: [RegExp, (m: RegExpMatchArray) => string, Tab][] = [
+  [/^name$/, () => "Nombre", "dice"],
+  [/^systemPrompt$/, () => "Cómo debe atender", "dice"],
+  [/^enabledTools/, () => "Qué puede hacer", "hace"],
+  [/^welcomeMessage$/, () => "Saludo automático", "cuando"],
+  [/^businessHours\.outOfHoursMessage$/, () => "Mensaje fuera de horario", "cuando"],
+  [/^businessHours/, () => "Horario de atención", "cuando"],
+  [/^keywordTriggers\.(\d+)\.keywords/, (m) => `Respuesta fija ${Number(m[1]) + 1} › palabras`, "cuando"],
+  [/^keywordTriggers\.(\d+)\.value/, (m) => `Respuesta fija ${Number(m[1]) + 1} › texto`, "cuando"],
+  [/^keywordTriggers/, () => "Respuestas fijas", "cuando"],
+  [/^escalationRules\.keywords/, () => "Palabras que pasan el chat", "persona"],
+  [/^escalationRules/, () => "Cuándo te pasa el chat", "persona"],
+  [/^model$|^effort$/, () => "Modelo", "gasto"],
+  [/^monthlyTokenBudget$/, () => "Límite de gasto", "gasto"],
+  [/^maxIterations$/, () => "Consultas por respuesta", "gasto"],
+];
+
+function explainError(raw: string): { text: string; tab: Tab | null } {
+  const parts = raw.split(/,\s*(?=[\w.]+: )|; /).map((p) => p.trim()).filter(Boolean);
+  let tab: Tab | null = null;
+  const lines = parts.map((part) => {
+    const m = part.match(/^([\w.]+): (.*)$/);
+    if (!m) return part;
+    const hit = FIELD_LABELS.find(([re]) => re.test(m[1]!));
+    if (!hit) return part;
+    const label = hit[1](m[1]!.match(hit[0])!);
+    tab ??= hit[2];
+    return `${label}: ${m[2]}`;
+  });
+  return { text: lines.join(". "), tab };
+}
+
+function Counter({ value, max }: { value: string; max: number }) {
+  if (value.length < max * 0.8) return null;
+  const over = value.length > max;
+  return (
+    <span className="agent-hint" style={{ textAlign: "right", color: over ? "var(--danger)" : undefined }}>
+      {value.length.toLocaleString("es")} / {max.toLocaleString("es")}
+      {over && " · demasiado largo"}
+    </span>
+  );
+}
+
+const TABS: { id: Tab; label: string; icon: IconName }[] = [
+  { id: "dice", label: "Qué dice", icon: "message" },
+  { id: "hace", label: "Qué puede hacer", icon: "bolt" },
+  { id: "cuando", label: "Cuándo responde", icon: "clock" },
+  { id: "persona", label: "Cuándo te pasa el chat", icon: "user" },
+  { id: "gasto", label: "Modelo y gasto", icon: "settings" },
+];
+
 export function BotEditor({
   bot,
   availableTools,
@@ -226,6 +232,8 @@ export function BotEditor({
   onSaved,
   onCancel,
   onDeleted,
+  onDirtyChange,
+  onWizard,
 }: {
   bot: BotDto | null; // null = crear nuevo
   availableTools: AgentToolInfo[];
@@ -233,18 +241,45 @@ export function BotEditor({
   onSaved: (b: BotDto) => void;
   onCancel: () => void;
   onDeleted?: () => void;
+  /** Avisa si hay cambios sin guardar (para no perderlos al cambiar de agente). */
+  onDirtyChange?: (dirty: boolean) => void;
+  /** Abre el asistente paso a paso para configurar este agente. */
+  onWizard?: () => void;
 }) {
   const queryClient = useQueryClient();
   const [form, setForm] = useState<Form>(() => toForm(bot));
+  // Última versión guardada: con ella se sabe si hay cambios pendientes.
+  const [saved, setSaved] = useState<Form>(() => toForm(bot));
+  const [justSaved, setJustSaved] = useState(false);
   const isNew = !bot;
-  // Asistente de redacción: qué campo está editando (null = cerrado).
-  const [assist, setAssist] = useState<AssistTarget | null>(null);
+  const dirty = JSON.stringify(form) !== JSON.stringify(saved);
 
-  const set = <K extends keyof Form>(k: K, v: Form[K]) =>
-    setForm((f) => ({ ...f, [k]: v }));
+  useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange]);
+  useEffect(() => {
+    if (dirty) setJustSaved(false);
+  }, [dirty]);
+  useEffect(() => {
+    if (!justSaved) return;
+    const t = setTimeout(() => setJustSaved(false), 3000);
+    return () => clearTimeout(t);
+  }, [justSaved]);
+  // Cerrar la pestaña con cambios sin guardar: el navegador pregunta.
+  useEffect(() => {
+    if (!dirty) return;
+    const onLeave = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+    };
+    window.addEventListener("beforeunload", onLeave);
+    return () => window.removeEventListener("beforeunload", onLeave);
+  }, [dirty]);
+  const [assist, setAssist] = useState<AssistTarget | null>(null);
+  const [tab, setTab] = useState<Tab>("dice");
+
+  const set = <K extends keyof Form>(k: K, v: Form[K]) => setForm((f) => ({ ...f, [k]: v }));
 
   const save = useMutation({
     mutationFn: async () => {
+      const snapshot = form;
       const payload: CreateBotInput = {
         name: form.name,
         model: form.model,
@@ -260,9 +295,7 @@ export function BotEditor({
         welcomeMessage: form.welcomeMessage.trim() || null,
         businessHoursEnabled: form.businessHoursEnabled,
         businessHours: form.businessHoursEnabled ? form.businessHours : null,
-        keywordTriggers: form.keywordTriggers.filter(
-          (t) => t.keywords.length > 0,
-        ),
+        keywordTriggers: form.keywordTriggers.filter((t) => t.keywords.length > 0),
         escalationRules: {
           escalateOnNegativeSentiment: form.escalateOnNegativeSentiment,
           minConfidence: Number(form.minConfidence),
@@ -272,100 +305,93 @@ export function BotEditor({
             .filter(Boolean),
         },
       };
-      return isNew ? createBot(payload) : updateBot(bot!.id, payload);
+      const b = isNew ? await createBot(payload) : await updateBot(bot!.id, payload);
+      return { b, snapshot };
     },
-    onSuccess: (b) => {
+    onSuccess: ({ b, snapshot }) => {
+      setSaved(snapshot);
+      setJustSaved(true);
+      toast.success(isNew ? `Agente «${b.name}» creado` : "Cambios guardados");
       queryClient.invalidateQueries({ queryKey: ["bots"] });
       onSaved(b);
     },
+    onError: (e) => {
+      const { text, tab: where } = explainError((e as Error).message);
+      if (where) setTab(where);
+      toast.error(text);
+    },
   });
+  // Lo que el backend rechazaría: se avisa antes de enviar.
+  const tooLong =
+    form.name.length > MAX_NAME ||
+    form.welcomeMessage.length > MAX_TEXT ||
+    (form.businessHours.outOfHoursMessage ?? "").length > MAX_TEXT ||
+    form.keywordTriggers.some((t) => (t.value ?? "").length > MAX_TEXT);
+  const canSave = !save.isPending && form.name.trim().length > 0 && !tooLong && (isNew || dirty);
+
+  // Ctrl+S / Cmd+S guarda desde cualquier pestaña.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        if (canSave) save.mutate();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canSave]);
+
+  // Un error de guardado deja de tener sentido en cuanto se toca algo.
+  useEffect(() => {
+    if (save.isError) save.reset();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form]);
+
+  const discard = () =>
+    void confirmDialog({ message: "¿Descartar los cambios sin guardar?", danger: true }).then((ok) => ok && setForm(saved));
+  const cancel = () => {
+    if (!dirty) return onCancel();
+    void confirmDialog({ message: "Tienes cambios sin guardar. ¿Salir sin guardar?", danger: true }).then((ok) => ok && onCancel());
+  };
 
   function toggleTool(name: string) {
-    set(
-      "enabledTools",
-      form.enabledTools.includes(name)
-        ? form.enabledTools.filter((t) => t !== name)
-        : [...form.enabledTools, name],
-    );
+    set("enabledTools", form.enabledTools.includes(name) ? form.enabledTools.filter((t) => t !== name) : [...form.enabledTools, name]);
   }
 
-  // Las 6 secciones no caben de un vistazo en una columna, y la mayoría de
-  // ediciones tocan una sola cosa. Agrupadas por intención: quién es el bot,
-  // qué sabe hacer, cuándo actúa solo, y cuándo se rinde.
-  const [tab, setTab] = useState<
-    "general" | "capacidades" | "automatizacion" | "limites"
-  >("general");
-
-  const TABS = [
-    { id: "general", label: "General", icon: "bot" },
-    { id: "capacidades", label: "Capacidades", icon: "bolt" },
-    { id: "automatizacion", label: "Automatización", icon: "clock" },
-    { id: "limites", label: "Escalado y límites", icon: "alert" },
-  ] as const;
-
-  // Qué lee y qué escribe el asistente según el campo desde el que se abrió.
-  const ASSIST: Record<
-    AssistTarget,
-    { title: string; current: string; apply: (text: string) => void }
-  > = {
-    systemPrompt: {
-      title: "Instrucciones del agente",
-      current: form.systemPrompt,
-      apply: (text) => set("systemPrompt", text),
-    },
-    welcomeMessage: {
-      title: "Mensaje de bienvenida",
-      current: form.welcomeMessage,
-      apply: (text) => set("welcomeMessage", text),
-    },
+  const ASSIST: Record<AssistTarget, { title: string; current: string; apply: (text: string) => void }> = {
+    systemPrompt: { title: "Instrucciones del agente", current: form.systemPrompt, apply: (text) => set("systemPrompt", text) },
+    welcomeMessage: { title: "Mensaje de bienvenida", current: form.welcomeMessage, apply: (text) => set("welcomeMessage", text) },
     outOfHoursMessage: {
       title: "Mensaje fuera de horario",
       current: form.businessHours.outOfHoursMessage ?? "",
-      apply: (text) =>
-        set("businessHours", { ...form.businessHours, outOfHoursMessage: text }),
+      apply: (text) => set("businessHours", { ...form.businessHours, outOfHoursMessage: text }),
     },
   };
 
-  return (
-    <div style={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
-      <nav style={tabBar} role="tablist">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            role="tab"
-            aria-selected={tab === t.id}
-            onClick={() => setTab(t.id)}
-            style={tabBtn(tab === t.id)}
-          >
-            <NavIcon name={t.icon} size={15} />
-            {t.label}
-          </button>
-        ))}
-      </nav>
+  const readTools = availableTools.filter((t) => !t.isAction);
+  const actionTools = availableTools.filter((t) => t.isAction);
+  const generic = isGenericPrompt(form.systemPrompt);
 
-      <div style={tabPanel}>
-      {tab === "general" && (
-      <>
-      {/* Identidad */}
-      <div style={box}>
-        <SectionTitle>Identidad</SectionTitle>
-        <div style={field}>
-          <span style={lbl}>Nombre del agente</span>
-          <input
-            style={input}
-            value={form.name}
-            placeholder="Agente de Ventas"
-            onChange={(e) => set("name", e.target.value)}
-          />
-        </div>
-        <div style={field}>
-          <span style={lbl}>Número de WhatsApp que atiende</span>
-          <select
-            style={input}
-            value={form.channelId ?? ""}
-            onChange={(e) => set("channelId", e.target.value || null)}
-          >
-            <option value="">Cualquiera (agente por defecto)</option>
+  return (
+    <div className="agent-editor">
+      {/* ── Lo esencial, siempre a la vista ── */}
+      <section className="agent-essentials" aria-label="Lo esencial del agente">
+        <label className={`agent-switch${form.isActive ? " is-on" : ""}`}>
+          <input type="checkbox" checked={form.isActive} onChange={(e) => set("isActive", e.target.checked)} />
+          <span className="agent-switch__track" aria-hidden="true">
+            <span />
+          </span>
+          <span className="agent-switch__text">
+            <strong>{form.isActive ? "Activo" : "Pausado"}</strong>
+            <small>{form.isActive ? "Atiende a tus clientes" : "No responde a nadie"}</small>
+          </span>
+        </label>
+
+        <div className="agent-essentials__item">
+          <span className="agent-essentials__label">Atiende</span>
+          <select className="field field-sm" value={form.channelId ?? ""} onChange={(e) => set("channelId", e.target.value || null)}>
+            <option value="">Todos los números sin agente propio</option>
             {channels.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.label ?? c.displayPhoneNumber ?? c.id}
@@ -373,365 +399,315 @@ export function BotEditor({
             ))}
           </select>
         </div>
-        <label style={toggle}>
-          <input
-            type="checkbox"
-            checked={form.isActive}
-            onChange={(e) => set("isActive", e.target.checked)}
-          />
-          Bot activo
-        </label>
-      </div>
 
-      {/* Modelo */}
-      <div style={box}>
-        <SectionTitle>Modelo</SectionTitle>
-        <div style={{ display: "flex", gap: 12 }}>
-          <div style={{ ...field, flex: 1 }}>
-            <span style={lbl}>Modelo</span>
-            <select
-              style={input}
-              value={form.model}
-              onChange={(e) => set("model", e.target.value)}
-            >
-              {MODEL_GROUPS.map((g) => (
-                <optgroup key={g.label} label={g.label}>
-                  {g.models.map((m) => (
-                    <option key={m} value={m}>
-                      {m}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
-          </div>
-          <div style={{ ...field, width: 140 }}>
-            <span style={lbl}>Effort</span>
-            <select
-              style={input}
-              value={form.effort}
-              onChange={(e) => set("effort", e.target.value)}
-            >
-              {effortValues.map((ef) => (
-                <option key={ef} value={ef}>
-                  {ef}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-        <div style={field}>
-          <div style={labelRow}>
-            <span style={lbl}>Instrucciones del agente (system prompt)</span>
-            <AssistButton onClick={() => setAssist("systemPrompt")} />
-          </div>
-          <span style={fieldHint}>
-            Quién es, qué vende, cómo habla, qué no debe hacer y cuándo pasar a
-            una persona. Es el texto más importante del agente: si no sabes por
-            dónde empezar, el asistente lo redacta contigo.
-          </span>
-          <textarea
-            style={{ ...input, minHeight: 190, resize: "vertical", fontFamily: "inherit" }}
-            value={form.systemPrompt}
-            onChange={(e) => set("systemPrompt", e.target.value)}
-          />
-        </div>
-      </div>
-
-      </>
-      )}
-
-      {tab === "capacidades" && (
-      <>
-      {/* Herramientas de consulta */}
-      <div style={box}>
-        <SectionTitle>Qué puede consultar</SectionTitle>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {availableTools
-            .filter((t) => !t.isAction)
-            .map((t) => (
-              <ToolRow
-                key={t.name}
-                tool={t}
-                checked={form.enabledTools.includes(t.name)}
-                onToggle={() => toggleTool(t.name)}
-              />
-            ))}
-        </div>
-      </div>
-
-      {/* Acciones: escriben en el CRM */}
-      <div style={box}>
-        <SectionTitle>Qué puede hacer en el CRM</SectionTitle>
-        <p style={{ color: "var(--muted)", fontSize: 12, margin: "0 0 10px" }}>
-          En autopilot se aplican solas. En copilot quedan pendientes y se
-          aplican cuando el agente humano envía la respuesta.
-        </p>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {availableTools
-            .filter((t) => t.isAction)
-            .map((t) => (
-              <ToolRow
-                key={t.name}
-                tool={t}
-                checked={form.enabledTools.includes(t.name)}
-                onToggle={() => toggleTool(t.name)}
-              />
-            ))}
-        </div>
-      </div>
-
-      </>
-      )}
-
-      {tab === "automatizacion" && (
-      <>
-      {/* Automatización */}
-      <div style={box}>
-        <SectionTitle>Automatización</SectionTitle>
-
-        <label style={toggle}>
-          <input
-            type="checkbox"
-            checked={form.autopilotByDefault}
-            onChange={(e) => set("autopilotByDefault", e.target.checked)}
-          />
-          <span>
-            <strong>Arrancar en autopilot</strong>
-            <div style={hint}>
-              Las conversaciones nuevas de este número empiezan respondiendo la
-              IA sola.
-            </div>
-          </span>
-        </label>
-
-        <div style={divider} />
-
-        <label style={toggle}>
-          <input
-            type="checkbox"
-            checked={form.welcomeEnabled}
-            onChange={(e) => set("welcomeEnabled", e.target.checked)}
-          />
-          <span>
-            <strong>Mensaje de bienvenida</strong>
-            <div style={hint}>Saludo automático al primer mensaje (sin IA).</div>
-          </span>
-        </label>
-        {form.welcomeEnabled && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <textarea
-              style={{ ...input, minHeight: 70, resize: "vertical", fontFamily: "inherit" }}
-              value={form.welcomeMessage}
-              onChange={(e) => set("welcomeMessage", e.target.value)}
-              placeholder="¡Hola! Gracias por escribirnos…"
-            />
-            <AssistButton onClick={() => setAssist("welcomeMessage")} align="end" />
-          </div>
-        )}
-
-        <div style={divider} />
-
-        <label style={toggle}>
-          <input
-            type="checkbox"
-            checked={form.businessHoursEnabled}
-            onChange={(e) => set("businessHoursEnabled", e.target.checked)}
-          />
-          <span>
-            <strong>Horario de atención</strong>
-            <div style={hint}>
-              Fuera de horario responde un mensaje y deja la conversación
-              pendiente (no activa la IA).
-            </div>
-          </span>
-        </label>
-        {form.businessHoursEnabled && (
-          <BusinessHoursEditor
-            value={form.businessHours}
-            onChange={(h) => set("businessHours", h)}
-            onAssist={() => setAssist("outOfHoursMessage")}
-          />
-        )}
-
-        <div style={divider} />
-
-        <div>
-          <strong style={{ fontSize: 14 }}>Disparadores por palabra clave</strong>
-          <div style={hint}>
-            Si el mensaje contiene una palabra, ejecuta una acción antes que la
-            IA.
-          </div>
-          <KeywordTriggersEditor
-            value={form.keywordTriggers}
-            onChange={(t) => set("keywordTriggers", t)}
-          />
-        </div>
-      </div>
-
-      </>
-      )}
-
-      {tab === "limites" && (
-      <>
-      {/* ── Cuándo pasar la conversación a una persona ── */}
-      <div style={box}>
-        <SectionTitle>Cuándo pasar el chat a una persona</SectionTitle>
-        <p style={sectionHint}>
-          Un agente no debería insistir cuando el caso se le escapa. Si ocurre
-          cualquiera de estas cosas, <strong>no responde</strong>, la
-          conversación pasa a <strong>Pendiente</strong> en la bandeja y tu
-          equipo la ve para atenderla.
-        </p>
-
-        <div style={field}>
-          <span style={lbl}>Si el cliente escribe alguna de estas palabras</span>
-          <span style={fieldHint}>
-            Lo más directo: si el cliente pide hablar con alguien, se le pasa
-            sin discutir. Separa las palabras con comas.
-          </span>
-          <input
-            style={input}
-            value={form.keywords}
-            onChange={(e) => set("keywords", e.target.value)}
-            placeholder="humano, agente, reclamo, gerente, abogado"
-          />
-        </div>
-
-        <div style={field}>
-          <span style={lbl}>Cuándo rendirse por su cuenta</span>
-          <span style={fieldHint}>
-            El agente evalúa cada mensaje del cliente: si suena molesto, si
-            pide ayuda humana y si es urgente. Con esto decides cuánta señal
-            hace falta para que se aparte.
-          </span>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 4 }}>
-            {HANDOFF_LEVELS.map((level) => (
-              <label key={level.value} style={radioCard(nearestLevel(form.minConfidence) === level.value)}>
-                <input
-                  type="radio"
-                  name="handoff-level"
-                  checked={nearestLevel(form.minConfidence) === level.value}
-                  onChange={() => set("minConfidence", level.value)}
-                  style={{ marginTop: 3 }}
-                />
-                <span>
-                  <strong style={{ fontSize: 13.5 }}>{level.label}</strong>
-                  <span style={{ ...fieldHint, display: "block", marginTop: 2 }}>
-                    {level.hint}
-                  </span>
-                </span>
-              </label>
-            ))}
-          </div>
-        </div>
-
-        <label style={toggle}>
-          <input
-            type="checkbox"
-            checked={form.escalateOnNegativeSentiment}
-            onChange={(e) =>
-              set("escalateOnNegativeSentiment", e.target.checked)
-            }
-          />
-          Pasar siempre a una persona si el cliente está molesto
-        </label>
-        <span style={{ ...fieldHint, marginTop: -4 }}>
-          Un cliente enfadado rara vez se calma con un bot. Recomendado
-          dejarlo activado.
-        </span>
-      </div>
-
-      {/* ── Cuánto puede trabajar por respuesta ── */}
-      <div style={box}>
-        <SectionTitle>Cuánto puede buscar antes de responder</SectionTitle>
-        <p style={sectionHint}>
-          Antes de contestar, el agente puede consultar el CRM: buscar el
-          producto, leer la ficha del contacto o revisar tu base de
-          conocimiento. Cada consulta suma tiempo y gasto.
-        </p>
-        <div style={field}>
-          <span style={lbl}>
-            Máximo de consultas por respuesta: <strong>{form.maxIterations}</strong>
-          </span>
-          <input
-            type="range"
-            min={1}
-            max={20}
-            value={form.maxIterations}
-            onChange={(e) => set("maxIterations", Number(e.target.value))}
-            style={{ width: "100%" }}
-          />
-          <span style={fieldHint}>{iterationsHint(form.maxIterations)}</span>
-        </div>
-      </div>
-
-      {/* ── Límite de gasto ── */}
-      <div style={box}>
-        <SectionTitle>Límite de gasto al mes</SectionTitle>
-        <p style={sectionHint}>
-          El gasto de la IA se mide en <em>tokens</em>: trocitos de texto que
-          se cuentan tanto al leer la conversación como al escribir la
-          respuesta. Cuando el agente llega al límite{" "}
-          <strong>deja de responder hasta el mes siguiente</strong> y sus chats
-          pasan a tu equipo. No se llama al modelo, así que el gasto se corta
-          de verdad.
-        </p>
-
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
-          {BUDGET_PRESETS.map((preset) => (
-            <button
-              key={preset.value}
-              type="button"
-              onClick={() => set("monthlyTokenBudget", preset.value)}
-              style={chipBtn(form.monthlyTokenBudget === preset.value)}
-            >
-              {preset.label}
+        <div className="agent-essentials__item">
+          <span className="agent-essentials__label">En los chats nuevos</span>
+          <div className="seg" role="radiogroup" aria-label="Cómo responde en los chats nuevos">
+            <button type="button" role="radio" aria-checked={form.autopilotByDefault} className={form.autopilotByDefault ? "is-active" : ""} onClick={() => set("autopilotByDefault", true)}>
+              Responde solo
             </button>
-          ))}
+            <button type="button" role="radio" aria-checked={!form.autopilotByDefault} className={!form.autopilotByDefault ? "is-active" : ""} onClick={() => set("autopilotByDefault", false)}>
+              Te sugiere
+            </button>
+          </div>
         </div>
+      </section>
+      <p className="agent-essentials__hint">
+        {form.autopilotByDefault
+          ? "Responde a tus clientes sin esperar a nadie. Tu equipo puede tomar el control de cualquier chat cuando quiera."
+          : "Redacta cada respuesta y espera a que alguien de tu equipo la revise y la envíe. Ideal mientras lo pruebas."}
+      </p>
 
-        <div style={field}>
-          <span style={lbl}>Tokens al mes (0 = sin límite)</span>
-          <input
-            type="number"
-            min={0}
-            step={10000}
-            style={input}
-            value={form.monthlyTokenBudget}
-            onChange={(e) => set("monthlyTokenBudget", Number(e.target.value))}
-          />
-          <span style={fieldHint}>{budgetHint(form.monthlyTokenBudget)}</span>
-          {!isNew && bot && <BudgetMeter bot={bot} limit={form.monthlyTokenBudget} />}
-        </div>
-      </div>
+      <nav className="agent-tabs" role="tablist">
+        {TABS.map((t) => (
+          <button key={t.id} role="tab" aria-selected={tab === t.id} className={tab === t.id ? "is-active" : ""} onClick={() => setTab(t.id)}>
+            <NavIcon name={t.icon} size={15} />
+            {t.label}
+          </button>
+        ))}
+      </nav>
 
-      </>
-      )}
+      <div className="agent-panel">
+        {/* ── Qué dice ── */}
+        {tab === "dice" && (
+          <>
+            <Card title="Nombre">
+              <input className="field" value={form.name} maxLength={MAX_NAME} placeholder="Ej. Asistente de ventas" onChange={(e) => set("name", e.target.value)} />
+              <Hint>Solo lo ves tú y tu equipo; el cliente no lo ve.</Hint>
+            </Card>
+
+            <Card
+              title="Cómo debe atender"
+              action={<AssistButton onClick={() => setAssist("systemPrompt")} />}
+            >
+              <Hint>
+                Es lo más importante del agente. Escríbelo como si le explicaras el trabajo a alguien nuevo: qué vendes y a
+                quién, cómo habla tu marca, qué no debe hacer nunca y cuándo te pasa el chat.
+              </Hint>
+              {generic && (
+                <div className="agent-callout">
+                  <NavIcon name="sparkles" size={16} />
+                  <span>
+                    <strong>Todavía tiene instrucciones genéricas.</strong> Cuéntale qué vendes y el asistente te las
+                    redacta en un minuto.
+                  </span>
+                  <span style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    {onWizard && (
+                      <button type="button" className="btn btn-primary btn-sm" onClick={onWizard}>
+                        Armarlo paso a paso
+                      </button>
+                    )}
+                    <button type="button" className={`btn ${onWizard ? "btn-ghost" : "btn-primary"} btn-sm`} onClick={() => setAssist("systemPrompt")}>
+                      Redactar con el asistente
+                    </button>
+                  </span>
+                </div>
+              )}
+              <textarea
+                className="field"
+                style={{ minHeight: 220, resize: "vertical", fontFamily: "inherit", lineHeight: 1.55 }}
+                value={form.systemPrompt}
+                onChange={(e) => set("systemPrompt", e.target.value)}
+              />
+              <ul className="agent-checklist" aria-label="Qué incluir">
+                {["Qué vendes y a quién", "Tono de tu marca", "Qué no debe hacer", "Cuándo pasarte el chat"].map((c) => (
+                  <li key={c}>
+                    <NavIcon name="check" size={12} />
+                    {c}
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          </>
+        )}
+
+        {/* ── Qué puede hacer ── */}
+        {tab === "hace" && (
+          <>
+            <Card title="Para responder bien" subtitle="Lo que puede consultar antes de contestar.">
+              <div className="agent-tools">
+                {readTools.map((t) => (
+                  <ToolRow key={t.name} tool={t} checked={form.enabledTools.includes(t.name)} onToggle={() => toggleTool(t.name)} />
+                ))}
+              </div>
+            </Card>
+            <Card
+              title="Para ahorrarte trabajo"
+              subtitle={
+                form.autopilotByDefault
+                  ? "Lo que puede hacer en el CRM por su cuenta, mientras conversa."
+                  : "Lo que puede hacer en el CRM. Como está en «Te sugiere», lo aplica cuando tu equipo envía la respuesta."
+              }
+            >
+              <div className="agent-tools">
+                {actionTools.map((t) => (
+                  <ToolRow key={t.name} tool={t} checked={form.enabledTools.includes(t.name)} onToggle={() => toggleTool(t.name)} />
+                ))}
+              </div>
+            </Card>
+          </>
+        )}
+
+        {/* ── Cuándo responde ── */}
+        {tab === "cuando" && (
+          <>
+            <Card title="Saludo automático" subtitle="Un mensaje fijo al primer mensaje del cliente, al instante y sin usar IA.">
+              <Switch checked={form.welcomeEnabled} onChange={(v) => set("welcomeEnabled", v)} label={form.welcomeEnabled ? "Activado" : "Desactivado"} />
+              {form.welcomeEnabled && (
+                <>
+                  <textarea
+                    className="field"
+                    style={{ minHeight: 70, resize: "vertical", fontFamily: "inherit" }}
+                    value={form.welcomeMessage}
+                    maxLength={MAX_TEXT}
+                    onChange={(e) => set("welcomeMessage", e.target.value)}
+                    placeholder="¡Hola! Gracias por escribirnos…"
+                  />
+                  <Counter value={form.welcomeMessage} max={MAX_TEXT} />
+                  <AssistButton onClick={() => setAssist("welcomeMessage")} align="end" />
+                </>
+              )}
+            </Card>
+
+            <Card title="Horario de atención" subtitle="Fuera de horario envía un aviso y deja el chat para tu equipo, sin que responda la IA.">
+              <Switch
+                checked={form.businessHoursEnabled}
+                onChange={(v) => set("businessHoursEnabled", v)}
+                label={form.businessHoursEnabled ? "Solo en horario" : "Responde a cualquier hora"}
+              />
+              {form.businessHoursEnabled && (
+                <BusinessHoursEditor value={form.businessHours} onChange={(h) => set("businessHours", h)} onAssist={() => setAssist("outOfHoursMessage")} />
+              )}
+            </Card>
+
+            <Card
+              title="Respuestas por palabra clave"
+              subtitle="Si el mensaje del cliente contiene una palabra, hace algo fijo antes que la IA. Útil para «precios», «ubicación» o «baja»."
+            >
+              <KeywordTriggersEditor value={form.keywordTriggers} onChange={(t) => set("keywordTriggers", t)} />
+            </Card>
+          </>
+        )}
+
+        {/* ── Cuándo te pasa el chat ── */}
+        {tab === "persona" && (
+          <Card
+            title="Cuándo te pasa el chat"
+            subtitle="Un buen agente no insiste cuando algo se le escapa. En estos casos deja de responder y el chat aparece como Pendiente en tu bandeja."
+          >
+            <div style={field}>
+              <span style={lbl}>Si el cliente escribe alguna de estas palabras</span>
+              <input className="field" value={form.keywords} onChange={(e) => set("keywords", e.target.value)} placeholder="humano, persona, asesor, reclamo" />
+              <Hint>Sepáralas con comas. Es lo más directo: si pide hablar con alguien, se le pasa sin discutir.</Hint>
+            </div>
+
+            <div style={field}>
+              <span style={lbl}>Además, por su cuenta</span>
+              <div className="agent-options">
+                {HANDOFF_LEVELS.map((level) => {
+                  const on = nearestLevel(form.minConfidence) === level.value;
+                  return (
+                    <label key={level.value} className={`agent-option${on ? " is-on" : ""}`}>
+                      <input type="radio" name="handoff-level" checked={on} onChange={() => set("minConfidence", level.value)} />
+                      <span>
+                        <strong>{level.label}</strong>
+                        <small>{level.hint}</small>
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
+            <Switch
+              checked={form.escalateOnNegativeSentiment}
+              onChange={(v) => set("escalateOnNegativeSentiment", v)}
+              label="Pasar siempre el chat si el cliente está molesto"
+              hint="Un cliente enfadado rara vez se calma con un bot. Recomendado."
+            />
+          </Card>
+        )}
+
+        {/* ── Modelo y gasto ── */}
+        {tab === "gasto" && (
+          <>
+            <Card title="Qué IA usa" subtitle="Todas sirven para vender por WhatsApp. Empieza por la económica y sube solo si notas que se queda corta.">
+              <div className="agent-models">
+                {MODEL_OPTIONS.map((m) => {
+                  const on = form.model === m.value;
+                  const per1000 = costPerReply(m.value);
+                  return (
+                    <label key={m.value} className={`agent-model${on ? " is-on" : ""}`}>
+                      <input type="radio" name="model" checked={on} onChange={() => set("model", m.value)} />
+                      <span className="agent-model__body">
+                        <span className="agent-model__title">
+                          {m.title}
+                          {m.recommended && <em>Recomendado</em>}
+                        </span>
+                        <small>{m.desc}</small>
+                        <span className="agent-model__meta">
+                          {m.provider} · {m.value}
+                          {per1000 !== null && ` · ≈ ${usd(per1000 * 1000)} por 1.000 respuestas`}
+                        </span>
+                      </span>
+                    </label>
+                  );
+                })}
+                {!MODEL_OPTIONS.some((m) => m.value === form.model) && (
+                  <p className="agent-muted">
+                    Modelo actual: <code>{form.model}</code>
+                  </p>
+                )}
+              </div>
+              <Hint>Los modelos de OpenAI necesitan tu clave de OpenAI; los Claude, tu clave de Anthropic (Ajustes › Inteligencia Artificial).</Hint>
+            </Card>
+
+            <Card title="Límite de gasto al mes" subtitle="Al llegar al límite deja de responder hasta el mes siguiente y sus chats pasan a tu equipo. El gasto se corta de verdad.">
+              <BudgetPicker model={form.model} value={form.monthlyTokenBudget} onChange={(v) => set("monthlyTokenBudget", v)} />
+              {!isNew && bot && <BudgetMeter bot={bot} limit={form.monthlyTokenBudget} model={form.model} />}
+            </Card>
+
+            <details className="agent-advanced">
+              <summary>
+                <NavIcon name="settings" size={14} />
+                Ajustes avanzados
+              </summary>
+              <div className="agent-advanced__body">
+                <div style={field}>
+                  <span style={lbl}>Cuánto piensa antes de responder</span>
+                  <div className="agent-options agent-options--row">
+                    {effortValues.map((ef) => {
+                      const on = form.effort === ef;
+                      return (
+                        <label key={ef} className={`agent-option${on ? " is-on" : ""}`}>
+                          <input type="radio" name="effort" checked={on} onChange={() => set("effort", ef)} />
+                          <span>
+                            <strong>{EFFORT_LABEL[ef]?.title ?? ef}</strong>
+                            <small>{EFFORT_LABEL[ef]?.desc}</small>
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div style={field}>
+                  <span style={lbl}>
+                    Consultas por respuesta: <strong style={{ color: "var(--text)" }}>{form.maxIterations}</strong>
+                  </span>
+                  <input type="range" min={1} max={20} value={form.maxIterations} onChange={(e) => set("maxIterations", Number(e.target.value))} style={{ width: "100%" }} />
+                  <Hint>{iterationsHint(form.maxIterations)}</Hint>
+                </div>
+              </div>
+            </details>
+          </>
+        )}
       </div>
 
       {/* Acciones: fijas abajo, alcanzables desde cualquier pestaña */}
-      <div className="sticky-bar" style={actionBar}>
+      <div className="sticky-bar agent-actions" style={actionBar}>
         {!isNew && onDeleted && !bot?.isDefault && (
           <button onClick={onDeleted} style={{ ...ghostBtn, color: "#e08a8a", borderColor: "#5a2a2a" }}>
             Eliminar
           </button>
         )}
-        <div style={{ flex: 1 }} />
-        {save.isError && (
-          <span style={{ color: "#ff6b6b", fontSize: 13 }}>
-            {(save.error as Error).message}
-          </span>
-        )}
-        <button onClick={onCancel} style={ghostBtn}>
-          Cancelar
-        </button>
-        <button
-          onClick={() => save.mutate()}
-          disabled={save.isPending || !form.name.trim()}
-          style={primaryBtn}
+        <span
+          className={`agent-save-state${save.isError ? " is-error" : dirty ? " is-dirty" : justSaved ? " is-saved" : ""}`}
+          role="status"
+          aria-live="polite"
         >
-          {save.isPending ? "Guardando…" : isNew ? "Crear agente" : "Guardar"}
+          {save.isError ? (
+            <>
+              <NavIcon name="alert" size={13} /> {explainError((save.error as Error).message).text}
+            </>
+          ) : tooLong ? (
+            <>
+              <NavIcon name="alert" size={13} /> Hay un texto demasiado largo
+            </>
+          ) : dirty ? (
+            <>
+              <i aria-hidden /> Cambios sin guardar
+            </>
+          ) : justSaved ? (
+            <>
+              <NavIcon name="check" size={13} /> Guardado
+            </>
+          ) : isNew ? null : (
+            "Todo guardado"
+          )}
+        </span>
+        {isNew ? (
+          <button onClick={cancel} style={ghostBtn} title="Cerrar sin guardar">
+            Cancelar
+          </button>
+        ) : (
+          dirty && (
+            <button onClick={discard} style={ghostBtn}>
+              Descartar
+            </button>
+          )
+        )}
+        <button onClick={() => save.mutate()} disabled={!canSave} style={primaryBtn} title="Ctrl+S">
+          {save.isPending ? "Guardando…" : isNew ? "Crear agente" : "Guardar cambios"}
         </button>
       </div>
 
@@ -750,210 +726,124 @@ export function BotEditor({
   );
 }
 
-function BusinessHoursEditor({
-  value,
-  onChange,
-  onAssist,
-}: {
-  value: BusinessHours;
-  onChange: (h: BusinessHours) => void;
-  onAssist?: () => void;
-}) {
-  function setDay(d: Weekday, range: { from: string; to: string } | null) {
-    onChange({ ...value, days: { ...value.days, [d]: range } });
-  }
+// ── Piezas ─────────────────────────────────────────────────────
+
+function Card({ title, subtitle, action, children }: { title: string; subtitle?: string; action?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 4 }}>
-      <div style={field}>
-        <span style={lbl}>Zona horaria</span>
-        <input
-          style={input}
-          value={value.timezone}
-          onChange={(e) => onChange({ ...value, timezone: e.target.value })}
-          placeholder="America/Lima"
-        />
-      </div>
-      {weekday.map((d) => {
-        const range = value.days?.[d] ?? null;
-        const openDay = !!range;
-        return (
-          <div key={d} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 6, width: 120 }}>
-              <input
-                type="checkbox"
-                checked={openDay}
-                onChange={(e) =>
-                  setDay(d, e.target.checked ? { from: "09:00", to: "18:00" } : null)
-                }
-              />
-              {WEEKDAY_LABEL[d]}
-            </label>
-            {openDay && range && (
-              <>
-                <input
-                  type="time"
-                  style={{ ...input, width: 110 }}
-                  value={range.from}
-                  onChange={(e) => setDay(d, { ...range, from: e.target.value })}
-                />
-                <span style={{ color: "var(--muted)" }}>–</span>
-                <input
-                  type="time"
-                  style={{ ...input, width: 110 }}
-                  value={range.to}
-                  onChange={(e) => setDay(d, { ...range, to: e.target.value })}
-                />
-              </>
-            )}
-            {!openDay && (
-              <span style={{ color: "var(--muted)", fontSize: 13 }}>Cerrado</span>
-            )}
-          </div>
-        );
-      })}
-      <div style={field}>
-        <div style={labelRow}>
-          <span style={lbl}>Mensaje fuera de horario</span>
-          {onAssist && <AssistButton onClick={onAssist} />}
+    <section className="agent-card">
+      <header className="agent-card__head">
+        <div>
+          <h3>{title}</h3>
+          {subtitle && <p>{subtitle}</p>}
         </div>
-        <textarea
-          style={{ ...input, minHeight: 60, resize: "vertical", fontFamily: "inherit" }}
-          value={value.outOfHoursMessage ?? ""}
-          onChange={(e) =>
-            onChange({ ...value, outOfHoursMessage: e.target.value })
-          }
-        />
-      </div>
-    </div>
+        {action}
+      </header>
+      {children}
+    </section>
   );
 }
 
-function KeywordTriggersEditor({
-  value,
-  onChange,
-}: {
-  value: KeywordTrigger[];
-  onChange: (t: KeywordTrigger[]) => void;
-}) {
-  function update(i: number, patch: Partial<KeywordTrigger>) {
-    onChange(value.map((t, idx) => (idx === i ? { ...t, ...patch } : t)));
-  }
+function Hint({ children }: { children: React.ReactNode }) {
+  return <span className="agent-hint">{children}</span>;
+}
+
+function Switch({ checked, onChange, label, hint }: { checked: boolean; onChange: (v: boolean) => void; label: string; hint?: string }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 8 }}>
-      {value.map((t, i) => (
-        <div key={i} style={{ ...box, gap: 8, padding: 12 }}>
-          <input
-            style={input}
-            value={t.keywords.join(", ")}
-            placeholder="precio, costo, cuánto cuesta"
-            onChange={(e) =>
-              update(i, {
-                keywords: e.target.value
-                  .split(",")
-                  .map((k) => k.trim())
-                  .filter(Boolean),
-              })
-            }
-          />
-          <div style={{ display: "flex", gap: 8 }}>
-            <select
-              style={{ ...input, flex: 1 }}
-              value={t.action}
-              onChange={(e) =>
-                update(i, { action: e.target.value as KeywordAction })
-              }
-            >
-              {keywordActions.map((a) => (
-                <option key={a} value={a}>
-                  {ACTION_LABEL[a]}
-                </option>
-              ))}
-            </select>
+    <label className={`agent-switch${checked ? " is-on" : ""}`}>
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      <span className="agent-switch__track" aria-hidden="true">
+        <span />
+      </span>
+      <span className="agent-switch__text">
+        <strong>{label}</strong>
+        {hint && <small>{hint}</small>}
+      </span>
+    </label>
+  );
+}
+
+// Una acción sin datos (p. ej. sin etiquetas creadas) se puede activar igual,
+// pero se avisa de que no hará nada hasta configurarla.
+function ToolRow({ tool, checked, onToggle }: { tool: AgentToolInfo; checked: boolean; onToggle: () => void }) {
+  const copy = TOOL_COPY[tool.name];
+  return (
+    <label className={`agent-tool${checked ? " is-on" : ""}`} title={tool.name}>
+      <span className="agent-tool__icon">
+        <NavIcon name={copy?.icon ?? "bolt"} size={16} />
+      </span>
+      <span className="agent-tool__body">
+        <strong>
+          {copy?.title ?? tool.label}
+          {copy?.recommended && <em>Recomendado</em>}
+        </strong>
+        {copy && <small>{copy.desc}</small>}
+        {tool.unavailableReason && (
+          <span className="agent-tool__warn">
+            <NavIcon name="alert" size={13} />
+            {tool.unavailableReason}
+          </span>
+        )}
+      </span>
+      <input type="checkbox" checked={checked} onChange={onToggle} className="agent-tool__check" />
+      <span className="agent-switch__track" aria-hidden="true">
+        <span />
+      </span>
+    </label>
+  );
+}
+
+/** Presupuesto en dólares, convertido a tokens según el modelo. */
+function BudgetPicker({ model, value, onChange }: { model: string; value: number; onChange: (v: number) => void }) {
+  const [custom, setCustom] = useState(false);
+  const priced = costPerReply(model) !== null;
+  const presets = BUDGET_USD.map((u) => ({ usd: u, tokens: tokensForUsd(model, u) }));
+  const current = usdForTokens(model, value);
+  const perReply = costPerReply(model);
+  return (
+    <div style={field}>
+      <div className="agent-chips">
+        <button type="button" className={`agent-chip${value === 0 ? " is-on" : ""}`} onClick={() => onChange(0)}>
+          Sin límite
+        </button>
+        {priced &&
+          presets.map((p) => (
             <button
-              onClick={() => onChange(value.filter((_, idx) => idx !== i))}
-              style={{ ...ghostBtn, color: "#e08a8a", borderColor: "#5a2a2a" }}
-              title="Quitar disparador"
+              key={p.usd}
+              type="button"
+              className={`agent-chip${p.tokens !== null && value === p.tokens ? " is-on" : ""}`}
+              onClick={() => p.tokens !== null && onChange(p.tokens)}
             >
-              <NavIcon name="x" size={14} />
+              USD {p.usd} al mes
             </button>
-          </div>
-          {t.action === "reply" && (
-            <textarea
-              style={{ ...input, minHeight: 50, resize: "vertical", fontFamily: "inherit" }}
-              value={t.value ?? ""}
-              placeholder="Texto que se responde automáticamente…"
-              onChange={(e) => update(i, { value: e.target.value })}
-            />
-          )}
+          ))}
+        <button type="button" className={`agent-chip${custom ? " is-on" : ""}`} onClick={() => setCustom((c) => !c)}>
+          Otra cantidad
+        </button>
+      </div>
+      {(custom || !priced) && (
+        <div className="agent-custom">
+          <input type="number" min={0} step={10000} className="field" value={value} onChange={(e) => onChange(Number(e.target.value))} />
+          <span className="agent-hint">tokens al mes (0 = sin límite). Un token es un trocito de texto; una respuesta usa unos 1.500.</span>
         </div>
-      ))}
-      <button
-        onClick={() =>
-          onChange([...value, { keywords: [], action: "reply", value: "" }])
-        }
-        style={ghostBtn}
-      >
-        + Añadir disparador
-      </button>
+      )}
+      <Hint>
+        {value <= 0
+          ? "Sin límite: el agente responde siempre. Vigila el consumo en Ajustes › Consumo de IA."
+          : perReply !== null && current !== null
+            ? `Unos ${usd(current)} al mes: alcanza para aproximadamente ${Math.round(current / perReply).toLocaleString("es")} respuestas.`
+            : `Alcanza para unas ${Math.round(value / 1500).toLocaleString("es")} respuestas al mes.`}
+      </Hint>
     </div>
   );
 }
-
-const tabBar: React.CSSProperties = {
-  display: "flex",
-  gap: 4,
-  padding: "0 0 2px",
-  borderBottom: "1px solid var(--border)",
-  overflowX: "auto",
-};
-
-function tabBtn(active: boolean): React.CSSProperties {
-  return {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 7,
-    padding: "9px 14px",
-    border: "none",
-    borderBottom: `2px solid ${active ? "var(--accent, #25d366)" : "transparent"}`,
-    background: "transparent",
-    color: active ? "var(--text)" : "var(--muted)",
-    fontSize: 13.5,
-    fontWeight: active ? 600 : 500,
-    cursor: "pointer",
-    whiteSpace: "nowrap",
-    transition: "color 150ms, border-color 150ms",
-  };
-}
-
-const tabPanel: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 16,
-  padding: "16px 0",
-};
-
-// Siempre visible: da igual en qué pestaña estés, guardar está a un clic.
-const actionBar: React.CSSProperties = {
-  position: "sticky",
-  bottom: 0,
-  display: "flex",
-  alignItems: "center",
-  gap: 10,
-  padding: "12px 0",
-  borderTop: "1px solid var(--border)",
-  background: "var(--panel-2)",
-};
 
 /** Consumo real del mes frente al presupuesto. Sin esto el número es ciego. */
-function BudgetMeter({ bot, limit }: { bot: BotDto; limit: number }) {
+function BudgetMeter({ bot, limit, model }: { bot: BotDto; limit: number; model: string }) {
   const spent = bot.tokensThisMonth;
+  const spentUsd = usdForTokens(model, spent);
+  const spentText = spentUsd !== null ? `≈ ${usd(spentUsd)}` : `${spent.toLocaleString("es")} tokens`;
   if (limit <= 0) {
-    return (
-      <span style={fieldHint}>
-        Este mes lleva <strong>{spent.toLocaleString("es")}</strong> tokens. Sin
-        límite configurado.
-      </span>
-    );
+    return <span className="agent-hint">Este mes lleva {spentText} ({spent.toLocaleString("es")} tokens).</span>;
   }
   const pct = Math.min(100, Math.round((spent / limit) * 100));
   const over = spent >= limit;
@@ -968,122 +858,135 @@ function BudgetMeter({ bot, limit }: { bot: BotDto; limit: number }) {
           }}
         />
       </div>
-      <span style={{ ...fieldHint, color: over ? "#e08a8a" : "var(--muted)" }}>
-        {spent.toLocaleString("es")} de {limit.toLocaleString("es")} tokens
-        {over ? " · agotado, el agente no responde" : ` · ${pct}%`}
+      <span className="agent-hint" style={{ color: over ? "#e08a8a" : undefined }}>
+        Este mes: {spentText} · {pct} % del límite{over ? " · agotado, el agente no responde" : ""}
       </span>
     </div>
   );
 }
 
-function radioCard(active: boolean): React.CSSProperties {
-  return {
-    display: "flex",
-    alignItems: "flex-start",
-    gap: 9,
-    padding: "10px 12px",
-    borderRadius: 9,
-    border: `1px solid ${active ? "var(--accent)" : "var(--border)"}`,
-    background: active ? "var(--accent-soft)" : "transparent",
-    cursor: "pointer",
-  };
-}
-
-function chipBtn(active: boolean): React.CSSProperties {
-  return {
-    padding: "7px 13px",
-    borderRadius: 999,
-    border: `1px solid ${active ? "var(--accent)" : "var(--border)"}`,
-    background: active ? "var(--accent-soft)" : "transparent",
-    color: active ? "var(--text)" : "var(--muted)",
-    cursor: "pointer",
-    fontSize: 13,
-  };
-}
-
-const meterTrack: React.CSSProperties = {
-  height: 6,
-  borderRadius: 999,
-  background: "var(--field, var(--field))",
-  overflow: "hidden",
-  marginBottom: 4,
-};
-
-// Se anima con transform (no con width) para no recalcular el layout.
-const meterFill: React.CSSProperties = {
-  width: "100%",
-  height: "100%",
-  borderRadius: 999,
-  transformOrigin: "left",
-  transition: "transform 300ms cubic-bezier(0.22,1,0.36,1)",
-};
-
-const sectionHint: React.CSSProperties = {
-  margin: "0 0 12px",
-  fontSize: 12.5,
-  color: "var(--muted)",
-  lineHeight: 1.5,
-};
-
-const fieldHint: React.CSSProperties = {
-  display: "block",
-  fontSize: 11.5,
-  color: "var(--muted)",
-  lineHeight: 1.45,
-  marginBottom: 4,
-};
-
-function SectionTitle({ children }: { children: React.ReactNode }) {
+function BusinessHoursEditor({ value, onChange, onAssist }: { value: BusinessHours; onChange: (h: BusinessHours) => void; onAssist?: () => void }) {
+  function setDay(d: Weekday, range: { from: string; to: string } | null) {
+    onChange({ ...value, days: { ...value.days, [d]: range } });
+  }
+  const known = TIMEZONES.some((t) => t.value === value.timezone);
   return (
-    <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 4 }}>{children}</div>
-  );
-}
-
-// Fila de herramienta. Una acción sin datos (p. ej. sin etiquetas creadas) se
-// puede marcar igual, pero se avisa de que no hará nada hasta configurarla.
-function ToolRow({
-  tool,
-  checked,
-  onToggle,
-}: {
-  tool: AgentToolInfo;
-  checked: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <label style={toolRow}>
-      <input type="checkbox" checked={checked} onChange={onToggle} />
-      <span>
-        <strong style={{ fontSize: 13 }}>{tool.label}</strong>{" "}
-        <code style={{ color: "var(--accent)", fontSize: 11 }}>{tool.name}</code>
-        <div style={{ color: "var(--muted)", fontSize: 12 }}>
-          {tool.description}
-        </div>
-        {tool.unavailableReason && (
-          <div style={{ color: "#e0b766", fontSize: 12, marginTop: 3, display: "flex", alignItems: "center", gap: 5 }}>
-            <NavIcon name="alert" size={13} />
-            {tool.unavailableReason}
+    <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 4 }}>
+      <div style={field}>
+        <span style={lbl}>Zona horaria</span>
+        <select className="field" value={value.timezone} onChange={(e) => onChange({ ...value, timezone: e.target.value })}>
+          {!known && <option value={value.timezone}>{value.timezone}</option>}
+          {TIMEZONES.map((t) => (
+            <option key={t.value} value={t.value}>
+              {t.label}
+            </option>
+          ))}
+        </select>
+      </div>
+      {weekday.map((d) => {
+        const range = value.days?.[d] ?? null;
+        const openDay = !!range;
+        return (
+          <div key={d} className="agent-day">
+            <label style={{ display: "flex", alignItems: "center", gap: 6, width: 120 }}>
+              <input type="checkbox" checked={openDay} onChange={(e) => setDay(d, e.target.checked ? { from: "09:00", to: "18:00" } : null)} />
+              {WEEKDAY_LABEL[d]}
+            </label>
+            {openDay && range ? (
+              <>
+                <input type="time" style={{ ...input, width: 110 }} value={range.from} onChange={(e) => setDay(d, { ...range, from: e.target.value })} />
+                <span style={{ color: "var(--muted)" }}>a</span>
+                <input type="time" style={{ ...input, width: 110 }} value={range.to} onChange={(e) => setDay(d, { ...range, to: e.target.value })} />
+              </>
+            ) : (
+              <span style={{ color: "var(--muted)", fontSize: 13 }}>Cerrado</span>
+            )}
           </div>
-        )}
-      </span>
-    </label>
+        );
+      })}
+      <div style={field}>
+        <div className="agent-card__head" style={{ marginBottom: 0 }}>
+          <span style={lbl}>Mensaje fuera de horario</span>
+          {onAssist && <AssistButton onClick={onAssist} />}
+        </div>
+        <textarea
+          className="field"
+          style={{ minHeight: 60, resize: "vertical", fontFamily: "inherit" }}
+          value={value.outOfHoursMessage ?? ""}
+          maxLength={MAX_TEXT}
+          onChange={(e) => onChange({ ...value, outOfHoursMessage: e.target.value })}
+        />
+        <Counter value={value.outOfHoursMessage ?? ""} max={MAX_TEXT} />
+      </div>
+    </div>
   );
 }
 
-const toolRow: React.CSSProperties = {
-  display: "flex",
-  gap: 10,
-  alignItems: "flex-start",
-  padding: "8px 10px",
-  border: "1px solid var(--border)",
-  borderRadius: 8,
-};
-
-const hint: React.CSSProperties = {
-  color: "var(--muted)",
-  fontSize: 12,
-  marginTop: 2,
-};
+function KeywordTriggersEditor({ value, onChange }: { value: KeywordTrigger[]; onChange: (t: KeywordTrigger[]) => void }) {
+  function update(i: number, patch: Partial<KeywordTrigger>) {
+    onChange(value.map((t, idx) => (idx === i ? { ...t, ...patch } : t)));
+  }
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      {value.map((t, i) => (
+        <div key={i} className="agent-trigger">
+          <div style={field}>
+            <span style={lbl}>Si el cliente escribe</span>
+            <input
+              className="field"
+              value={t.keywords.join(", ")}
+              placeholder="precio, costo, cuánto cuesta"
+              onChange={(e) =>
+                update(i, {
+                  keywords: e.target.value
+                    .split(",")
+                    .map((k) => k.trim())
+                    .filter(Boolean),
+                })
+              }
+            />
+          </div>
+          <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
+            <div style={{ ...field, flex: 1 }}>
+              <span style={lbl}>Entonces</span>
+              <select className="field" value={t.action} onChange={(e) => update(i, { action: e.target.value as KeywordAction })}>
+                {keywordActions.map((a) => (
+                  <option key={a} value={a}>
+                    {ACTION_LABEL[a]}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button
+              onClick={() => onChange(value.filter((_, idx) => idx !== i))}
+              style={{ ...ghostBtn, color: "#e08a8a", borderColor: "#5a2a2a" }}
+              title="Quitar"
+              aria-label="Quitar esta respuesta"
+            >
+              <NavIcon name="x" size={14} />
+            </button>
+          </div>
+          {t.action === "reply" && (
+            <textarea
+              className="field"
+              style={{ minHeight: 50, resize: "vertical", fontFamily: "inherit" }}
+              value={t.value ?? ""}
+              maxLength={MAX_TEXT}
+              placeholder="Texto que se responde automáticamente…"
+              onChange={(e) => update(i, { value: e.target.value })}
+            />
+          )}
+          {t.action === "reply" && (
+            <Counter value={t.value ?? ""} max={MAX_TEXT} />
+          )}
+        </div>
+      ))}
+      <button onClick={() => onChange([...value, { keywords: [], action: "reply", value: "" }])} style={{ ...ghostBtn, alignSelf: "flex-start" }}>
+        <NavIcon name="plus" size={14} /> Añadir respuesta por palabra
+      </button>
+    </div>
+  );
+}
 
 // Abre el asistente de redacción para el campo de al lado.
 function AssistButton({ onClick, align }: { onClick: () => void; align?: "end" }) {
@@ -1100,15 +1003,31 @@ function AssistButton({ onClick, align }: { onClick: () => void; align?: "end" }
   );
 }
 
-const labelRow: React.CSSProperties = {
+// Siempre visible: da igual en qué pestaña estés, guardar está a un clic.
+const actionBar: React.CSSProperties = {
+  position: "sticky",
+  bottom: 0,
   display: "flex",
   alignItems: "center",
-  justifyContent: "space-between",
-  gap: 8,
+  gap: 10,
+  padding: "12px 0",
+  borderTop: "1px solid var(--border)",
+  background: "var(--panel-2)",
 };
 
-const divider: React.CSSProperties = {
-  height: 1,
-  background: "var(--border)",
-  margin: "4px 0",
+const meterTrack: React.CSSProperties = {
+  height: 6,
+  borderRadius: 999,
+  background: "var(--field)",
+  overflow: "hidden",
+  marginBottom: 4,
+};
+
+// Se anima con transform (no con width) para no recalcular el layout.
+const meterFill: React.CSSProperties = {
+  width: "100%",
+  height: "100%",
+  borderRadius: 999,
+  transformOrigin: "left",
+  transition: "transform 300ms cubic-bezier(0.22,1,0.36,1)",
 };

@@ -64,10 +64,10 @@ export const STEPS: StepMeta[] = [
     title: "Dale personalidad a tu agente",
     why: "Nace con instrucciones genéricas. Cuéntale qué vendes y cómo hablar.",
     minutes: 5,
-    href: "/agentes",
-    cta: "Configurar el agente",
+    href: "/agentes?asistente=1",
+    cta: "Armar mi agente con ayuda",
     details: [
-      "Escribe las instrucciones, o pide al asistente que las redacte a partir de tu negocio.",
+      "El asistente te hace cinco preguntas (qué vendes, su misión, qué puede hacer, cuándo te avisa) y redacta las instrucciones por ti.",
       "Activa el saludo automático y, si lo necesitas, el horario de atención.",
       "Elige qué puede hacer: consultar el catálogo, buscar en el conocimiento, mover el embudo, escalar a un humano.",
     ],

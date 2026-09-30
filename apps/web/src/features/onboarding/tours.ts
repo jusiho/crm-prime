@@ -148,6 +148,12 @@ export const TOURS: TourDef[] = [
         placement: "right",
       },
       {
+        target: "[data-tour=agents-wizard]",
+        title: "Con ayuda",
+        body: "¿Primera vez? Cinco preguntas y el agente queda armado: qué vendes, su misión, qué puede hacer y cuándo te avisa.",
+        placement: "bottom",
+      },
+      {
         target: "[data-tour=agents-editor]",
         title: "Instrucciones",
         body: "Aquí vive su personalidad: qué vende, cómo habla, qué no debe hacer y cuándo pasa la conversación a una persona.",

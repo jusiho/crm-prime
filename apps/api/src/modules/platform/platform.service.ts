@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
-import type { PlatformOrg, PlatformOverview, UpdatePlatformOrgInput } from "@crm/shared";
+import { estimateAiCost, type PlatformOrg, type PlatformOverview, type UpdatePlatformOrgInput } from "@crm/shared";
 import { env } from "../../common/utils/env";
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { runUnscoped } from "../../infra/tenant/tenant.context";
@@ -30,8 +30,7 @@ export class PlatformService {
           (SELECT count(*) FROM users WHERE "isActive")                                          AS users,
           (SELECT count(*) FROM whatsapp_connections WHERE "isActive")                           AS numbers,
           (SELECT count(*) FROM whatsapp_connections WHERE "isActive" AND mode = 'coexistence')  AS coexistence,
-          (SELECT count(*) FROM messages WHERE "createdAt" >= now() - interval '7 days')          AS messages7,
-          (SELECT coalesce(sum("costUsd"), 0) FROM ai_runs WHERE "createdAt" >= date_trunc('month', now())) AS ai_cost
+          (SELECT count(*) FROM messages WHERE "createdAt" >= now() - interval '7 days')          AS messages7
       `;
       const days = await this.prisma.$queryRaw<Array<{ day: Date; count: bigint }>>`
         SELECT date_trunc('day', "createdAt")::date AS day, count(*) AS count
@@ -53,7 +52,7 @@ export class PlatformService {
         numbers: n(totals?.numbers),
         coexistenceNumbers: n(totals?.coexistence),
         messages7d: n(totals?.messages7),
-        aiCostMonthUsd: n(totals?.ai_cost),
+        aiCostMonthUsd: [...(await this.monthCostByOrg()).values()].reduce((a, b) => a + b, 0),
         signupsByDay: days.map((d) => ({ day: toDay(d.day), count: n(d.count) })),
         byPlan: plans.map((p) => ({ plan: p.plan, count: n(p.count) })),
       };
@@ -80,7 +79,6 @@ export class PlatformService {
           contacts: bigint;
           messages30: bigint;
           last_message_at: Date | null;
-          ai_cost: unknown;
           onboarding_completed_at: Date | null;
         }>
       >`
@@ -92,14 +90,13 @@ export class PlatformService {
           (SELECT count(*) FROM contacts c WHERE c."orgId" = o.id)                                      AS contacts,
           (SELECT count(*) FROM messages m WHERE m."orgId" = o.id AND m."createdAt" >= now() - interval '30 days') AS messages30,
           (SELECT max(m."createdAt") FROM messages m WHERE m."orgId" = o.id)                            AS last_message_at,
-          (SELECT coalesce(sum(r."costUsd"), 0) FROM ai_runs r JOIN conversations c ON c.id = r."conversationId"
-             WHERE c."orgId" = o.id AND r."createdAt" >= date_trunc('month', now()))                   AS ai_cost,
           (SELECT s."completedAt" FROM onboarding_states s WHERE s."orgId" = o.id)                     AS onboarding_completed_at
         FROM organizations o
         WHERE ${q} = '' OR o.name ILIKE ${"%" + q + "%"} OR o.slug ILIKE ${"%" + q + "%"}
         ORDER BY o."createdAt" DESC
         LIMIT 500
       `;
+      const costs = await this.monthCostByOrg();
       return rows.map((r) => ({
         id: r.id,
         slug: r.slug,
@@ -115,10 +112,30 @@ export class PlatformService {
         contacts: Number(r.contacts),
         messages30d: Number(r.messages30),
         lastMessageAt: r.last_message_at?.toISOString() ?? null,
-        aiCostMonthUsd: Number(r.ai_cost ?? 0),
+        aiCostMonthUsd: costs.get(r.id) ?? 0,
         onboardingCompletedAt: r.onboarding_completed_at?.toISOString() ?? null,
       }));
     });
+  }
+
+  /**
+   * Gasto estimado de IA del mes por empresa (lo pagan ellas con su clave; es
+   * para saber quién usa la IA). Precio por modelo, calculado al leer.
+   */
+  private async monthCostByOrg(): Promise<Map<string, number>> {
+    const rows = await runUnscoped("consola de plataforma: consumo de IA", () =>
+      this.prisma.$queryRaw<Array<{ orgId: string; model: string; input: bigint; output: bigint }>>`
+        SELECT "orgId", model, sum("inputTokens")::bigint AS input, sum("outputTokens")::bigint AS output
+        FROM ai_usage WHERE "createdAt" >= date_trunc('month', now())
+        GROUP BY 1, 2
+      `,
+    );
+    const out = new Map<string, number>();
+    for (const r of rows) {
+      const cost = estimateAiCost(r.model, Number(r.input), Number(r.output)) ?? 0;
+      out.set(r.orgId, (out.get(r.orgId) ?? 0) + cost);
+    }
+    return out;
   }
 
   /** Cambiar de plan o suspender/reactivar. `organizations` no lleva RLS. */

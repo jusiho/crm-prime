@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { AiSettingsService } from "../../ai/ai-settings.service";
 import { EMBEDDING_DIM, type EmbeddingProvider } from "./embedding.provider";
+import { AiUsageService } from "../../ai/ai-usage.service";
 
 const MODEL = "text-embedding-3-small";
 const BATCH = 96;
@@ -18,7 +19,10 @@ export class OpenAIEmbeddingProvider implements EmbeddingProvider {
   readonly name = "openai";
   readonly dim = EMBEDDING_DIM;
 
-  constructor(private readonly settings: AiSettingsService) {}
+  constructor(
+    private readonly settings: AiSettingsService,
+    private readonly usage: AiUsageService,
+  ) {}
 
   async available(): Promise<boolean> {
     const c = await this.settings.resolveFor("openai");
@@ -40,7 +44,11 @@ export class OpenAIEmbeddingProvider implements EmbeddingProvider {
         const body = await res.text().catch(() => "");
         throw new Error(`OpenAI embeddings ${res.status}: ${body.slice(0, 200)}`);
       }
-      const json = (await res.json()) as { data: { index: number; embedding: number[] }[] };
+      const json = (await res.json()) as {
+        data: { index: number; embedding: number[] }[];
+        usage?: { prompt_tokens?: number };
+      };
+      this.usage.record({ feature: "knowledge_index", model: MODEL, inputTokens: json.usage?.prompt_tokens ?? 0, outputTokens: 0 });
       const sorted = [...json.data].sort((a, b) => a.index - b.index);
       out.push(...sorted.map((d) => d.embedding));
     }

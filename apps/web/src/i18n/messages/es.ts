@@ -40,6 +40,7 @@ export const es: Messages = {
     myAccount: "Mi cuenta",
     language: "Idioma",
     gettingStarted: "Primeros pasos",
+    dashboard: "Panel",
     help: "Ayuda",
     helpTour: "Tour de esta pantalla",
     helpDocs: "Documentación",
@@ -62,6 +63,7 @@ export const es: Messages = {
     settings: { title: "Ajustes", subtitle: "Etiquetas, canales, fuentes y más" },
     gettingStarted: { title: "Primeros pasos", subtitle: "Pon Driony en marcha paso a paso" },
     platform: { title: "Consola de plataforma", subtitle: "Todas las empresas, altas y planes" },
+    dashboard: { title: "Panel", subtitle: "Cómo va tu negocio" },
   },
   onboarding: {
     navTitle: "Primeros pasos",

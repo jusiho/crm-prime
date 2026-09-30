@@ -226,6 +226,18 @@ export const DYNAMIC_MESSAGES = {
     es: 'La etapa "{name}" no existe. Disponibles: {available}',
     en: 'Stage "{name}" does not exist. Available: {available}',
   },
+  // Validación de payloads (ZodValidationPipe). {field} es la ruta del campo.
+  "validation.required": { es: "{field}: es obligatorio", en: "{field}: is required" },
+  "validation.minLength": { es: "{field}: mínimo {min} caracteres", en: "{field}: at least {min} characters" },
+  "validation.maxLength": { es: "{field}: máximo {max} caracteres", en: "{field}: at most {max} characters" },
+  "validation.minItems": { es: "{field}: añade al menos {min}", en: "{field}: add at least {min}" },
+  "validation.maxItems": { es: "{field}: máximo {max} elementos", en: "{field}: at most {max} items" },
+  "validation.min": { es: "{field}: debe ser al menos {min}", en: "{field}: must be at least {min}" },
+  "validation.max": { es: "{field}: debe ser como mucho {max}", en: "{field}: must be at most {max}" },
+  "validation.invalidType": { es: "{field}: valor no válido (se esperaba {expected})", en: "{field}: invalid value (expected {expected})" },
+  "validation.invalidOption": { es: "{field}: opción no válida. Opciones: {options}", en: "{field}: invalid option. Options: {options}" },
+  "validation.invalidFormat": { es: "{field}: formato no válido ({format})", en: "{field}: invalid format ({format})" },
+  "validation.invalid": { es: "{field}: {reason}", en: "{field}: {reason}" },
   "quickReply.shortcutTaken": {
     es: "El atajo {shortcut} ya está en uso.",
     en: "The shortcut {shortcut} is already in use.",

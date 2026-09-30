@@ -1,5 +1,6 @@
 import { Global, Module } from "@nestjs/common";
 import { AiSettingsService } from "./ai-settings.service";
+import { AiUsageService } from "./ai-usage.service";
 import { LLM_PROVIDER } from "./llm.provider";
 import { FakeLLMProvider } from "./providers/fake-llm.provider";
 import { AnthropicLLMProvider } from "./providers/anthropic-llm.provider";
@@ -15,6 +16,7 @@ import { RoutingLLMProvider } from "./providers/routing-llm.provider";
 @Module({
   providers: [
     AiSettingsService,
+    AiUsageService,
     FakeLLMProvider,
     AnthropicLLMProvider,
     OpenAILLMProvider,
@@ -24,6 +26,7 @@ import { RoutingLLMProvider } from "./providers/routing-llm.provider";
   exports: [
     LLM_PROVIDER,
     AiSettingsService,
+    AiUsageService,
     FakeLLMProvider,
     AnthropicLLMProvider,
     OpenAILLMProvider,

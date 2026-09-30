@@ -11,6 +11,7 @@ import type {
   LlmRequest,
   LlmResponse,
 } from "../llm.types";
+import { AiUsageService } from "../ai-usage.service";
 
 /**
  * Adaptador real de la API de Claude (Anthropic).
@@ -32,7 +33,10 @@ export class AnthropicLLMProvider implements LLMProvider {
   readonly name = "anthropic";
   private readonly logger = new Logger("AnthropicLLM");
 
-  constructor(private readonly settings: AiSettingsService) {}
+  constructor(
+    private readonly settings: AiSettingsService,
+    private readonly usage: AiUsageService,
+  ) {}
 
   private async config(): Promise<{ client: Anthropic; model: string }> {
     const c = await this.settings.resolveFor("anthropic");
@@ -139,6 +143,12 @@ export class AnthropicLLMProvider implements LLMProvider {
     const msg = await cfg.client.messages.create(
       body as unknown as Anthropic.MessageCreateParamsNonStreaming,
     );
+    this.usage.record({
+      feature: "classify",
+      model: msg.model,
+      inputTokens: msg.usage.input_tokens,
+      outputTokens: msg.usage.output_tokens,
+    });
     const block = msg.content.find((b) => b.type === "text");
     const raw = block && block.type === "text" ? block.text : "{}";
     try {

@@ -11,6 +11,7 @@ import { ApiKeysSettings } from "./ApiKeysSettings";
 import { IntegrationsSettings } from "./IntegrationsSettings";
 import { WebhooksOutSettings } from "./WebhooksOutSettings";
 import { PlanSettings } from "@/features/plans/PlanSettings";
+import { AiUsageSettings } from "./AiUsageSettings";
 import { PipelinesSettings } from "./PipelinesSettings";
 import { CustomFieldsSettings, SourcesSettings } from "./SettingsPanels";
 
@@ -24,6 +25,7 @@ type TabKey =
   | "fields"
   | "stages"
   | "ai"
+  | "aiUsage"
   | "apiKeys"
   | "integrations"
   | "webhooksOut";
@@ -38,6 +40,7 @@ const TABS: { key: TabKey; label: string; icon: IconName }[] = [
   { key: "fields", label: "Campos personalizados", icon: "puzzle" },
   { key: "stages", label: "Embudos y etapas", icon: "pipeline" },
   { key: "ai", label: "Inteligencia Artificial", icon: "bot" },
+  { key: "aiUsage", label: "Consumo de IA", icon: "bolt" },
   { key: "apiKeys", label: "Claves de API", icon: "key" },
   { key: "integrations", label: "Integraciones", icon: "plug" },
   { key: "webhooksOut", label: "Webhooks salientes", icon: "antenna" },
@@ -77,6 +80,7 @@ export function SettingsManager() {
         {tab === "fields" && <CustomFieldsSettings />}
         {tab === "stages" && <PipelinesSettings />}
         {tab === "ai" && <AiSettings />}
+        {tab === "aiUsage" && <AiUsageSettings />}
         {tab === "apiKeys" && <ApiKeysSettings />}
         {tab === "integrations" && <IntegrationsSettings />}
         {tab === "webhooksOut" && <WebhooksOutSettings />}
