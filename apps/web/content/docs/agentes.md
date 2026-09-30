@@ -53,6 +53,24 @@ Usa tu propio modelo (Ajustes › Inteligencia Artificial) y conoce tu contexto 
 
 En Copilot las acciones quedan pendientes de aprobación; en Autopilot se aplican solas.
 
+## Copiloto, memoria y conocimiento que aprende
+
+Además del agente que responde solo, Driony ayuda a tu equipo dentro de cada conversación. **Todo funciona con tu propia clave** de OpenAI o Anthropic (Ajustes › Inteligencia Artificial): Driony no vende créditos ni cobra por la IA, pagas a tu proveedor al precio de su lista.
+
+**En el cuadro de mensaje**, el botón de la varita reescribe tu borrador: mejorar la redacción, más cordial, más formal, más corto, corregir ortografía, o traducir al idioma del cliente (lo detecta de sus mensajes), al inglés o al portugués. Si no te convence, **Deshacer** devuelve tu texto.
+
+**En Detalles** del chat, el panel **Copiloto** te da:
+
+- **Resumir conversación**: qué quiere el cliente, datos clave y el siguiente paso, para retomar un chat largo en diez segundos.
+- **Preguntar**: «¿qué le ofrecimos?», «¿cuánto presupuesto tiene?», «redáctale un seguimiento». Responde con la ficha, las oportunidades, las notas internas, las conversaciones anteriores y tu base de conocimiento. Cualquier respuesta se puede usar como borrador.
+- **Memoria del cliente**: un resumen y los datos útiles de todas sus conversaciones (preferencias, productos que le interesan, presupuesto, compromisos). Se actualiza sola al cerrar cada conversación y **el agente automático la usa** para no volver a preguntar lo que ya sabe.
+
+**En Conocimiento**:
+
+- **Preguntas sin respuesta**: la IA lee las conversaciones de los últimos 30 días y detecta lo que tus clientes preguntan y tu conocimiento no cubre, con una respuesta propuesta a partir de cómo contestó tu equipo. La revisas, la apruebas y el agente la usa desde ese momento. Lo que descartas no vuelve a salir.
+- **Importar web**: pega la dirección de tu página de preguntas frecuentes o de envíos (y, si quieres, las del mismo sitio que enlaza). Volver a importarla la actualiza.
+- La búsqueda del conocimiento también usa tu clave de OpenAI. Si cambias de proveedor, Driony te avisa para **reindexar** los documentos.
+
 ## Precios en varias monedas
 
 Cada producto tiene un **precio base** y, si quieres, **precios en otras monedas** (Productos › Editar › *Añadir precio en otra moneda*, o columnas `precio_USD`, `precio_MXN`… al importar un CSV). No hay conversión automática: el precio en cada moneda lo decides tú.

@@ -74,7 +74,8 @@ export type IconName =
   | "rocket"
   | "arrow-right"
   | "minus"
-  | "lock";
+  | "lock"
+  | "wand";
 
 export function NavIcon({ name, size = 18 }: { name: IconName; size?: number }) {
   const p = {
@@ -108,6 +109,14 @@ export function NavIcon({ name, size = 18 }: { name: IconName; size?: number }) 
       return (
         <svg {...p}>
           <path d="M5 12h14" />
+        </svg>
+      );
+    case "wand":
+      return (
+        <svg {...p}>
+          <path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72Z" />
+          <path d="m14 7 3 3" />
+          <path d="M5 6v4M19 14v4M10 2v2M7 8H3M21 16h-4M11 3H9" />
         </svg>
       );
     case "lock":

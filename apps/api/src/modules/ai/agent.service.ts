@@ -23,7 +23,16 @@ import { isActionTool, resolveTools } from "./tools.registry";
 // Precios por millón de tokens (para estimar costo).
 const PRICES: Record<string, { in: number; out: number }> = {
   "claude-opus-4-8": { in: 5, out: 25 },
+  "gpt-4o-mini": { in: 0.15, out: 0.6 },
+  "gpt-4o": { in: 2.5, out: 10 },
 };
+
+/** Coste estimado en USD de una llamada. 0 si el modelo no tiene precio aquí. */
+export function estimateCostUsd(model: string, input: number, output: number): number {
+  const p = PRICES[model] ?? PRICES[model.replace(/-\d{4}-\d{2}-\d{2}$/, "")];
+  if (!p) return 0;
+  return (input / 1e6) * p.in + (output / 1e6) * p.out;
+}
 
 @Injectable()
 export class AgentService {
@@ -708,9 +717,10 @@ export class AgentService {
   // ── Construcción del contexto ──────────────────────────────────
   private buildSystem(
     base: string | undefined,
-    contact: { name: string | null; phone: string; currency?: string | null },
+    contact: { name: string | null; phone: string; currency?: string | null; aiMemory?: unknown },
   ): string {
     const country = countryFromPhone(contact.phone);
+    const memory = memoryText(contact.aiMemory);
     const currency = contactCurrency(contact);
     const where = [
       country ? ` País: ${country.name}.` : "",
@@ -721,6 +731,7 @@ export class AgentService {
     return [
       base ?? fallback,
       `\n\nContacto actual: ${contact.name ?? "(sin nombre)"} (${contact.phone}).${where}`,
+      memory ? `\n\nLo que sabemos de este cliente (de conversaciones anteriores):\n${memory}` : "",
       "Devuelve únicamente el texto de la respuesta sugerida, sin prefijos como 'Respuesta:'.",
     ].join("");
   }
@@ -744,8 +755,18 @@ export class AgentService {
   }
 
   private cost(model: string, input: number, output: number): number {
-    const p = PRICES[model];
-    if (!p) return 0;
-    return (input / 1e6) * p.in + (output / 1e6) * p.out;
+    return estimateCostUsd(model, input, output);
   }
+}
+
+/** La memoria del cliente como texto para el prompt, o "" si no hay. */
+export function memoryText(raw: unknown): string {
+  if (!raw || typeof raw !== "object") return "";
+  const m = raw as { summary?: unknown; facts?: unknown };
+  const lines: string[] = [];
+  if (typeof m.summary === "string" && m.summary.trim()) lines.push(m.summary.trim());
+  if (Array.isArray(m.facts)) {
+    for (const f of m.facts) if (typeof f === "string" && f.trim()) lines.push(`- ${f.trim()}`);
+  }
+  return lines.join("\n");
 }

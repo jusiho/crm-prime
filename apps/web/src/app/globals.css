@@ -2071,3 +2071,341 @@ code {
     padding: 0 14px 14px;
   }
 }
+
+/* ── Copiloto en el chat ───────────────────────────────────── */
+.copilot {
+  margin: 0 16px 10px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(138, 43, 226, 0.3);
+  background: rgba(138, 43, 226, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 13px;
+}
+.copilot__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.copilot__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  color: var(--accent-text);
+}
+.copilot__key,
+.copilot__muted {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.copilot__nokey {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--warning-soft);
+  color: var(--text);
+  font-size: 12.5px;
+}
+.copilot__block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+.copilot__block + .copilot__block {
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.copilot__summary,
+.copilot__memory {
+  width: 100%;
+  line-height: 1.5;
+}
+.copilot__summary p,
+.copilot__memory p {
+  margin: 0 0 6px;
+}
+.copilot__summary ul,
+.copilot__memory ul {
+  margin: 0 0 6px;
+  padding-left: 18px;
+}
+.copilot__next {
+  color: var(--accent-text);
+}
+.copilot__chat {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.copilot__q {
+  align-self: flex-end;
+  max-width: 85%;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: var(--accent-soft);
+}
+.copilot__a {
+  align-self: flex-start;
+  max-width: 95%;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  line-height: 1.5;
+}
+.copilot__use {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 6px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--accent-text);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.copilot__use:hover:not(:disabled) {
+  text-decoration: underline;
+  filter: none;
+}
+.copilot__ask {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+}
+.copilot__ask .field {
+  flex: 1;
+  min-width: 0;
+}
+.copilot__memhead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+.copilot__memhead .copilot__use {
+  margin-top: 0;
+}
+
+/* ── Ajustes › IA: sin créditos ────────────────────────────── */
+.byok {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(126, 226, 168, 0.35);
+  background: var(--positive-soft);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.byok > svg {
+  color: var(--positive);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.byok strong {
+  display: block;
+  margin-bottom: 2px;
+}
+.byok span {
+  color: var(--text);
+}
+
+/* ── Conocimiento ─────────────────────────────────────────── */
+.kb {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.kb-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 13px;
+}
+.kb-banner > svg {
+  color: var(--accent-text);
+  flex-shrink: 0;
+}
+.kb-banner.is-warn {
+  border-color: rgba(224, 164, 88, 0.4);
+  background: var(--warning-soft);
+}
+.kb-banner.is-warn > svg {
+  color: var(--warning);
+}
+.kb-banner__text {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.45;
+}
+.kb-count {
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+}
+.kb-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+}
+.kb-card {
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.kb-card h3 {
+  margin: 0;
+  font-size: 16px;
+}
+.kb-muted {
+  color: var(--muted);
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+.kb-small {
+  font-size: 12px;
+}
+.kb-docs {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.kb-doc {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+.kb-doc strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.kb-hits {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.kb-hit {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+.kb-hit__text {
+  font-size: 13px;
+  line-height: 1.5;
+  margin-top: 4px;
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.kb-gaps__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.kb-gaps__head > div {
+  flex: 1;
+  min-width: 260px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.kb-gaps {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 12px;
+}
+.kb-gap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+.kb-gap__meta {
+  margin-bottom: 4px;
+}
+.kb-pill {
+  font-size: 11.5px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-weight: 600;
+}
+.kb-gap__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}
+.kb-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 32px 16px;
+  text-align: center;
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+}
+.kb-empty > svg {
+  color: var(--positive);
+}
+.kb-skipped {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface);
+}
+@media (max-width: 640px) {
+  .kb {
+    padding: 16px;
+  }
+  .copilot {
+    margin: 0 10px 8px;
+  }
+}

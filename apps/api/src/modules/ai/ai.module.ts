@@ -14,6 +14,8 @@ import { AiController } from "./ai.controller";
 import { BotsController } from "./bots.controller";
 import { FlowsController } from "./flows.controller";
 import { AiSettingsController } from "./ai-settings.controller";
+import { CopilotController } from "./copilot.controller";
+import { CopilotService } from "./copilot.service";
 import { MessagingModule } from "../messaging/messaging.module";
 import { KnowledgeModule } from "../knowledge/knowledge.module";
 import { OnboardingModule } from "../onboarding/onboarding.module";
@@ -25,6 +27,7 @@ import { OnboardingModule } from "../onboarding/onboarding.module";
     BotsController,
     FlowsController,
     AiSettingsController,
+    CopilotController,
   ],
   providers: [
     AgentService,
@@ -37,6 +40,7 @@ import { OnboardingModule } from "../onboarding/onboarding.module";
     PromptAssistantService,
     FlowEngineService,
     FlowProcessor,
+    CopilotService,
   ],
 })
 export class AiModule {}

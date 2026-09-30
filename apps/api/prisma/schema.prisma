@@ -175,8 +175,30 @@ model Organization {
   aiSetting          AiSetting?
   integrationSetting IntegrationSetting?
   onboarding         OnboardingState?
+  knowledgeSuggestions KnowledgeSuggestion[]
 
   @@map("organizations")
+}
+
+// Preguntas que los clientes hacen y la base de conocimiento no cubre. Las
+// detecta la IA leyendo conversaciones; un humano las aprueba (pasan a ser un
+// documento del conocimiento) o las descarta. Las descartadas se recuerdan
+// para no volver a proponerlas.
+model KnowledgeSuggestion {
+  id              String   @id @default(cuid())
+  orgId           String
+  question        String
+  answer          String   @default("")
+  occurrences     Int      @default(1)
+  conversationIds String[] @default([])
+  status          String   @default("pending") // pending | accepted | dismissed
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, status])
+  @@map("knowledge_suggestions")
 }
 
 // Primeros pasos de una empresa nueva. El estado de cada paso se deduce de
@@ -333,6 +355,10 @@ model Contact {
   // Moneda fijada a mano para cotizarle. Null = la de su país, que se deduce
   // del prefijo del teléfono al leer (ver @crm/shared money.ts).
   currency      String?
+  // Memoria que la IA mantiene del cliente: resumen y datos clave de todas
+  // sus conversaciones. La usa el agente al responder y el copiloto.
+  aiMemory      Json? // { summary, facts[] }
+  aiMemoryAt    DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 

@@ -101,6 +101,19 @@ export function AiSettings() {
           : "La API key que usarán los agentes IA, el copilot del inbox y el asistente de flujos. Se guarda cifrada; si la dejas vacía se usa la del archivo .env."
       }
     >
+      {/* La IA de Driony no se paga a Driony: va con la clave de la empresa. */}
+      <div className="byok">
+        <NavIcon name="key" size={16} />
+        <div>
+          <strong>Tu clave, tu consumo. Sin créditos ni recargos.</strong>
+          <span>
+            El agente, el copiloto del chat, la memoria de clientes, las preguntas sin respuesta y la búsqueda
+            en el conocimiento usan esta clave. Pagas a OpenAI o Anthropic directamente, al precio de su lista;
+            Driony no cobra nada por la IA.
+          </span>
+        </div>
+      </div>
+
       {/* Estado actual */}
       <div style={card}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>

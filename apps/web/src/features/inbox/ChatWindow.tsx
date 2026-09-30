@@ -36,6 +36,10 @@ import { SendButtonsDialog } from "./SendButtonsDialog";
 import { MediaBubble } from "./MediaBubble";
 import { AiModeSwitch } from "./AiModeSwitch";
 import { Composer } from "./Composer";
+import { CopilotPanel } from "./CopilotPanel";
+import { useAiStatus } from "@/features/copilot/useAiStatus";
+import { copilotRewrite } from "@/lib/bff";
+import type { RewriteMode } from "@crm/shared";
 import {
   AiTypingBubble,
   DaySeparator,
@@ -87,6 +91,9 @@ export function ChatWindow({
   const [search, setSearch] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [ai, setAi] = useState<AiSuggestion | null>(null);
+  // Borrador antes de que el copiloto lo reescribiera (para Deshacer).
+  const [beforeRewrite, setBeforeRewrite] = useState<string | null>(null);
+  const { data: aiStatus } = useAiStatus();
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
   // La cuenta atrás de la ventana se recalcula cada minuto; si no, un "quedan
@@ -121,6 +128,15 @@ export function ChatWindow({
       if (s.suggestion) setText(s.suggestion);
     },
     onError: (e) => toast.error((e as Error).message),
+  });
+
+  const rewriteMut = useMutation({
+    mutationFn: ({ mode, language }: { mode: RewriteMode; language?: string }) =>
+      copilotRewrite(conversation.id, { text, mode, language }),
+    onSuccess: (r) => {
+      setBeforeRewrite(text);
+      setText(r.text);
+    },
   });
 
   const { data: messages = [], isLoading } = useQuery({
@@ -408,6 +424,15 @@ export function ChatWindow({
       </header>
 
       {showDetails && (
+        <CopilotPanel
+          conversationId={conversation.id}
+          onUseText={(v) => {
+            setBeforeRewrite(text || null);
+            setText(v);
+          }}
+        />
+      )}
+      {showDetails && (
         <DetailsPanel
           conversationId={conversation.id}
           notes={notes}
@@ -559,6 +584,16 @@ export function ChatWindow({
           onOpenButtons={() => setButtonsOpen(true)}
           onSuggest={() => suggestMut.mutate()}
           suggesting={suggestMut.isPending}
+          copilot={{
+            ready: !!aiStatus?.ready,
+            busy: rewriteMut.isPending,
+            onRewrite: (mode, language) => rewriteMut.mutate({ mode, language }),
+            canUndo: beforeRewrite !== null,
+            onUndo: () => {
+              if (beforeRewrite !== null) setText(beforeRewrite);
+              setBeforeRewrite(null);
+            },
+          }}
           windowOpen
         />
       ) : (

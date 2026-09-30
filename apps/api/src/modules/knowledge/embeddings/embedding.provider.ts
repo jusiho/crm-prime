@@ -6,4 +6,6 @@ export interface EmbeddingProvider {
   readonly name: string; // "voyage" | "fake"
   readonly dim: number;
   embed(texts: string[]): Promise<number[][]>;
+  /** Con qué se embebería ahora (solo el enrutador lo implementa). */
+  current?(): Promise<string>;
 }

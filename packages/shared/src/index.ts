@@ -21,6 +21,7 @@ export * from "./schemas/source.schema.js";
 export * from "./schemas/product.schema.js";
 export * from "./schemas/onboarding.schema.js";
 export * from "./schemas/platform.schema.js";
+export * from "./schemas/copilot.schema.js";
 export * from "./schemas/contact.schema.js";
 export * from "./schemas/tag.schema.js";
 export * from "./schemas/lead-webhook.schema.js";

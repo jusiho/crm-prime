@@ -1017,6 +1017,10 @@ export class MessagingService {
         throw new NotFoundException("Conversación no encontrada");
       });
     this.notify(c.id);
+    // El copiloto actualiza la memoria del cliente en segundo plano.
+    if (status === "CLOSED") {
+      this.events.emit("conversation.closed", { conversationId: c.id, orgId: c.orgId });
+    }
     return this.toConversationDto(c);
   }
 

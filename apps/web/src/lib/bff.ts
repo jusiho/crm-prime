@@ -1,6 +1,19 @@
 "use client";
 
 import type {
+  AcceptKnowledgeSuggestionInput,
+  AiStatus,
+  AnalyzeKnowledgeResult,
+  ContactMemory,
+  CopilotAskInput,
+  CopilotAskResult,
+  CopilotRewriteInput,
+  CopilotRewriteResult,
+  CopilotSummary,
+  ImportUrlInput,
+  ImportUrlResult,
+  KnowledgeIndexStatus,
+  KnowledgeSuggestionDto,
   MyPlanDto,
   PlatformOrg,
   PlatformOverview,
@@ -1530,4 +1543,90 @@ export async function updatePlatformOrg(id: string, input: UpdatePlatformOrgInpu
   });
   if (!res.ok) throw new Error(await errorMessage(res, "No se pudo guardar"));
   return res.json();
+}
+
+// ── Copiloto (con la clave de IA de la empresa) ────────────
+
+const json = (body: unknown): RequestInit => ({
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(body),
+});
+
+export async function fetchAiStatus(): Promise<AiStatus> {
+  const res = await bffFetch("/api/bff/ai/status");
+  if (!res.ok) throw new Error("No se pudo comprobar la IA");
+  return res.json();
+}
+
+export async function copilotRewrite(conversationId: string, input: CopilotRewriteInput): Promise<CopilotRewriteResult> {
+  const res = await bffFetch(`/api/bff/ai/conversations/${conversationId}/rewrite`, json(input));
+  if (!res.ok) throw new Error(await errorMessage(res, "La IA no pudo reescribir el mensaje"));
+  return res.json();
+}
+
+export async function copilotSummary(conversationId: string): Promise<CopilotSummary> {
+  const res = await bffFetch(`/api/bff/ai/conversations/${conversationId}/summary`, { method: "POST" });
+  if (!res.ok) throw new Error(await errorMessage(res, "La IA no pudo resumir la conversación"));
+  return res.json();
+}
+
+export async function copilotAsk(conversationId: string, input: CopilotAskInput): Promise<CopilotAskResult> {
+  const res = await bffFetch(`/api/bff/ai/conversations/${conversationId}/ask`, json(input));
+  if (!res.ok) throw new Error(await errorMessage(res, "La IA no pudo responder"));
+  return res.json();
+}
+
+export async function fetchContactMemory(conversationId: string): Promise<ContactMemory> {
+  const res = await bffFetch(`/api/bff/ai/conversations/${conversationId}/memory`);
+  if (!res.ok) throw new Error("No se pudo cargar la memoria del cliente");
+  return res.json();
+}
+
+export async function refreshContactMemory(conversationId: string): Promise<ContactMemory> {
+  const res = await bffFetch(`/api/bff/ai/conversations/${conversationId}/memory`, { method: "POST" });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo actualizar la memoria"));
+  return res.json();
+}
+
+// ── Conocimiento: índice, web y preguntas sin respuesta ────
+
+export async function fetchKnowledgeStatus(): Promise<KnowledgeIndexStatus> {
+  const res = await bffFetch("/api/bff/knowledge/status");
+  if (!res.ok) throw new Error("No se pudo cargar el estado del conocimiento");
+  return res.json();
+}
+
+export async function reindexKnowledge(): Promise<{ docs: number; chunks: number }> {
+  const res = await bffFetch("/api/bff/knowledge/reindex", { method: "POST" });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo reindexar"));
+  return res.json();
+}
+
+export async function importKnowledgeUrl(input: ImportUrlInput): Promise<ImportUrlResult> {
+  const res = await bffFetch("/api/bff/knowledge/import-url", json(input));
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo importar la página"));
+  return res.json();
+}
+
+export async function fetchKnowledgeSuggestions(): Promise<KnowledgeSuggestionDto[]> {
+  const res = await bffFetch("/api/bff/knowledge/suggestions");
+  if (!res.ok) throw new Error("No se pudieron cargar las preguntas sin respuesta");
+  return res.json();
+}
+
+export async function analyzeKnowledge(): Promise<AnalyzeKnowledgeResult> {
+  const res = await bffFetch("/api/bff/knowledge/suggestions/analyze", { method: "POST" });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudieron analizar las conversaciones"));
+  return res.json();
+}
+
+export async function acceptKnowledgeSuggestion(id: string, input: AcceptKnowledgeSuggestionInput): Promise<void> {
+  const res = await bffFetch(`/api/bff/knowledge/suggestions/${id}/accept`, json(input));
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo añadir al conocimiento"));
+}
+
+export async function dismissKnowledgeSuggestion(id: string): Promise<void> {
+  const res = await bffFetch(`/api/bff/knowledge/suggestions/${id}/dismiss`, { method: "POST" });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo descartar"));
 }

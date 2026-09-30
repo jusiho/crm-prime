@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import type { MessageDto, QuickReplyDto } from "@crm/shared";
+import type { MessageDto, QuickReplyDto, RewriteMode } from "@crm/shared";
 import { renderQuickReply } from "@crm/shared";
 import { fetchQuickReplies, mediaSrc, type UploadedMedia } from "@/lib/bff";
 import { NavIcon, type IconName } from "@/components/NavIcons";
@@ -38,6 +38,7 @@ export function Composer({
   windowOpen,
   onSuggest,
   suggesting,
+  copilot,
 }: {
   text: string;
   onTextChange: (v: string) => void;
@@ -60,6 +61,14 @@ export function Composer({
   /** Pide a la IA un borrador y lo carga en el cuadro. */
   onSuggest: () => void;
   suggesting: boolean;
+  /** Copiloto: reescribir o traducir el borrador con la clave de la empresa. */
+  copilot?: {
+    ready: boolean;
+    busy: boolean;
+    onRewrite: (mode: RewriteMode, language?: string) => void;
+    canUndo: boolean;
+    onUndo: () => void;
+  };
 }) {
   const t = useT();
   const fileRef = useRef<HTMLInputElement | null>(null);
@@ -67,6 +76,7 @@ export function Composer({
   const [quickOpen, setQuickOpen] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [copilotOpen, setCopilotOpen] = useState(false);
 
   // Las respuestas rápidas solo se piden cuando el usuario abre el menú.
   const { data: quickReplies = [] } = useQuery({
@@ -117,6 +127,7 @@ export function Composer({
 
   function closeMenus() {
     setMenuOpen(false);
+    setCopilotOpen(false);
     setEmojiOpen(false);
     setQuickOpen(false);
   }
@@ -148,7 +159,7 @@ export function Composer({
   }
 
   function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === "Escape" && (quickOpen || emojiOpen || menuOpen)) {
+    if (e.key === "Escape" && (quickOpen || emojiOpen || menuOpen || copilotOpen)) {
       closeMenus();
       return;
     }
@@ -205,7 +216,7 @@ export function Composer({
     <div style={wrap} data-tour="inbox-composer">
       {/* Cierra al pulsar fuera. El selector de emojis no entra aquí: ya
           vigila por su cuenta el clic fuera y la tecla Esc. */}
-      {(menuOpen || (quickOpen && slashQuery === null)) && (
+      {(menuOpen || copilotOpen || (quickOpen && slashQuery === null)) && (
         <div style={backdrop} onClick={closeMenus} />
       )}
 
@@ -264,6 +275,48 @@ export function Composer({
           >
             <NavIcon name="x" size={14} />
           </button>
+        </div>
+      )}
+
+      {/* El copiloto reescribió el borrador: se puede volver atrás. */}
+      {copilot?.canUndo && (
+        <div style={quoteBar}>
+          <span style={quoteIcon}>
+            <NavIcon name="wand" size={14} />
+          </span>
+          <div style={{ flex: 1, minWidth: 0, fontSize: 12.5, color: "var(--muted)" }}>
+            {t("inbox.copilotRewritten")}
+          </div>
+          <button type="button" onClick={copilot.onUndo} style={{ ...chipBtn, width: "auto", padding: "0 10px", fontSize: 12.5 }}>
+            {t("inbox.copilotUndo")}
+          </button>
+        </div>
+      )}
+
+      {/* Copiloto: mejorar, cambiar el tono o traducir el borrador */}
+      {copilotOpen && copilot && (
+        <div style={actionMenu} role="menu" aria-label={t("inbox.copilotMenu")}>
+          {COPILOT_ACTIONS.map((a) => {
+            const off = !text.trim();
+            return (
+              <button
+                key={a.key}
+                role="menuitem"
+                disabled={off}
+                onClick={() => {
+                  setCopilotOpen(false);
+                  copilot.onRewrite(a.mode, a.language);
+                }}
+                title={off ? t("inbox.copilotEmptyDraft") : undefined}
+                style={{ ...menuItem(off), padding: "7px 10px" }}
+              >
+                <span style={{ ...menuIcon, width: 28, height: 28 }}>
+                  <NavIcon name={a.icon} size={15} />
+                </span>
+                <strong style={{ fontSize: 13 }}>{t(a.labelKey)}</strong>
+              </button>
+            );
+          })}
         </div>
       )}
 
@@ -406,6 +459,28 @@ export function Composer({
           style={area}
         />
 
+        {copilot && (
+          <BarButton
+            icon="wand"
+            label={
+              !copilot.ready
+                ? t("inbox.copilotNoKey")
+                : copilot.busy
+                  ? t("inbox.copilotRewriting")
+                  : t("inbox.copilotMenu")
+            }
+            active={copilotOpen}
+            disabled={!copilot.ready || copilot.busy}
+            busy={copilot.busy}
+            onClick={() => {
+              setMenuOpen(false);
+              setEmojiOpen(false);
+              setQuickOpen(false);
+              setCopilotOpen((v) => !v);
+            }}
+          />
+        )}
+
         <BarButton
           icon="sparkles"
           label={suggesting ? t("inbox.aiSuggesting") : t("inbox.aiSuggestHint")}
@@ -428,6 +503,18 @@ export function Composer({
     </div>
   );
 }
+
+/** Lo que el copiloto sabe hacer con el borrador. */
+const COPILOT_ACTIONS: { key: string; icon: IconName; labelKey: MessageKey; mode: RewriteMode; language?: string }[] = [
+  { key: "improve", icon: "wand", labelKey: "inbox.copilotImprove", mode: "improve" },
+  { key: "friendly", icon: "smile", labelKey: "inbox.copilotFriendly", mode: "friendly" },
+  { key: "formal", icon: "user", labelKey: "inbox.copilotFormal", mode: "formal" },
+  { key: "shorter", icon: "filter", labelKey: "inbox.copilotShorter", mode: "shorter" },
+  { key: "grammar", icon: "check", labelKey: "inbox.copilotGrammar", mode: "grammar" },
+  { key: "tr-customer", icon: "globe", labelKey: "inbox.copilotTranslateCustomer", mode: "translate", language: "customer" },
+  { key: "tr-en", icon: "globe", labelKey: "inbox.copilotTranslateEn", mode: "translate", language: "inglés" },
+  { key: "tr-pt", icon: "globe", labelKey: "inbox.copilotTranslatePt", mode: "translate", language: "portugués" },
+];
 
 /** Botón de la barra: mismo tamaño y mismo acento para todos. */
 function BarButton({

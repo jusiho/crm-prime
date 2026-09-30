@@ -1,5 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import type {
+  AiStatus,
   AiSettingsDto,
   ApiKeyState,
   LlmProviderName,
@@ -124,6 +125,25 @@ export class AiSettingsService {
       this.keyFor("openai", row),
       this.keyFor("anthropic", row),
     );
+  }
+
+  /**
+   * Si la IA está lista para esta empresa, y con la clave de quién. Lo usan el
+   * copiloto y la interfaz para no ofrecer lo que no va a funcionar.
+   */
+  async status(): Promise<AiStatus> {
+    const row = await this.load();
+    const openai = this.keyFor("openai", row);
+    const anthropic = this.keyFor("anthropic", row);
+    const active = this.resolveFrom(row, openai, anthropic);
+    const used = active.provider === "openai" ? openai : active.provider === "anthropic" ? anthropic : null;
+    return {
+      ready: active.provider !== "fake" && !!active.apiKey,
+      provider: active.provider,
+      model: active.model,
+      source: !used?.key ? "none" : used.source === "db" ? "own" : "platform",
+      saas: tenancyMode === "multi",
+    };
   }
 
   // Credenciales de un proveedor concreto (para "Probar conexión").
