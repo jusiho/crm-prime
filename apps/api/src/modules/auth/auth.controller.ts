@@ -91,22 +91,6 @@ export class AuthController {
     });
   }
 
-  // Consola de plataforma (admin.<dominio>): entra el operador del SaaS,
-  // sin elegir empresa. Solo correos de PLATFORM_ADMIN_EMAILS.
-  @Post("platform-login")
-  @HttpCode(200)
-  platformLogin(
-    @Body(new ZodValidationPipe(loginSchema)) body: LoginInput,
-    @Req() req: Request,
-  ) {
-    return this.auth.platformLogin(body, {
-      platform: body.platform,
-      deviceName: body.deviceName,
-      userAgent: req.headers["user-agent"],
-      ipAddress: req.ip,
-    });
-  }
-
   // Canjea el pase que devolvió el alta de empresa. Público por necesidad:
   // quien lo trae todavía no tiene sesión.
   @Post("handoff")

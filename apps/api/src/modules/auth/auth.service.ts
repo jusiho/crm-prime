@@ -23,7 +23,6 @@ import { PrismaService } from "../../infra/prisma/prisma.service";
 import { TenantService } from "../../infra/tenant/tenant.service";
 import { OrganizationService } from "../organizations/organization.service";
 import { runUnscoped, tenancyMode } from "../../infra/tenant/tenant.context";
-import { isPlatformAdmin } from "../../common/utils/platform-admin";
 
 interface DeviceMeta {
   platform: Platform;
@@ -158,57 +157,6 @@ export class AuthService {
       },
     });
 
-    return this.issueTokens(user, session.id);
-  }
-
-  // ── Login del operador de la plataforma (admin.<dominio>) ──
-  /**
-   * Entrada a la consola de plataforma, que no pertenece a ninguna empresa.
-   *
-   * Solo para los correos de PLATFORM_ADMIN_EMAILS: con cualquier otro la
-   * respuesta es la misma que con una contraseña mala, para no confirmar qué
-   * correos son operadores. El operador es además usuario de alguna empresa
-   * (la suya); la sesión se abre con esa fila, así los permisos de siempre
-   * siguen valiendo y PlatformAdminGuard decide el resto.
-   */
-  async platformLogin(input: LoginInput, meta: DeviceMeta): Promise<AuthTokens> {
-    const email = input.email.toLowerCase().trim();
-    const throttleKey = `platform:${meta.ipAddress ?? "?"}:${email}`;
-    this.assertNotThrottled(throttleKey);
-
-    if (tenancyMode !== "multi" || !isPlatformAdmin(email)) {
-      this.recordFailedLogin(throttleKey);
-      throw new UnauthorizedException("Credenciales inválidas");
-    }
-
-    // El mismo correo puede estar en varias empresas: vale la primera cuya
-    // contraseña coincida. Sin empresa en contexto, por eso sin filtrar.
-    const candidatos = await runUnscoped("login de operador: buscar por correo", () =>
-      this.prisma.user.findMany({ where: { email, isActive: true }, orderBy: { createdAt: "asc" } }),
-    );
-    let user: (typeof candidatos)[number] | null = null;
-    for (const c of candidatos) {
-      if (await bcrypt.compare(input.password, c.passwordHash)) {
-        user = c;
-        break;
-      }
-    }
-    if (!user) {
-      this.recordFailedLogin(throttleKey);
-      throw new UnauthorizedException("Credenciales inválidas");
-    }
-    this.loginAttempts.delete(throttleKey);
-
-    const session = await this.prisma.session.create({
-      data: {
-        userId: user.id,
-        platform: meta.platform,
-        deviceName: meta.deviceName ?? "Consola de plataforma",
-        userAgent: meta.userAgent ?? null,
-        ipAddress: meta.ipAddress ?? null,
-        expiresAt: this.refreshExpiry(),
-      },
-    });
     return this.issueTokens(user, session.id);
   }
 
@@ -370,7 +318,9 @@ export class AuthService {
       name: user.name,
       role: user.role as Role,
       orgSlug,
-      platformAdmin: tenancyMode === "multi" && isPlatformAdmin(user.email),
+      // Los usuarios de empresa nunca son operadores: la cuenta maestra es
+      // aparte (admin.<dominio>, PLATFORM_ADMIN_EMAIL).
+      platformAdmin: false,
     };
   }
 

@@ -50,7 +50,7 @@ export async function AppShell({
   // La preferencia del menú se lee en el servidor: así se pinta ya plegado,
   // sin el salto de verlo ancho un instante.
   const collapsed = (await cookies()).get("sidebar-collapsed")?.value === "1";
-  // Operador del SaaS (PLATFORM_ADMIN_EMAILS): ve la consola de plataforma.
+  // Cuenta maestra del SaaS (admin.<dominio>); los usuarios de empresa, nunca.
   const session = await auth();
   const platformAdmin = (session?.user as { platformAdmin?: boolean } | undefined)?.platformAdmin === true;
 

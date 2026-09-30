@@ -17,6 +17,7 @@
     "packages/*"
   ],
   "scripts": {
+    "platform:password": "node scripts/platform-password.mjs",
     "setup": "node scripts/setup.mjs",
     "dev": "turbo run dev",
     "build": "turbo run build",

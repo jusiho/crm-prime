@@ -22,11 +22,12 @@ export function PlatformLogin({
         <form action={action} className="card-lift" style={{ padding: 28, display: "flex", flexDirection: "column", gap: 6 }}>
           <h1 style={{ margin: "0 0 4px", fontSize: 24 }}>Consola de plataforma</h1>
           <p style={{ margin: "0 0 12px", color: "var(--muted)", fontSize: 14, lineHeight: 1.5 }}>
-            Acceso para quien gestiona Driony: todas las empresas, altas y planes.
+            Cuenta maestra de Driony: todas las empresas, altas y planes. No pertenece a
+            ninguna empresa.
           </p>
           {error && (
             <p role="alert" style={{ margin: "0 0 8px", color: "var(--danger)", fontSize: 14 }}>
-              Correo o contraseña incorrectos, o la cuenta no es de operador.
+              Correo o contraseña incorrectos.
             </p>
           )}
           <label className="label" htmlFor="email">Correo</label>
@@ -38,7 +39,7 @@ export function PlatformLogin({
           </button>
         </form>
         <p style={{ marginTop: 14, fontSize: 12.5, color: "var(--muted)", textAlign: "center" }}>
-          Solo cuentas incluidas en PLATFORM_ADMIN_EMAILS.
+          Se configura en el servidor: PLATFORM_ADMIN_EMAIL y PLATFORM_ADMIN_PASSWORD_HASH.
         </p>
       </div>
     </main>

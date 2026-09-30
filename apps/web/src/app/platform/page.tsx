@@ -26,10 +26,10 @@ export default async function PlatformPage() {
       return (
         <PlatformShell email={session.user?.email ?? ""}>
           <div className="pc" style={{ maxWidth: 560, paddingTop: 64 }}>
-            <h1 style={{ margin: 0, fontSize: 22 }}>Esta cuenta no es de operador</h1>
+            <h1 style={{ margin: 0, fontSize: 22 }}>Esta no es la cuenta maestra</h1>
             <p style={{ color: "var(--muted)", lineHeight: 1.5 }}>
-              La consola de plataforma es solo para los correos incluidos en
-              PLATFORM_ADMIN_EMAILS. Sal con el botón de arriba y entra con la cuenta de operador.
+              La consola de plataforma solo admite la cuenta maestra del servidor
+              (PLATFORM_ADMIN_EMAIL). Sal con el botón de arriba y entra con ella.
             </p>
           </div>
         </PlatformShell>

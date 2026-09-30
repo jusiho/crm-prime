@@ -68,7 +68,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         const operator = credentials?.operator === "1";
         const res = await fetch(
-          `${API_URL}/api/v1/auth/${handoff ? "handoff" : operator ? "platform-login" : "login"}`,
+          `${API_URL}/api/v1/${handoff ? "auth/handoff" : operator ? "platform/login" : "auth/login"}`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },

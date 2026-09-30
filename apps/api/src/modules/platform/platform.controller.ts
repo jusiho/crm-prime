@@ -1,32 +1,102 @@
-import { Body, Controller, Get, Param, Patch, Query, UseGuards } from "@nestjs/common";
 import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Param,
+  Patch,
+  Post,
+  Query,
+  Req,
+  UnauthorizedException,
+  UseGuards,
+} from "@nestjs/common";
+import { JwtService } from "@nestjs/jwt";
+import type { Request } from "express";
+import {
+  Role,
+  loginSchema,
   updatePlatformOrgSchema,
+  type AuthTokens,
+  type LoginInput,
   type PlatformOrg,
   type PlatformOverview,
   type UpdatePlatformOrgInput,
 } from "@crm/shared";
-import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { ZodValidationPipe } from "../../common/pipes/zod-validation.pipe";
-import { PlatformAdminGuard } from "./platform-admin.guard";
+import { verifyPlatformAdmin } from "../../common/utils/platform-admin";
+import { PlatformAdminGuard, type PlatformClaims } from "./platform-admin.guard";
 import { PlatformService } from "./platform.service";
+
+/** Doce horas: al caducar se vuelve a entrar. La cuenta maestra no se renueva sola. */
+const TTL_SECONDS = 12 * 60 * 60;
+
+/** Intentos fallidos por IP antes de bloquear un rato. */
+const MAX_FAILS = 8;
+const WINDOW_MS = 15 * 60_000;
 
 /** Consola del operador del SaaS: todas las empresas, altas, planes. */
 @Controller("platform")
-@UseGuards(JwtAuthGuard, PlatformAdminGuard)
 export class PlatformController {
-  constructor(private readonly platform: PlatformService) {}
+  private fails = new Map<string, { n: number; since: number }>();
+
+  constructor(
+    private readonly platform: PlatformService,
+    private readonly jwt: JwtService,
+  ) {}
+
+  /**
+   * Entrada de la cuenta maestra (admin.<dominio>). Devuelve la misma forma
+   * que el login normal para que la web la trate igual, pero el token es de
+   * plataforma: sin empresa, sin sesión en la base y sin renovación.
+   */
+  @Post("login")
+  @HttpCode(200)
+  async login(
+    @Body(new ZodValidationPipe(loginSchema)) body: LoginInput,
+    @Req() req: Request,
+  ): Promise<AuthTokens> {
+    const key = req.ip ?? "?";
+    const f = this.fails.get(key);
+    if (f && Date.now() - f.since < WINDOW_MS && f.n >= MAX_FAILS) {
+      throw new UnauthorizedException("Demasiados intentos. Espera unos minutos.");
+    }
+
+    const email = body.email.trim().toLowerCase();
+    if (!(await verifyPlatformAdmin(email, body.password))) {
+      const cur = f && Date.now() - f.since < WINDOW_MS ? f : { n: 0, since: Date.now() };
+      this.fails.set(key, { n: cur.n + 1, since: cur.since });
+      throw new UnauthorizedException("Credenciales inválidas");
+    }
+    this.fails.delete(key);
+
+    const claims: PlatformClaims = { sub: "platform", email, purpose: "platform" };
+    const accessToken = await this.jwt.signAsync(claims, {
+      secret: process.env.JWT_ACCESS_SECRET ?? "dev-secret",
+      expiresIn: TTL_SECONDS,
+    });
+    return {
+      accessToken,
+      refreshToken: "",
+      expiresIn: TTL_SECONDS,
+      user: { id: "platform", email, name: "Operador", role: Role.ADMIN, platformAdmin: true },
+    };
+  }
 
   @Get("overview")
+  @UseGuards(PlatformAdminGuard)
   overview(): Promise<PlatformOverview> {
     return this.platform.overview();
   }
 
   @Get("orgs")
+  @UseGuards(PlatformAdminGuard)
   orgs(@Query("search") search?: string): Promise<PlatformOrg[]> {
     return this.platform.orgs(search ?? "");
   }
 
   @Patch("orgs/:id")
+  @UseGuards(PlatformAdminGuard)
   update(
     @Param("id") id: string,
     @Body(new ZodValidationPipe(updatePlatformOrgSchema)) body: UpdatePlatformOrgInput,
