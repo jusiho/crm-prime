@@ -110,11 +110,14 @@ export function SideNav({
   active,
   initialCollapsed,
   platformAdmin = false,
+  platformUrl = "/platform",
 }: {
   role?: string;
   active: NavKey;
   initialCollapsed: boolean;
   platformAdmin?: boolean;
+  /** En SaaS, la consola vive en admin.<dominio>. */
+  platformUrl?: string;
 }) {
   const t = useT();
   const [collapsed, setCollapsed] = useState(initialCollapsed);
@@ -173,7 +176,7 @@ export function SideNav({
               {items.map((it) => (
                 <Link
                   key={it.key}
-                  href={it.href}
+                  href={it.platformOnly ? platformUrl : it.href}
                   className={`nav-item${active === it.key ? " active" : ""}`}
                   data-tour={`nav-${it.key}`}
                   style={collapsed ? collapsedItem : undefined}

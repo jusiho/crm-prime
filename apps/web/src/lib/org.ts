@@ -32,6 +32,20 @@ export async function currentOrgSlug(): Promise<string | null> {
   return h.get("x-org-slug");
 }
 
+/** ¿Estamos en `admin.<dominio>`, la consola del operador del SaaS? */
+export async function isPlatformHost(): Promise<boolean> {
+  const h = await headers();
+  return h.get("x-platform-host") === "1";
+}
+
+/** URL de la consola del operador, o null en instalación de una empresa. */
+export function platformConsoleUrl(): string | null {
+  const base = process.env.SAAS_BASE_DOMAIN;
+  if (!base) return null;
+  const protocolo = base.startsWith("localhost") ? "http" : "https";
+  return `${protocolo}://admin.${base}/platform`;
+}
+
 /** Resuelve el subdominio contra la API. */
 export async function currentOrgContext(): Promise<OrgContext> {
   const slug = await currentOrgSlug();

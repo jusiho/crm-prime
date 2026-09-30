@@ -59,13 +59,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // Pase de un solo uso que devuelve el alta de empresa. Si viene, no
         // hay contraseña: la identidad ya la comprobó el alta hace un momento.
         handoff: { label: "Pase", type: "hidden" },
+        // "1" = login de la consola de plataforma (admin.<dominio>), sin empresa.
+        operator: { label: "Operador", type: "hidden" },
       },
       async authorize(credentials) {
         const handoff =
           typeof credentials?.handoff === "string" ? credentials.handoff : "";
 
+        const operator = credentials?.operator === "1";
         const res = await fetch(
-          `${API_URL}/api/v1/auth/${handoff ? "handoff" : "login"}`,
+          `${API_URL}/api/v1/auth/${handoff ? "handoff" : operator ? "platform-login" : "login"}`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },

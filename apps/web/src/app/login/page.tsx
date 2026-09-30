@@ -2,7 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AuthError } from "next-auth";
 import { auth, signIn } from "@/auth";
-import { currentOrgContext, currentOrgSlug } from "@/lib/org";
+import { currentOrgContext, currentOrgSlug, isPlatformHost } from "@/lib/org";
+import { PlatformLogin } from "./PlatformLogin";
 import { OrgNotFound } from "./OrgNotFound";
 import { FindCompany } from "./FindCompany";
 import { safeCallbackUrl } from "@/lib/session-token";
@@ -23,6 +24,27 @@ export default async function LoginPage({
   const { error, expired, callbackUrl: rawCallback, slug } = await searchParams;
   const callbackUrl = safeCallbackUrl(rawCallback);
   const session = await auth();
+
+  // admin.<dominio>: consola del operador del SaaS, con su propio acceso.
+  if (await isPlatformHost()) {
+    if (session) redirect("/platform");
+    async function operatorLogin(formData: FormData) {
+      "use server";
+      try {
+        await signIn("credentials", {
+          email: formData.get("email"),
+          password: formData.get("password"),
+          operator: "1",
+          redirectTo: "/platform",
+        });
+      } catch (e) {
+        if (e instanceof AuthError) redirect("/login?error=credentials");
+        throw e;
+      }
+    }
+    return <PlatformLogin action={operatorLogin} error={error} />;
+  }
+
   if (session) redirect(callbackUrl);
 
   // Empresa del subdominio. Con DNS comodín cualquier subdominio responde, así

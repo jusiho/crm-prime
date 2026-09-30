@@ -54,6 +54,18 @@ function slugDe(host: string): string | null {
 }
 
 /**
+ * `admin.<dominio>`: la consola del operador del SaaS. No es una empresa ni
+ * el dominio raíz: tiene su propio login y solo sirve la consola.
+ */
+function esHostDeConsola(host: string): boolean {
+  if (!BASE) return false;
+  return (host.split(":")[0]?.toLowerCase() ?? "") === `admin.${BASE}`;
+}
+
+/** Lo único que existe en el host de la consola. */
+const CONSOLA_PERMITIDAS = ["/login", "/platform", "/api/", "/auth/"];
+
+/**
  * Rutas del dominio raíz que existen aunque tengas sesión: el alta, el pase y
  * las de Auth.js. Todo lo demás, con sesión, pertenece a tu subdominio.
  */
@@ -87,6 +99,8 @@ function aplicarOrg(req: NextRequest): void {
   const slug = slugDe(host);
   if (slug) req.headers.set("x-org-slug", slug);
   else req.headers.delete("x-org-slug"); // que nadie la inyecte desde fuera
+  if (esHostDeConsola(host)) req.headers.set("x-platform-host", "1");
+  else req.headers.delete("x-platform-host");
 }
 
 /**
@@ -126,9 +140,21 @@ export async function middleware(req: NextRequest) {
 
   const session = await readSessionCookie(req.cookies);
 
+  // Host de la consola: solo la consola y su login. Lo demás, a la consola.
+  const consola = req.headers.get("x-platform-host") === "1";
+  if (consola) {
+    const { pathname } = req.nextUrl;
+    if (!CONSOLA_PERMITIDAS.some((p) => pathname === p || pathname.startsWith(p))) {
+      const url = req.nextUrl.clone();
+      url.pathname = "/platform";
+      url.search = "";
+      return NextResponse.redirect(url, 307);
+    }
+  }
+
   // Dominio raíz con sesión → al subdominio de la empresa. Va antes del
   // refresco: no tiene sentido renovar una cookie que no debería estar aquí.
-  if (session && !req.headers.get("x-org-slug")) {
+  if (session && !consola && !req.headers.get("x-org-slug")) {
     const salto = redirigirASuEmpresa(req, session.token.orgSlug);
     if (salto) return salto;
   }

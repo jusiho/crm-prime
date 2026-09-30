@@ -8,6 +8,7 @@ import { LanguageSwitcher } from "./LanguageSwitcher";
 import { MobileMenuButton } from "./MobileMenuButton";
 import { HelpMenu } from "./HelpMenu";
 import { TourHost } from "@/features/onboarding/TourHost";
+import { platformConsoleUrl } from "@/lib/org";
 import { getTranslator } from "@/i18n/server";
 import type { MessageKey } from "@/i18n/translate";
 
@@ -55,7 +56,13 @@ export async function AppShell({
 
   return (
     <div style={shell}>
-      <SideNav role={role} active={active} initialCollapsed={collapsed} platformAdmin={platformAdmin} />
+      <SideNav
+        role={role}
+        active={active}
+        initialCollapsed={collapsed}
+        platformAdmin={platformAdmin}
+        platformUrl={platformConsoleUrl() ?? "/platform"}
+      />
 
       <div style={main}>
         <header className="topbar" style={topbar}>
