@@ -9,6 +9,7 @@ import {
   connectWhatsapp,
   disconnectWhatsapp,
   fetchWhatsappChannels,
+  fetchWhatsappConnectStatus,
   requestWhatsappConnectTicket,
   testWhatsappChannel,
 } from "@/lib/bff";
@@ -16,7 +17,8 @@ import { PlanGate, useMyPlan } from "@/features/plans/usePlan";
 
 const APP_ID = process.env.NEXT_PUBLIC_WHATSAPP_APP_ID ?? "";
 const CONFIG_ID = process.env.NEXT_PUBLIC_WHATSAPP_CONFIG_ID ?? "";
-const GRAPH_VERSION = "v21.0";
+// Graph API v24.0 (octubre de 2025, disponible hasta febrero de 2028).
+const GRAPH_VERSION = "v24.0";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 declare global {
@@ -53,6 +55,15 @@ export function WhatsAppConnect({ hub = false }: { hub?: boolean }) {
     queryKey: ["wa-channels"],
     queryFn: fetchWhatsappChannels,
   });
+  // SaaS: ¿Meta ya aprobó a la plataforma? Hasta entonces, a la empresa se le
+  // explica en vez de abrirle una ventana de Meta que acaba en error.
+  const { data: hubStatus } = useQuery({
+    queryKey: ["wa-connect-status"],
+    queryFn: fetchWhatsappConnectStatus,
+    enabled: hub,
+    staleTime: 60_000,
+  });
+  const pendingApproval = hub && hubStatus?.approval === "pending";
 
   const connect = useMutation({
     mutationFn: connectWhatsapp,
@@ -142,17 +153,18 @@ export function WhatsAppConnect({ hub = false }: { hub?: boolean }) {
     document.body.appendChild(s);
   }, []);
 
-  // El Embedded Signup envía por postMessage el waba_id / phone_number_id.
+  // El Embedded Signup envía por postMessage el waba_id / phone_number_id al
+  // terminar (en coexistencia solo el waba_id: el número lo resuelve la API).
   useEffect(() => {
     function onMessage(event: MessageEvent) {
-      if (!String(event.origin).includes("facebook.com")) return;
+      if (!String(event.origin).endsWith("facebook.com")) return;
       try {
         const data =
           typeof event.data === "string" ? JSON.parse(event.data) : event.data;
-        if (data?.type === "WA_EMBEDDED_SIGNUP" && data?.data) {
+        if (data?.type === "WA_EMBEDDED_SIGNUP" && String(data.event ?? "").startsWith("FINISH")) {
           signupRef.current = {
-            phoneNumberId: data.data.phone_number_id,
-            wabaId: data.data.waba_id,
+            phoneNumberId: data.data?.phone_number_id,
+            wabaId: data.data?.waba_id,
           };
         }
       } catch {
@@ -186,11 +198,13 @@ export function WhatsAppConnect({ hub = false }: { hub?: boolean }) {
       return;
     }
     if (!window.FB || !CONFIG_ID) return;
+    signupRef.current = {};
     window.FB.login(
       (response: any) => {
         const code = response?.authResponse?.code;
         const { phoneNumberId, wabaId } = signupRef.current;
-        if (code && phoneNumberId) {
+        if (code && (phoneNumberId || wabaId)) {
+          // Se pide coexistencia; si Meta no la dejó, la API lo guarda como API.
           connect.mutate({ code, phoneNumberId, wabaId, mode: "coexistence" });
         }
       },
@@ -198,10 +212,11 @@ export function WhatsAppConnect({ hub = false }: { hub?: boolean }) {
         config_id: CONFIG_ID,
         response_type: "code",
         override_default_response_type: true,
+        // Embedded Signup v4: los productos van en la configuración de
+        // Facebook Login for Business; `featureType` abre la rama de coexistencia.
         extras: {
           setup: {},
           featureType: "whatsapp_business_app_onboarding",
-          sessionInfoVersion: "3",
         },
       },
     );
@@ -213,6 +228,12 @@ export function WhatsAppConnect({ hub = false }: { hub?: boolean }) {
   // En SaaS el botón no depende del SDK: no hay SDK en esta página.
   const ready = hub || sdkReady;
   const connecting = connect.isPending || hubPending;
+  // Alta con la app propia de la empresa: abre el formulario y lo deja a la vista.
+  const abrirManual = () => {
+    setEditing(null);
+    setManualOpen(true);
+    requestAnimationFrame(() => manualRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  };
 
   return (
     <div style={{ maxWidth: 720, margin: "0 auto", padding: 24 }}>
@@ -225,7 +246,7 @@ export function WhatsAppConnect({ hub = false }: { hub?: boolean }) {
         }}
       >
         <h2 style={{ marginTop: 0, marginBottom: 0 }}>Números de WhatsApp</h2>
-        {!missingConfig && list.length > 0 && (
+        {!missingConfig && list.length > 0 && !pendingApproval && (
           <button onClick={launch} disabled={!ready || connecting} style={addBtn} data-tour="wa-connect">
             <WaIcon />
             {connecting ? "Conectando…" : "Añadir número"}
@@ -246,6 +267,10 @@ export function WhatsAppConnect({ hub = false }: { hub?: boolean }) {
         Driony. Con la coexistencia sigues usando el número también en el celular.
       </PlanGate>
 
+      {pendingApproval && (
+        <PendingApproval compact={list.length > 0} connecting={connecting} onManual={abrirManual} onTryAnyway={launch} />
+      )}
+
       {connectError && (
         <p style={{ color: "#ff6b6b", fontSize: 13 }}>{connectError}</p>
       )}
@@ -261,6 +286,8 @@ export function WhatsAppConnect({ hub = false }: { hub?: boolean }) {
           <p style={{ color: "var(--muted)" }}>Verificando estado…</p>
         ) : missingConfig ? (
           <PendingConfig hasAppId={!!APP_ID} />
+        ) : list.length === 0 && pendingApproval ? (
+          <EmptyPending onManual={abrirManual} />
         ) : list.length === 0 ? (
           <Empty
             ready={ready}
@@ -772,7 +799,8 @@ function ChannelRow({
   return (
     <div style={row}>
       <span style={dot(online ? "var(--accent)" : "#7a8aa0")} />
-      <div style={{ flex: 1, minWidth: 0 }}>
+      {/* En pantallas estrechas los botones bajan de línea; el texto no se parte. */}
+      <div style={{ flex: "1 1 220px", minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <strong style={{ fontSize: 15 }}>
             {channel.label ||
@@ -923,6 +951,116 @@ function Empty({
   );
 }
 
+/**
+ * SaaS, mientras Meta no apruebe a la plataforma como proveedor tecnológico:
+ * el registro integrado solo funciona para cuentas con rol en la app de Meta,
+ * así que a la empresa se le cuenta la situación y la alternativa, en vez de
+ * abrirle una ventana de Meta que acaba en el error #2655111.
+ */
+function PendingApproval({
+  compact,
+  connecting,
+  onManual,
+  onTryAnyway,
+}: {
+  compact: boolean;
+  connecting: boolean;
+  onManual: () => void;
+  onTryAnyway: () => void;
+}) {
+  return (
+    <div style={pendingBox} role="status">
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <span style={dot("#e0a458")} />
+        <strong style={{ color: "var(--text)", fontSize: 15 }}>
+          Conexión con un clic: en revisión por Meta
+        </strong>
+      </div>
+      <p style={{ margin: "8px 0 0" }}>
+        Driony está en proceso de aprobación de Meta como <strong>proveedor tecnológico</strong>.
+        Hasta que Meta lo apruebe, el botón «Conectar WhatsApp» y la Coexistencia con el celular
+        no están disponibles.{" "}
+        {!compact && (
+          <>
+            Mientras tanto puedes conectar tu número con <strong>tu propia app de Meta</strong>:
+            funciona igual en modo API, atendido desde Driony.{" "}
+          </>
+        )}
+        Te avisaremos en cuanto esté listo.
+      </p>
+      {!compact && (
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginTop: 12 }}>
+          <button onClick={onManual} style={waBtn}>
+            <WaIcon />
+            Conectar con mi propia app de Meta
+          </button>
+          <a
+            href="/docs/whatsapp#con-tu-propia-app-de-meta"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ color: "var(--accent)", fontSize: 13 }}
+          >
+            Cómo se hace, paso a paso
+          </a>
+        </div>
+      )}
+      <button
+        type="button"
+        onClick={onTryAnyway}
+        disabled={connecting}
+        style={tryAnywayBtn}
+        title="Solo funciona con una cuenta de Facebook que tenga rol en la app de Meta de la plataforma"
+      >
+        {connecting ? "Conectando…" : "Soy del equipo de la plataforma: abrir el registro de Meta igualmente"}
+      </button>
+    </div>
+  );
+}
+
+function EmptyPending({ onManual }: { onManual: () => void }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <span style={dot("#7a8aa0")} />
+        <strong style={{ fontSize: 16 }}>Sin números conectados</strong>
+      </div>
+      <p style={{ color: "var(--muted)", fontSize: 14, margin: 0 }}>
+        Añade tu número con tu propia app de Meta. Cuando Meta apruebe la plataforma, el botón
+        «Conectar WhatsApp» aparecerá aquí.
+      </p>
+      <div>
+        <button onClick={onManual} style={linkBtn}>
+          <NavIcon name="arrow-down" size={14} />
+          Ir al formulario de alta
+        </button>
+      </div>
+    </div>
+  );
+}
+
+const pendingBox: React.CSSProperties = {
+  marginTop: 14,
+  padding: 14,
+  borderRadius: 10,
+  border: "1px solid #7a6f4a",
+  background: "rgba(224,183,102,0.08)",
+  color: "var(--muted)",
+  fontSize: 13.5,
+  lineHeight: 1.55,
+};
+
+const tryAnywayBtn: React.CSSProperties = {
+  marginTop: 12,
+  padding: 0,
+  border: "none",
+  background: "transparent",
+  color: "var(--muted)",
+  fontSize: 12,
+  cursor: "pointer",
+  textDecoration: "underline",
+  textUnderlineOffset: 3,
+};
+
 function PendingConfig({ hasAppId }: { hasAppId: boolean }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -942,8 +1080,9 @@ function PendingConfig({ hasAppId }: { hasAppId: boolean }) {
         )}
         <li>
           En tu App de Meta → <strong>Facebook Login for Business</strong> →
-          <strong> Configurations</strong> → crea una configuración de Embedded
-          Signup y copia su <strong>Config ID</strong>.
+          <strong> Configurations</strong> → crea una configuración <strong>nueva</strong> de
+          Embedded Signup (versión 4): marca el producto WhatsApp y, si vas a ofrecer
+          Coexistencia, la opción de WhatsApp Business App. Copia su <strong>Config ID</strong>.
         </li>
         <li>
           Pégalo en <code>NEXT_PUBLIC_WHATSAPP_CONFIG_ID</code> (en{" "}
@@ -972,6 +1111,7 @@ const card: React.CSSProperties = {
 
 const row: React.CSSProperties = {
   display: "flex",
+  flexWrap: "wrap",
   alignItems: "center",
   gap: 12,
   padding: "12px 14px",

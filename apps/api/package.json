@@ -14,6 +14,7 @@
     "test:tenancy": "tsx --test test/tenancy.test.ts",
     "pretest:tenancy": "node ../../scripts/ensure-test-db.mjs crm_tenancy_test",
     "test:rls": "tsx --test test/rls.test.ts",
+    "test:waphone": "tsx --test test/whatsapp-phone-pick.test.ts",
     "pretest:rls": "node ../../scripts/setup-rls-test-db.mjs",
     "test:slug": "tsx --test test/org-slug.test.ts",
     "test:cors": "tsx --test test/cors.test.ts",

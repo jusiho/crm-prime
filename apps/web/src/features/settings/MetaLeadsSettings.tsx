@@ -28,7 +28,7 @@ import { NavIcon } from "@/components/NavIcons";
 
 const APP_ID = process.env.NEXT_PUBLIC_WHATSAPP_APP_ID ?? "";
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
-const GRAPH_VERSION = "v21.0";
+const GRAPH_VERSION = "v24.0";
 
 // Lo que Meta exige para leer formularios: ver las páginas, administrar sus
 // webhooks y descargar los leads.

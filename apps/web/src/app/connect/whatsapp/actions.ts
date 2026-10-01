@@ -1,5 +1,7 @@
 "use server";
 
+import { getLocale } from "@/i18n/server";
+
 const API_URL = process.env.API_URL ?? "http://localhost:3001";
 
 export type ConnectResult = { ok: true; returnUrl: string } | { ok: false; error: string };
@@ -8,11 +10,13 @@ export type ConnectResult = { ok: true; returnUrl: string } | { ok: false; error
  * Entrega a la API el resultado del Embedded Signup junto con el pase.
  * Es una acción de servidor para no exponer la API al navegador desde aquí:
  * el conector vive en el dominio raíz y no tiene sesión.
+ *
+ * En coexistencia Meta solo devuelve el `wabaId`; la API averigua el número.
  */
 export async function connectWithTicket(input: {
   ticket: string;
   code: string;
-  phoneNumberId: string;
+  phoneNumberId?: string;
   wabaId?: string;
   mode: "coexistence" | "api";
 }): Promise<ConnectResult> {
@@ -20,7 +24,8 @@ export async function connectWithTicket(input: {
   try {
     res = await fetch(`${API_URL}/api/v1/whatsapp/connect/with-ticket`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      // Para que los errores de la API vuelvan en el idioma de la persona.
+      headers: { "Content-Type": "application/json", "Accept-Language": await getLocale() },
       body: JSON.stringify(input),
       cache: "no-store",
     });

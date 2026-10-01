@@ -28,8 +28,9 @@ Al conectar, Driony importa los contactos y el historial reciente del celular (M
 La Coexistencia **no la activa cada empresa por su cuenta**. Meta solo la habilita a través del registro integrado (*Embedded Signup*) de un **proveedor tecnológico aprobado** (Tech Provider o Solution Partner con acceso avanzado a la API de WhatsApp). En la práctica:
 
 - Se activa únicamente con el botón **Conectar WhatsApp** de Driony, una vez que Meta apruebe la plataforma.
+- Mientras esa aprobación no llegue, la pantalla de WhatsApp lo dice («Conexión con un clic: en revisión por Meta») y en lugar del botón te ofrece conectar con tu propia app. No hay nada que puedas hacer por tu cuenta para adelantarla.
 - **No** se consigue con un token pegado a mano ni con tu propia app de desarrollador: por esa vía el número queda en modo API (solo desde el CRM).
-- Si al pulsar el botón Meta muestra el error #2655111, la aprobación aún no ha llegado.
+- Si al terminar el registro de Meta el número no quedó también en la app del celular, Driony lo guarda en modo API y te lo muestra así, en vez de prometer una coexistencia que no existe.
 - En la nube de Driony está incluida **a partir del plan Pro** ([Planes y límites](/docs/planes)). Con el plan Gratis, el mismo botón conecta el número en modo API.
 
 ### Varios números
@@ -55,7 +56,8 @@ Es una regla de WhatsApp, no del CRM: puedes escribir libremente a quien te haya
 
 | Lo que ves | Qué es |
 |---|---|
-| Meta dice **«la app de socio no tiene los permisos avanzados…» (#2655111)** al pulsar el botón | Tu cuenta de Facebook no tiene rol en la app de la plataforma y Meta aún no ha aprobado el acceso avanzado. Mientras tanto, conecta con tu propia app (arriba). |
+| La pantalla dice **«Conexión con un clic: en revisión por Meta»** | Meta aún no ha aprobado a la plataforma como proveedor tecnológico. Conecta con tu propia app (arriba); cuando llegue la aprobación aparecerá el botón. |
+| Meta dice **«la app de socio no tiene los permisos avanzados…» (#2655111)** al abrir el registro | Lo mismo: abriste el registro de Meta sin que la plataforma esté aprobada y sin un rol en su app. Conecta con tu propia app mientras tanto. |
 | **«Dominio de host desconocido de JSSDK»** | Solo puede pasar si abres el conector fuera de `driony.com`. Vuelve a pulsar el botón desde tu panel. |
 | El número aparece con **«Token caducado»** | Pegaste un token temporal (caduca en 24 h). Genera uno permanente de usuario del sistema y pulsa **Actualizar token**. |
 | Envías pero **no recibes** | El webhook de tu app no apunta a Driony o el verify token no coincide (solo con app propia). Revisa la URL y suscribe `messages`. |

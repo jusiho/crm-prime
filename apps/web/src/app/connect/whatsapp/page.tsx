@@ -43,6 +43,8 @@ export default async function ConnectWhatsappPage({
               saving: t("connect.saving"),
               done: t("connect.done"),
               notCompleted: t("connect.notCompleted"),
+              notApproved: t("connect.notApproved"),
+              metaError: t("connect.metaError"),
               missingConfig: t("connect.missingConfig"),
               backHint: t("connect.backHint"),
             }}

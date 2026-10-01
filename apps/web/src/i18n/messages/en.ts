@@ -87,6 +87,9 @@ export const en = {
     done: "Done! Number connected.",
     notCompleted:
       "The connection wasn't completed. You can try again. If Meta said advanced permissions are missing (#2655111), the platform isn't approved yet: meanwhile you can connect with your own Meta app from Settings › Integrations.",
+    notApproved:
+      "Meta hasn't approved Driony as a tech provider yet, so one-click connection isn't available for now. Meanwhile you can connect your number with your own Meta app from Settings › Integrations.",
+    metaError: "Meta didn't complete the signup: {message}. You can try again.",
     missingConfig: "WhatsApp connection is not configured on this platform yet.",
     backHint: "If nothing happens, close this window and press \"Connect WhatsApp\" again from your dashboard.",
     expired: "This link has expired",

@@ -5,7 +5,8 @@ import { connectWithTicket } from "./actions";
 
 const APP_ID = process.env.NEXT_PUBLIC_WHATSAPP_APP_ID ?? "";
 const CONFIG_ID = process.env.NEXT_PUBLIC_WHATSAPP_CONFIG_ID ?? "";
-const GRAPH_VERSION = "v21.0";
+// Graph API v24.0 (octubre de 2025, disponible hasta febrero de 2028).
+const GRAPH_VERSION = "v24.0";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 declare global {
@@ -24,6 +25,10 @@ export interface HubTexts {
   saving: string;
   done: string;
   notCompleted: string;
+  /** Meta rechazó la app de la plataforma: todavía sin acceso avanzado. */
+  notApproved: string;
+  /** Meta devolvió un error concreto; {message} es su texto. */
+  metaError: string;
   missingConfig: string;
   backHint: string;
 }
@@ -35,6 +40,18 @@ type Estado =
   | { tipo: "guardando" }
   | { tipo: "hecho"; url: string }
   | { tipo: "error"; mensaje: string };
+
+/** Lo que Meta cuenta por postMessage durante el Embedded Signup. */
+interface Sesion {
+  event?: string;
+  phoneNumberId?: string;
+  wabaId?: string;
+  errorMessage?: string;
+  errorCode?: string;
+}
+
+/** Error de Meta cuando la app de la plataforma aún no tiene acceso avanzado. */
+const SIN_ACCESO_AVANZADO = /2655111|advanced (permission|access)|permisos avanzados|acceso avanzado/i;
 
 /**
  * El único sitio donde carga el SDK de Meta en una instalación SaaS.
@@ -48,6 +65,11 @@ type Estado =
  * un iframe servido desde el dominio raíz. Meta mira el dominio del marco que
  * llama a `FB.login`, no el de la página de fuera, así que el usuario no sale
  * de `acme.driony.com` y aun así el SDK arranca en `driony.com`.
+ *
+ * Embedded Signup **v4**: los productos (WhatsApp, coexistencia…) se eligen en
+ * la configuración de Facebook Login for Business, no aquí. `extras` va casi
+ * vacío; `featureType` sigue siendo el selector que abre la rama de
+ * coexistencia. La v2 (`sessionInfoVersion`) se retira el 15 de octubre de 2026.
  */
 export function ConnectWhatsappHub({
   ticket,
@@ -63,7 +85,7 @@ export function ConnectWhatsappHub({
   t: HubTexts;
 }) {
   const [estado, setEstado] = useState<Estado>({ tipo: "cargando" });
-  const signupRef = useRef<{ phoneNumberId?: string; wabaId?: string }>({});
+  const sesionRef = useRef<Sesion>({});
 
   // Cargar el SDK.
   useEffect(() => {
@@ -96,16 +118,28 @@ export function ConnectWhatsappHub({
     return () => clearTimeout(aviso);
   }, []);
 
-  // El Embedded Signup manda por postMessage el waba_id / phone_number_id.
+  // Meta cuenta por postMessage cómo va el registro: los IDs al terminar
+  // (`FINISH*`) o el motivo si lo abandona o falla (`CANCEL`). En coexistencia
+  // solo llega el waba_id: el número lo resuelve después la API.
   useEffect(() => {
     function onMessage(event: MessageEvent) {
-      if (!String(event.origin).includes("facebook.com")) return;
+      if (!String(event.origin).endsWith("facebook.com")) return;
       try {
         const data = typeof event.data === "string" ? JSON.parse(event.data) : event.data;
-        if (data?.type === "WA_EMBEDDED_SIGNUP" && data?.data) {
-          signupRef.current = {
-            phoneNumberId: data.data.phone_number_id,
-            wabaId: data.data.waba_id,
+        if (data?.type !== "WA_EMBEDDED_SIGNUP") return;
+        const d = data.data ?? {};
+        console.info("[conector] evento de Meta:", data.event, d);
+        if (String(data.event ?? "").startsWith("FINISH")) {
+          sesionRef.current = {
+            event: data.event,
+            phoneNumberId: d.phone_number_id,
+            wabaId: d.waba_id,
+          };
+        } else if (data.event === "CANCEL") {
+          sesionRef.current = {
+            event: "CANCEL",
+            errorMessage: d.error_message,
+            errorCode: d.error_code != null ? String(d.error_code) : undefined,
           };
         }
       } catch {
@@ -144,17 +178,31 @@ export function ConnectWhatsappHub({
     return () => clearTimeout(id);
   }, [estado]);
 
+  /** Qué decirle a la persona cuando Meta no devolvió un code. */
+  function motivo(response: any): string {
+    const s = sesionRef.current;
+    if (s.event === "CANCEL" && (s.errorMessage || s.errorCode)) {
+      const texto = [s.errorMessage, s.errorCode ? `#${s.errorCode}` : null].filter(Boolean).join(" ");
+      if (SIN_ACCESO_AVANZADO.test(texto)) return t.notApproved;
+      return t.metaError.replace("{message}", texto);
+    }
+    return `${t.notCompleted} (${response?.status ?? "sin respuesta"})`;
+  }
+
   // Lo que sigue a la respuesta de Meta. Va aparte porque el SDK exige que el
   // callback de FB.login sea una función normal: comprueba su tipo y rechaza
   // un AsyncFunction con "Expression is of type asyncfunction, not function".
   async function procesar(response: any) {
     const code = response?.authResponse?.code;
-    const { phoneNumberId, wabaId } = signupRef.current;
-    if (!code || !phoneNumberId) {
-      setEstado({
-        tipo: "error",
-        mensaje: `${t.notCompleted} (${response?.status ?? "sin respuesta"}${phoneNumberId ? "" : ", sin número"})`,
-      });
+    const { phoneNumberId, wabaId, event } = sesionRef.current;
+    if (!code) {
+      setEstado({ tipo: "error", mensaje: motivo(response) });
+      return;
+    }
+    // Terminó el flujo pero sin elegir número (FINISH_ONLY_WABA sin WABA
+    // tampoco no debería darse): no hay nada que guardar.
+    if (!phoneNumberId && !wabaId) {
+      setEstado({ tipo: "error", mensaje: `${t.notCompleted} (${event ?? "sin número"})` });
       return;
     }
     setEstado({ tipo: "guardando" });
@@ -174,6 +222,7 @@ export function ConnectWhatsappHub({
       setEstado({ tipo: "error", mensaje: "El SDK de Meta no está disponible. Recarga la página." });
       return;
     }
+    sesionRef.current = {};
     setEstado({ tipo: "esperando" });
     // Si en unos segundos no hay ventana ni respuesta, casi siempre es el
     // bloqueador de ventanas emergentes del navegador.
@@ -196,12 +245,12 @@ export function ConnectWhatsappHub({
           config_id: CONFIG_ID,
           response_type: "code",
           override_default_response_type: true,
+          // Embedded Signup v4: `setup` vacío = Meta pregunta todo al cliente.
           extras: {
             setup: {},
-            // Con coexistencia, el flujo de Meta que deja el número también en
+            // Con coexistencia, la rama de Meta que deja el número también en
             // la app del celular; sin ella, el registro normal (modo API).
             ...(coexistence ? { featureType: "whatsapp_business_app_onboarding" } : {}),
-            sessionInfoVersion: "3",
           },
         },
       );

@@ -144,7 +144,7 @@ export class IntegrationSettingsService {
       return {
         appId: env("WHATSAPP_APP_ID") ?? null,
         appSecret: env("WHATSAPP_APP_SECRET") ?? null,
-        graphVersion: env("WHATSAPP_GRAPH_VERSION") || "v21.0",
+        graphVersion: env("WHATSAPP_GRAPH_VERSION") || "v24.0",
       };
     }
     const row = await this.load();
@@ -153,7 +153,7 @@ export class IntegrationSettingsService {
       appSecret: this.secret(row.whatsappAppSecretEnc, "WHATSAPP_APP_SECRET")
         .value,
       graphVersion:
-        row.whatsappGraphVersion || env("WHATSAPP_GRAPH_VERSION") || "v21.0",
+        row.whatsappGraphVersion || env("WHATSAPP_GRAPH_VERSION") || "v24.0",
     };
   }
 
@@ -186,7 +186,7 @@ export class IntegrationSettingsService {
       appSecret,
       verifyToken,
       graphVersion:
-        row.whatsappGraphVersion || env("WHATSAPP_GRAPH_VERSION") || "v21.0",
+        row.whatsappGraphVersion || env("WHATSAPP_GRAPH_VERSION") || "v24.0",
     };
   }
 

@@ -86,6 +86,9 @@ export const es: Messages = {
     done: "¡Listo! Número conectado.",
     notCompleted:
       "No se completó la conexión. Puedes intentarlo otra vez. Si Meta indicó que faltan permisos avanzados (#2655111), la plataforma aún no está aprobada: mientras tanto puedes conectar con tu propia app de Meta desde Ajustes › Integraciones.",
+    notApproved:
+      "Meta todavía no ha aprobado a Driony como proveedor tecnológico, así que la conexión con un clic aún no está disponible. Mientras tanto puedes conectar tu número con tu propia app de Meta desde Ajustes › Integraciones.",
+    metaError: "Meta no completó el registro: {message}. Puedes intentarlo otra vez.",
     missingConfig: "La conexión de WhatsApp aún no está configurada en esta plataforma.",
     backHint: "Si no pasa nada, cierra esta ventana y pulsa \"Conectar WhatsApp\" otra vez desde tu panel.",
     expired: "Este enlace ha caducado",

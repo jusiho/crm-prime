@@ -301,7 +301,7 @@ export function IntegrationsSettings() {
             <input
               style={input}
               value={graphVersion}
-              placeholder="v21.0"
+              placeholder="v24.0"
               onChange={(e) => setGraphVersion(e.target.value)}
             />
           </div>

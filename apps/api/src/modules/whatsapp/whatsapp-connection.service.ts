@@ -16,6 +16,30 @@ import { runUnscoped, tenancyMode } from "../../infra/tenant/tenant.context";
 import { IntegrationSettingsService } from "../integrations/integration-settings.service";
 import { PlansService } from "../plans/plans.service";
 
+/** Un número tal como lo lista la Graph API dentro de una WABA. */
+export interface GraphPhoneNumber {
+  id: string;
+  display_phone_number?: string;
+  /** Coexistencia: el número sigue también en la app WhatsApp Business del celular. */
+  is_on_biz_app?: boolean;
+  platform_type?: string;
+}
+
+/**
+ * Qué número de la WABA es el recién registrado. Con uno solo, ese. Con
+ * varios y coexistencia, el último que está en la app del celular (Meta
+ * añade al final). Si no, el primero. Exportada para probarla sin Meta.
+ */
+export function pickPhoneNumber(list: GraphPhoneNumber[], mode: string): GraphPhoneNumber | null {
+  if (!list.length) return null;
+  if (list.length === 1) return list[0]!;
+  if (mode === "coexistence") {
+    const onApp = list.filter((p) => p.is_on_biz_app);
+    if (onApp.length) return onApp[onApp.length - 1]!;
+  }
+  return list[0]!;
+}
+
 export interface WhatsappCreds {
   token: string;
   phoneNumberId: string;
@@ -25,7 +49,8 @@ export interface WhatsappCreds {
 @Injectable()
 export class WhatsappConnectionService {
   private readonly logger = new Logger("WhatsAppConnection");
-  private readonly version = process.env.WHATSAPP_GRAPH_VERSION ?? "v21.0";
+  // Graph API v24.0 (octubre de 2025, disponible hasta febrero de 2028).
+  private readonly version = process.env.WHATSAPP_GRAPH_VERSION ?? "v24.0";
 
   constructor(
     private readonly plans: PlansService,
@@ -249,40 +274,68 @@ export class WhatsappConnectionService {
 
   // ── Conectar un número (desde el Embedded Signup) ────────────
   async connect(input: ConnectWhatsappInput): Promise<WhatsappChannel[]> {
+    const token = input.code
+      ? await this.exchangeCode(input.code)
+      : input.accessToken!;
+
+    // En coexistencia Meta no devuelve el número al terminar, solo la cuenta
+    // (WABA): se busca ahí el que acaba de registrarse.
+    let phoneNumberId = input.phoneNumberId;
+    let displayPhoneNumber = input.displayPhoneNumber;
+    if (!phoneNumberId) {
+      if (!input.wabaId) {
+        throw new BadRequestException(
+          "Meta no devolvió ni el número ni la cuenta de WhatsApp. Vuelve a conectar.",
+        );
+      }
+      const found = await this.findPhoneNumber(input.wabaId, token, input.mode);
+      phoneNumberId = found.id;
+      displayPhoneNumber ??= found.display_phone_number;
+    }
+
     // Plan: reconectar un número que ya está no cuenta; uno nuevo sí. La
     // coexistencia (seguir usando el celular) es una característica de plan.
     const yaConectado = await this.prisma.whatsappConnection.findFirst({
-      where: { phoneNumberId: input.phoneNumberId },
+      where: { phoneNumberId },
       select: { isActive: true },
     });
     if (!yaConectado?.isActive) await this.plans.assertCanAdd("numbers");
     if (input.mode === "coexistence") await this.plans.assertFeature("coexistence");
 
-    const token = input.code
-      ? await this.exchangeCode(input.code)
-      : input.accessToken!;
+    // Lo pedido puede no ser lo que Meta dejó: si el número no quedó también
+    // en la app del celular, se guarda como API para no mentir en el panel.
+    let mode: ConnectWhatsappInput["mode"] = input.mode;
+    if (mode === "coexistence" && input.code) {
+      const onBizApp = await this.isOnBizApp(phoneNumberId, token);
+      if (onBizApp === false) {
+        this.logger.warn(
+          `Número ${phoneNumberId} no quedó en la app del celular: se guarda en modo API`,
+        );
+        mode = "api";
+      }
+    }
 
     // Upsert por phoneNumberId: reconectar el mismo número actualiza su token
     // sin tocar a los demás canales (ya no se desactiva nada).
     await this.prisma.whatsappConnection.upsert({
-      where: { phoneNumberId: input.phoneNumberId },
+      where: { phoneNumberId: phoneNumberId },
       create: {
         orgId: this.tenant.orgId(),
         wabaId: input.wabaId ?? null,
-        phoneNumberId: input.phoneNumberId,
-        displayPhoneNumber: input.displayPhoneNumber ?? null,
+        phoneNumberId: phoneNumberId,
+        displayPhoneNumber: displayPhoneNumber ?? null,
         label: input.label ?? null,
         accessToken: token,
-        mode: input.mode,
+        mode: mode,
         isActive: true,
         status: "connected",
       },
       update: {
         wabaId: input.wabaId ?? undefined,
-        displayPhoneNumber: input.displayPhoneNumber ?? undefined,
+        displayPhoneNumber: displayPhoneNumber ?? undefined,
         label: input.label ?? undefined,
         accessToken: token,
-        mode: input.mode,
+        mode: mode,
         isActive: true,
         status: "connected",
         statusReason: null,
@@ -298,42 +351,103 @@ export class WhatsappConnectionService {
       }
       throw e;
     });
-    this.logger.log(`WhatsApp conectado (${input.mode}) ${input.phoneNumberId}`);
+    this.logger.log(`WhatsApp conectado (${mode}) ${phoneNumberId}`);
 
     // Sin suscribir la app a la WABA, Meta no entrega los webhooks de ese número.
     if (input.wabaId) {
       const err = await this.graphPost(`${input.wabaId}/subscribed_apps`, token);
       if (err) {
         await this.markError(
-          input.phoneNumberId,
+          phoneNumberId,
           `No se pudo suscribir la app a los webhooks de la WABA: ${err}`,
         );
       }
     } else if (input.code) {
       await this.markError(
-        input.phoneNumberId,
+        phoneNumberId,
         "Meta no envió el waba_id, así que no se suscribió a los webhooks. Vuelve a conectar el número.",
       );
     }
 
     // Contactos e historial del celular: Meta solo acepta pedirlos en las 24 h
     // siguientes a conectar, y una sola vez (al reconectar fallan sin más).
-    if (input.mode === "coexistence") {
+    if (mode === "coexistence") {
       for (const syncType of ["smb_app_state_sync", "history"]) {
         const err = await this.graphPost(
-          `${input.phoneNumberId}/smb_app_data`,
+          `${phoneNumberId}/smb_app_data`,
           token,
           { messaging_product: "whatsapp", sync_type: syncType },
         );
         if (err) {
           this.logger.warn(
-            `Sincronización ${syncType} de ${input.phoneNumberId} falló: ${err}`,
+            `Sincronización ${syncType} de ${phoneNumberId} falló: ${err}`,
           );
         }
       }
     }
 
     return this.listChannels();
+  }
+
+  /** GET a la Graph API: el JSON, o el mensaje de error de Meta. */
+  private async graphGet<T extends object>(
+    path: string,
+    token: string,
+  ): Promise<{ ok: true; data: T } | { ok: false; error: string }> {
+    try {
+      const res = await fetch(`https://graph.facebook.com/${this.version}/${path}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = (await res.json().catch(() => null)) as
+        | (T & { error?: { message?: string } })
+        | null;
+      if (!res.ok || !data || data.error) {
+        return { ok: false, error: data?.error?.message ?? `HTTP ${res.status}` };
+      }
+      return { ok: true, data };
+    } catch (e) {
+      return { ok: false, error: (e as Error).message.slice(0, 200) };
+    }
+  }
+
+  /**
+   * El número que acaba de registrarse en una WABA. Con varios, en
+   * coexistencia manda el que está en la app del celular; si no, el primero.
+   */
+  private async findPhoneNumber(
+    wabaId: string,
+    token: string,
+    mode: string,
+  ): Promise<GraphPhoneNumber> {
+    const r = await this.graphGet<{ data?: GraphPhoneNumber[] }>(
+      `${wabaId}/phone_numbers?fields=id,display_phone_number,is_on_biz_app,platform_type`,
+      token,
+    );
+    if (!r.ok) {
+      throw new BadRequestException(
+        `No se pudieron leer los números de la cuenta de WhatsApp: ${r.error}`,
+      );
+    }
+    const pick = pickPhoneNumber(r.data.data ?? [], mode);
+    if (!pick) {
+      throw new BadRequestException(
+        "La cuenta de WhatsApp no tiene ningún número. Vuelve a conectar y termina el registro con un número.",
+      );
+    }
+    this.logger.log(
+      `Número resuelto desde la WABA ${wabaId}: ${pick.id} (${pick.display_phone_number ?? "sin formato"})`,
+    );
+    return pick;
+  }
+
+  /** Si el número sigue en la app del celular; null si Meta no lo dice. */
+  private async isOnBizApp(phoneNumberId: string, token: string): Promise<boolean | null> {
+    const r = await this.graphGet<{ is_on_biz_app?: boolean; platform_type?: string }>(
+      `${phoneNumberId}?fields=is_on_biz_app,platform_type`,
+      token,
+    );
+    if (!r.ok || typeof r.data.is_on_biz_app !== "boolean") return null;
+    return r.data.is_on_biz_app;
   }
 
   /** POST a la Graph API. Devuelve el mensaje de error de Meta, o null si fue bien. */

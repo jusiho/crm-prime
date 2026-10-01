@@ -57,13 +57,17 @@ export const connectWhatsappSchema = z
     code: z.string().optional(), // código del Embedded Signup (se canjea por token)
     accessToken: z.string().optional(), // o un token directo
     wabaId: z.string().optional(),
-    phoneNumberId: z.string().min(1),
+    // En coexistencia Meta solo devuelve la WABA: el número lo busca la API.
+    phoneNumberId: z.string().min(1).optional(),
     displayPhoneNumber: z.string().optional(),
     label: z.string().max(60).optional(), // alias opcional del número
     mode: z.enum(["coexistence", "api"]).default("coexistence"),
   })
   .refine((v) => !!v.code || !!v.accessToken, {
     message: "Se requiere code o accessToken",
+  })
+  .refine((v) => !!v.phoneNumberId || !!v.wabaId, {
+    message: "Se requiere phoneNumberId o wabaId",
   });
 export type ConnectWhatsappInput = z.infer<typeof connectWhatsappSchema>;
 
@@ -85,14 +89,27 @@ export interface ConnectTicketResult {
   coexistence: boolean;
 }
 
+/** Estado del registro integrado, para la pantalla de WhatsApp. */
+export interface ConnectHubStatus {
+  /** Instalación SaaS: el SDK de Meta corre en el conector del dominio raíz. */
+  saas: boolean;
+  /** Si Meta ya aprobó a la plataforma como proveedor tecnológico (acceso avanzado). */
+  approval: "approved" | "pending";
+  coexistence: boolean;
+}
+
 /** Lo que el conector manda a la API al terminar el Embedded Signup. */
-export const connectWithTicketSchema = z.object({
-  ticket: z.string().min(1),
-  code: z.string().min(1),
-  phoneNumberId: z.string().min(1),
-  wabaId: z.string().optional(),
-  mode: z.enum(["coexistence", "api"]).default("coexistence"),
-});
+export const connectWithTicketSchema = z
+  .object({
+    ticket: z.string().min(1),
+    code: z.string().min(1),
+    phoneNumberId: z.string().min(1).optional(),
+    wabaId: z.string().optional(),
+    mode: z.enum(["coexistence", "api"]).default("coexistence"),
+  })
+  .refine((v) => !!v.phoneNumberId || !!v.wabaId, {
+    message: "Se requiere phoneNumberId o wabaId",
+  });
 export type ConnectWithTicketInput = z.infer<typeof connectWithTicketSchema>;
 
 export interface ConnectWithTicketResult {

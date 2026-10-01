@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   ForbiddenException,
+  Get,
   Post,
   UseGuards,
 } from "@nestjs/common";
@@ -9,6 +10,7 @@ import {
   connectWithTicketSchema,
   Role,
   type AccessTokenClaims,
+  type ConnectHubStatus,
   type ConnectTicketResult,
   type ConnectWithTicketInput,
   type ConnectWithTicketResult,
@@ -26,6 +28,21 @@ import { WhatsappConnectionService } from "./whatsapp-connection.service";
 import { PlansService } from "../plans/plans.service";
 
 const PROPOSITO = "whatsapp-connect";
+
+/**
+ * ¿Meta ya aprobó a la plataforma como proveedor tecnológico (acceso avanzado
+ * a la API de WhatsApp)? Hasta entonces, el registro integrado solo funciona
+ * para cuentas con rol en la app, y a los clientes se les avisa en vez de
+ * dejar que choquen con el error #2655111 de Meta.
+ *
+ * Solo aplica al SaaS: en una instalación de una empresa, la app de Meta es
+ * la suya y sus propias cuentas tienen rol.
+ */
+export function techProviderApproval(saas: boolean): ConnectHubStatus["approval"] {
+  if (!saas) return "approved";
+  const v = (env("WHATSAPP_TECH_PROVIDER_APPROVED") ?? "").trim().toLowerCase();
+  return v === "1" || v === "true" || v === "yes" || v === "si" || v === "sí" ? "approved" : "pending";
+}
 
 /**
  * El conector de WhatsApp en dominio fijo.
@@ -50,6 +67,15 @@ export class ConnectHubController {
     private readonly prisma: PrismaService,
     private readonly plans: PlansService,
   ) {}
+
+  /** Estado del registro integrado para esta empresa: lo lee la pantalla de WhatsApp. */
+  @Get("status")
+  @UseGuards(JwtAuthGuard)
+  async status(): Promise<ConnectHubStatus> {
+    const saas = !!env("SAAS_BASE_DOMAIN");
+    const coexistence = (await this.plans.current()).features.coexistence;
+    return { saas, approval: techProviderApproval(saas), coexistence };
+  }
 
   /** Emite el pase y la URL del conector. Solo administradores. */
   @Post("ticket")
@@ -108,6 +134,7 @@ export class ConnectHubController {
     await runInOrg(claims.org, () =>
       this.connection.connect({
         code: body.code,
+        // En coexistencia Meta solo manda el waba_id: la API busca el número.
         phoneNumberId: body.phoneNumberId,
         wabaId: body.wabaId,
         mode: body.mode,

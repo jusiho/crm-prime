@@ -1,159 +1,139 @@
-# WhatsApp Coexistencia · Pendiente
+# WhatsApp Coexistencia · Estado
 
-Estado al **2026-09-15**. Objetivo: conectar el número con **coexistencia**
+Estado al **2026-09-30**. Objetivo: conectar el número con **coexistencia**
 (seguir usando WhatsApp Business en el celular y, a la vez, gestionarlo desde
-el CRM en `https://crm.flyteek.com`).
+Driony).
 
 ---
 
-## Dónde se quedó
+## Resumen
 
-Al pulsar **Conectar WhatsApp**, la ventana de Meta muestra
-*"Agrega tu número de teléfono de WhatsApp · Ingresar un nuevo número de
-teléfono"*. Esa es la pantalla del flujo **normal** de la API, no la de
-coexistencia.
+| Pieza | Estado |
+|---|---|
+| Embedded Signup **v4** en el código (conector y pantalla de WhatsApp) | ✅ Hecho 2026-09-30 |
+| Conexión por coexistencia sin `phone_number_id` (Meta solo manda la WABA) | ✅ Hecho 2026-09-30 |
+| Aviso a las empresas mientras Meta no apruebe a la plataforma | ✅ Hecho 2026-09-30 (`WHATSAPP_TECH_PROVIDER_APPROVED`) |
+| Configuración **v4** de Facebook Login for Business en la app de Meta | ⬜ Pendiente (manual, en el panel de Meta) |
+| Aprobación de Meta: verificación del negocio + acceso avanzado (Tech Provider) | ⬜ En revisión |
+| Prueba real de coexistencia contra Meta | ⬜ Solo posible tras la aprobación |
 
-> ⚠️ **No completes esa pantalla.** Registrar el número por ahí lo migra a la
-> Cloud API y deja de funcionar en la app WhatsApp Business del celular.
+> Lo del código está probado con typecheck, pruebas sin Meta (elección del
+> número en la WABA, aviso de aprobación) y el conector en el navegador con un
+> SDK simulado. **No está probado contra Meta real**: eso exige la aprobación.
 
 ---
 
-## Bloqueo 1 · Requisito de Meta (resolver primero)
+## Requisito de Meta (sigue siendo el bloqueo)
 
 La opción *"conectar tu app de WhatsApp Business existente"* **solo aparece si
-el negocio dueño de la app de Meta es Tech Provider o Solution Partner**.
-Si no, Meta muestra la pantalla normal.
+el negocio dueño de la app de Meta es Tech Provider o Solution Partner** con
+acceso avanzado. Si no, Meta muestra la pantalla normal de la API.
+
+> ⚠️ Si al probar aparece *"Agrega tu número de teléfono · Ingresar un nuevo
+> número"*, **no completes esa pantalla**: registrar el número por ahí lo migra
+> a la Cloud API y deja de funcionar en la app WhatsApp Business del celular.
 
 - [ ] Verificar el negocio: Meta Business Suite → Configuración → Centro de
       seguridad → Verificación del negocio.
-- [ ] Convertirse en **Tech Provider** desde el panel de la app en
-      developers.facebook.com (incluye App Review con acceso avanzado a
-      `whatsapp_business_management` y `whatsapp_business_messaging`).
+- [ ] Revisión de la app con acceso avanzado a `whatsapp_business_management`
+      y `whatsapp_business_messaging` (grabación de pantalla del flujo completo,
+      en inglés o con subtítulos).
+- [ ] Asistente de **Tech Provider** en la sección WhatsApp de la app.
 - [ ] Número en **WhatsApp Business app 2.24.17 o superior**.
-- [ ] Confirmar que el país del número admite coexistencia.
+
+Hasta entonces, en producción `WHATSAPP_TECH_PROVIDER_APPROVED` queda en
+`false`: las empresas ven «Conexión con un clic: en revisión por Meta» y la
+alternativa de su propia app. El equipo de la plataforma (cuentas con rol en
+la app de Meta) sigue pudiendo abrir el registro desde ese mismo aviso.
+Cuando Meta apruebe: poner `true`, `docker compose … up -d api`.
 
 ---
 
-## Bloqueo 2 · Bug en el CRM (arreglar antes de conectar)
+## Embedded Signup v4 (hecho en código, falta la configuración en Meta)
 
-Al terminar el flujo de coexistencia, Meta envía este evento. **Solo trae
-`waba_id`, no `phone_number_id`**:
+Meta retira la **v2 el 15 de octubre de 2026** (la v3 también). En v4 los
+productos se eligen en la **configuración de Facebook Login for Business**, no
+en el código: `extras` va con `setup: {}` y, para coexistencia, el selector
+`featureType: "whatsapp_business_app_onboarding"` (sigue haciendo falta para
+que aparezca esa rama). Ya no se manda `sessionInfoVersion`.
 
-```json
-{
-  "data": { "waba_id": "<CUSTOMER_WABA_ID>" },
-  "type": "WA_EMBEDDED_SIGNUP",
-  "event": "FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING",
-  "version": 3
-}
-```
+Lo que hay que hacer en el panel de Meta (una sola vez):
 
-El CRM exige `phone_number_id`, así que la conexión **no se guardaría y no
-mostraría error**:
+- [ ] *Facebook Login for Business → Configurations* → **crear una configuración
+      nueva** (al elegir productos queda en v4). Marcar WhatsApp (Cloud API) y
+      la opción de **WhatsApp Business App onboarding** (coexistencia).
+- [ ] Copiar su **Config ID** a `NEXT_PUBLIC_WHATSAPP_CONFIG_ID` y reconstruir
+      el frontend (`--build web`): las `NEXT_PUBLIC_*` van dentro de la imagen.
+- [ ] Graph API: el código usa **v24.0** por defecto (disponible hasta febrero
+      de 2028). Si `.env.production` fija `WHATSAPP_GRAPH_VERSION=v21.0`,
+      subirlo a `v24.0` (v21.0 deja de estar disponible en enero de 2027).
 
-- `apps/web/src/features/whatsapp/WhatsAppConnect.tsx:100`: solo llama a
-  `connect.mutate` si hay `phoneNumberId`.
-- `packages/shared/src/schemas/whatsapp.schema.ts:58`: `phoneNumberId` es
-  obligatorio.
-- `apps/api/src/modules/whatsapp/whatsapp-connection.service.ts:175`
-  (`connect`): hace el upsert por `phoneNumberId`.
-
-**Arreglo previsto:**
-
-- [ ] Esquema: `phoneNumberId` opcional, pero exigir `phoneNumberId` o `wabaId`.
-- [ ] Frontend: llamar a `connect` con `code` + `wabaId` aunque falte
-      `phoneNumberId`. Tratar también el evento `CANCEL` (tiene
-      `error_message` / `current_step`) para mostrar el motivo.
-- [ ] API: tras canjear el code, si falta `phoneNumberId`, obtenerlo con
-      `GET /{waba_id}/phone_numbers?fields=id,display_phone_number` usando el
-      token.
-- [ ] Verificar después de conectar:
-      `GET /{phone_number_id}?fields=is_on_biz_app,platform_type`. Debe
-      devolver `is_on_biz_app: true` y `platform_type: "CLOUD_API"`.
-- [ ] Probar simulando las respuestas de Meta (como se hizo con
-      `subscribed_apps`), y luego con el número real.
+Eventos que llegan por `postMessage` (`WA_EMBEDDED_SIGNUP`): `FINISH` (con
+`phone_number_id` y `waba_id`), `FINISH_ONLY_WABA` (sin número),
+`FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING` (coexistencia: **solo `waba_id`**) y
+`CANCEL` (con `current_step`, o con `error_message` + `error_code`).
 
 ---
 
-## Bloqueo 3 · Embedded Signup v2 se da de baja el 2026-10-15
+## Qué hace ahora el código al conectar
 
-`WhatsAppConnect.tsx:104-113` abre el flujo con el formato **v2**:
+`apps/api/src/modules/whatsapp/whatsapp-connection.service.ts` → `connect()`:
 
-```js
-extras: {
-  setup: {},
-  featureType: "whatsapp_business_app_onboarding",
-  sessionInfoVersion: "3",
-}
-```
+1. Canjea el `code` por un token.
+2. Si no llegó `phone_number_id` (coexistencia), lee
+   `GET /{waba_id}/phone_numbers?fields=id,display_phone_number,is_on_biz_app,platform_type`
+   y elige el número: con uno, ese; con varios y coexistencia, el último que
+   está en la app del celular; si no, el primero (`pickPhoneNumber`).
+3. Comprueba el plan (número nuevo, coexistencia).
+4. Si se pidió coexistencia, consulta `GET /{phone_number_id}?fields=is_on_biz_app,platform_type`.
+   Si Meta dice que el número **no** está en la app del celular, lo guarda en
+   **modo API** y lo registra en el log: el panel no promete lo que no hay.
+5. Guarda el canal, suscribe la app a la WABA (`POST /{waba_id}/subscribed_apps`;
+   si falla, el canal queda en error con el motivo) y, solo en coexistencia,
+   pide contactos e historial (`POST /{phone_number_id}/smb_app_data` con
+   `smb_app_state_sync` y `history`). Meta exige esto **en las 24 h**
+   siguientes a conectar; si no, hay que desconectar y repetir.
 
-Meta: *"Embedded signup v2 will be deprecated on October 15, 2026"* (la v3
-también se retira en octubre de 2026). En **v4** el objeto va vacío
-(`extras: {}`) y los productos se eligen en la **Configuration** de Facebook
-Login for Business.
-
-- [ ] Averiguar cómo se activa la coexistencia en v4 (no quedó claro en la
-      documentación). Hacerlo con la app real, una vez aprobado el Tech Provider.
-- [ ] Migrar `launch()` a v4 y probar el flujo completo.
-
----
-
-## Ya hecho (sin commitear todavía)
-
-`apps/api/src/modules/whatsapp/whatsapp-connection.service.ts`: después de
-guardar la conexión, `connect()` ahora llama a:
-
-1. `POST /{waba_id}/subscribed_apps`: sin esto no llegan los webhooks del
-   número. Si falla, o no hay `waba_id`, el canal queda **en error** con el
-   motivo visible en el panel.
-2. Solo en coexistencia, `POST /{phone_number_id}/smb_app_data` con
-   `sync_type` `smb_app_state_sync` (contactos) y `history` (historial). Si
-   falla, solo se registra un aviso en el log. Meta exige hacerlo **en las
-   24 h** siguientes a conectar; si no, hay que desconectar y repetir el flujo.
-
-Probado con typecheck y simulando Meta. **No probado contra Meta real.**
-
-- [ ] Commit y push de este cambio.
+El conector (`apps/web/src/app/connect/whatsapp/ConnectWhatsappHub.tsx`)
+entiende `CANCEL`: muestra el motivo de Meta y, si es el #2655111 o habla de
+permisos avanzados, el aviso de «plataforma en revisión».
 
 ---
 
-## Configuración de Meta (checklist)
+## Configuración de Meta (checklist completo)
 
 App de tipo **Business** con los productos **WhatsApp** y
 **Facebook Login for Business**.
 
-- [ ] *App settings → Basic*: App ID, App Secret, App Domains
-      `crm.flyteek.com` y URL de política de privacidad.
+- [ ] *App settings → Basic*: App ID, App Secret, App Domains `driony.com` y
+      URL de política de privacidad `https://driony.com/privacy`.
 - [ ] *Facebook Login for Business → Settings*: *Login with the JavaScript SDK*
-      activado, *Allowed Domains* `https://crm.flyteek.com`.
-- [ ] *Facebook Login for Business → Configurations*: configuración de
-      **WhatsApp Embedded Signup**; copiar el **Config ID**.
+      activado, *Allowed Domains* `https://driony.com`.
+- [ ] *Facebook Login for Business → Configurations*: configuración **v4** (ver
+      arriba); copiar el **Config ID**.
 - [ ] *WhatsApp → Configuration → Webhook*:
-  - Callback URL: `https://crm.flyteek.com/api/v1/whatsapp/webhook`
+  - Callback URL: `https://api.driony.com/api/v1/whatsapp/webhook`
   - Verify token: el mismo que `WHATSAPP_VERIFY_TOKEN`
   - Campos: `messages`, `smb_message_echoes`, `history`, `smb_app_state_sync`
 
 ---
 
-## Variables en el VPS (`~/trimmo/.env`)
+## Variables en el VPS (`.env.production`)
 
 ```env
 WHATSAPP_APP_ID=
 WHATSAPP_APP_SECRET=
 WHATSAPP_VERIFY_TOKEN=
-NEXT_PUBLIC_WHATSAPP_APP_ID=      # mismo valor que WHATSAPP_APP_ID
-NEXT_PUBLIC_WHATSAPP_CONFIG_ID=
+WHATSAPP_GRAPH_VERSION=v24.0
+WHATSAPP_TECH_PROVIDER_APPROVED=false   # true cuando Meta apruebe
+NEXT_PUBLIC_WHATSAPP_APP_ID=            # mismo valor que WHATSAPP_APP_ID
+NEXT_PUBLIC_WHATSAPP_CONFIG_ID=         # el de la configuración v4
 ```
 
-`WHATSAPP_APP_SECRET` y `WHATSAPP_VERIFY_TOKEN` también se pueden cargar en
-*Ajustes › Integraciones* del CRM. Las `NEXT_PUBLIC_*` se guardan en la imagen
-del frontend al construirla, así que siempre hay que usar `--build`.
-
 ```bash
-cd ~/trimmo
 git pull
-docker compose -f docker-compose.prod.yml up -d --build api web
-docker exec crm-api printenv WHATSAPP_APP_ID
+docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build api web
+docker exec crm-api printenv WHATSAPP_TECH_PROVIDER_APPROVED
 docker logs crm-api 2>&1 | grep -i whatsapp | tail -20
 ```
 
@@ -164,18 +144,20 @@ docker logs crm-api 2>&1 | grep -i whatsapp | tail -20
 
 ## Después de conectar (a tener en cuenta)
 
-- Los mensajes llegan al celular y al CRM; lo enviado desde el celular también
-  aparece en el CRM (`smb_message_echoes`).
+- Los mensajes llegan al celular y a Driony; lo enviado desde el celular también
+  aparece en Driony (`smb_message_echoes`).
 - Abrir WhatsApp Business en el celular con regularidad: Meta desconecta la
   coexistencia si la app pasa mucho tiempo sin usarse.
 - Rendimiento fijo de 20 mensajes/segundo en coexistencia.
-- Lo enviado desde el CRM paga la tarifa de la API; fuera de la ventana de
+- Lo enviado desde Driony paga la tarifa de la API; fuera de la ventana de
   24 h hay que usar plantillas.
 
 ---
 
-## Fuentes
+## Fuentes (consultadas el 2026-09-30)
 
-- Coexistencia: https://developers.facebook.com/docs/whatsapp/embedded-signup/custom-flows/onboarding-business-app-users
-- Implementación de Embedded Signup: https://developers.facebook.com/docs/whatsapp/embedded-signup/implementation
-- Versiones (v2/v3/v4): https://developers.facebook.com/docs/whatsapp/embedded-signup/versions
+- Implementación de Embedded Signup (v4): https://developers.facebook.com/documentation/business-messaging/whatsapp/embedded-signup/implementation/
+- Versiones (v2/v3/v4) y retirada de la v2: https://developers.facebook.com/documentation/business-messaging/whatsapp/embedded-signup/versions/
+- Onboarding de usuarios de WhatsApp Business App (coexistencia): https://developers.facebook.com/documentation/business-messaging/whatsapp/embedded-signup/onboarding-business-app-users/
+- Errores del Embedded Signup: https://developers.facebook.com/documentation/business-messaging/whatsapp/embedded-signup/errors/
+- Versiones de la Graph API: https://developers.facebook.com/docs/graph-api/changelog/
