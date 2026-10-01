@@ -164,10 +164,22 @@ export type ConversationFilter = (typeof conversationFilter)[number];
 export const replyFilter = ["all", "pending", "replied"] as const;
 export type ReplyFilter = (typeof replyFilter)[number];
 
+/** Valor especial de los filtros: "sin etiqueta", "sin fuente", "sin asignar". */
+export const FILTER_NONE = "__none__";
+
 export const conversationsQuerySchema = z.object({
   filter: z.enum(conversationFilter).default("all"),
   reply: z.enum(replyFilter).default("all"),
   status: z.nativeEnum(ConversationStatus).optional(),
+  // Filtros avanzados. Se aplican en el servidor: la lista viene acotada a las
+  // 100 más recientes y filtrar después de cortar perdería conversaciones.
+  tags: z.array(z.string().min(1)).max(20).optional(), // todas deben estar; FILTER_NONE = ninguna
+  sourceId: z.string().optional(), // FILTER_NONE = sin fuente
+  agentId: z.string().optional(), // FILTER_NONE = sin asignar
+  channelId: z.string().optional(),
+  from: z.string().datetime().optional(), // último mensaje desde
+  to: z.string().datetime().optional(), // último mensaje hasta
+  q: z.string().max(80).optional(), // nombre o teléfono del contacto
 });
 export type ConversationsQuery = z.infer<typeof conversationsQuerySchema>;
 

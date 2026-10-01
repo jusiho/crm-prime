@@ -20,6 +20,7 @@ import type {
   PipelineView,
   ReorderStagesInput,
   StageDto,
+  StageRef,
   UpdateDealInput,
   UpdatePipelineInput,
   UpdateStageInput,
@@ -41,7 +42,18 @@ export const DEFAULT_STAGES = [
 ];
 
 const DEAL_INCLUDE = {
-  contact: { include: { source: true } },
+  contact: {
+    include: {
+      source: true,
+      tags: { include: { tag: { select: { name: true, color: true } } } },
+      // Solo la conversación más reciente: es la que se abre desde la tarjeta.
+      conversations: {
+        orderBy: { lastMessageAt: { sort: "desc", nulls: "last" } },
+        take: 1,
+        select: { id: true, awaitingReply: true, lastMessageAt: true, unreadCount: true },
+      },
+    },
+  },
   owner: true,
   stage: { select: { pipelineId: true } },
 } as const;
@@ -271,7 +283,30 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
     return { ok: true };
   }
 
+  /**
+   * Todas las etapas de la empresa, en orden de embudo y de etapa. El embudo
+   * predeterminado va primero: su primera etapa es la que se ofrece por defecto.
+   */
+  async listStagesAll(): Promise<StageRef[]> {
+    const rows = await this.prisma.pipelineStage.findMany({
+      orderBy: [{ pipeline: { isDefault: "desc" } }, { pipeline: { order: "asc" } }, { order: "asc" }],
+      include: { pipeline: { select: { name: true } } },
+    });
+    return rows.map((s) => ({ ...this.toStageDto(s), pipelineName: s.pipeline.name }));
+  }
+
   // ── Oportunidades ───────────────────────────────────────────
+  /** Oportunidades abiertas de un contacto, la más reciente primero. */
+  async dealsForContact(contactId: string): Promise<DealDto[]> {
+    if (!contactId) throw new BadRequestException("Falta contactId");
+    const rows = await this.prisma.deal.findMany({
+      where: { contactId, discardedAt: null },
+      orderBy: { createdAt: "desc" },
+      include: DEAL_INCLUDE,
+    });
+    return rows.map((d) => this.toDealDto(d));
+  }
+
   async createDeal(input: CreateDealInput): Promise<DealDto> {
     const contact = await this.prisma.contact.findUnique({ where: { id: input.contactId } });
     if (!contact) throw new NotFoundException("Contacto no encontrado");
@@ -689,9 +724,17 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
       phone: string;
       metadata?: unknown;
       source?: { id: string; name: string; color: string | null } | null;
+      tags?: { tag: { name: string; color: string | null } }[];
+      conversations?: {
+        id: string;
+        awaitingReply: boolean;
+        lastMessageAt: Date | null;
+        unreadCount: number;
+      }[];
     };
     owner?: { id: string; name: string | null } | null;
   }): DealDto {
+    const convo = d.contact.conversations?.[0] ?? null;
     return {
       id: d.id,
       title: d.title,
@@ -709,6 +752,15 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
         ? { id: d.contact.source.id, name: d.contact.source.name, color: d.contact.source.color }
         : null,
       owner: d.owner ? { id: d.owner.id, name: d.owner.name } : null,
+      tags: (d.contact.tags ?? []).map((ct) => ({ name: ct.tag.name, color: ct.tag.color })),
+      conversation: convo
+        ? {
+            id: convo.id,
+            awaitingReply: convo.awaitingReply,
+            lastMessageAt: convo.lastMessageAt ? convo.lastMessageAt.toISOString() : null,
+            unreadCount: convo.unreadCount,
+          }
+        : null,
       discardedAt: d.discardedAt ? d.discardedAt.toISOString() : null,
       discardReason: d.discardReason,
       createdAt: d.createdAt.toISOString(),

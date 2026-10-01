@@ -7,18 +7,23 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Query,
   UseGuards,
 } from "@nestjs/common";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import {
   contactCurrency,
   countryFromPhone,
   createContactSchema,
+  setContactTagsSchema,
   updateContactSchema,
   utmKeys,
   type ContactDto,
   type ContactListItem,
+  type ContactTagsDto,
   type CreateContactInput,
+  type SetContactTagsInput,
   type UpdateContactInput,
 } from "@crm/shared";
 import { Prisma } from "@prisma/client";
@@ -27,12 +32,27 @@ import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { TenantService } from "../../infra/tenant/tenant.service";
 
+// Lo que necesita una fila del directorio (y la ficha del panel de la bandeja).
+const LIST_INCLUDE = {
+  tags: { include: { tag: true } },
+  source: true,
+  // Solo la conversación que trae anuncio: es la que da la atribución.
+  conversations: {
+    where: { referral: { not: Prisma.DbNull } },
+    orderBy: { createdAt: "asc" },
+    take: 1,
+    select: { referral: true },
+  },
+} satisfies Prisma.ContactInclude;
+type ContactRow = Prisma.ContactGetPayload<{ include: typeof LIST_INCLUDE }>;
+
 @Controller("contacts")
 @UseGuards(JwtAuthGuard)
 export class ContactsController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly tenant: TenantService,
+    private readonly events: EventEmitter2,
   ) {}
 
   // Autocompletar (id/name/phone) — lo usa el pipeline.
@@ -55,19 +75,77 @@ export class ContactsController {
       where: search ? this.searchWhere(search) : undefined,
       orderBy: { lastMessageAt: { sort: "desc", nulls: "last" } },
       take: 200,
-      include: {
-        tags: { include: { tag: true } },
-        source: true,
-        // Solo la conversación que trae anuncio: es la que da la atribución.
-        conversations: {
-          where: { referral: { not: Prisma.DbNull } },
-          orderBy: { createdAt: "asc" },
-          take: 1,
-          select: { referral: true },
-        },
-      },
+      include: LIST_INCLUDE,
     });
-    return rows.map((c) => ({
+    return rows.map((c) => this.toListItem(c));
+  }
+
+  // Ficha de un contacto: lo mismo que una fila del directorio, para el panel
+  // de la bandeja (que solo tiene el id de la conversación).
+  @Get(":id")
+  async one(@Param("id") id: string): Promise<ContactListItem> {
+    const c = await this.prisma.contact.findUnique({ where: { id }, include: LIST_INCLUDE });
+    if (!c) throw new NotFoundException("Contacto no encontrado");
+    return this.toListItem(c);
+  }
+
+  /**
+   * Etiquetas del contacto como conjunto final. Las que no existan se crean
+   * (sin color); las que ya no vengan se quitan. Cada alta dispara
+   * `contact.tagged`, igual que cuando etiqueta el agente de IA, para que los
+   * flujos con disparador "etiqueta añadida" también arranquen desde aquí.
+   */
+  @Put(":id/tags")
+  async setTags(
+    @Param("id") id: string,
+    @Body(new ZodValidationPipe(setContactTagsSchema)) body: SetContactTagsInput,
+  ): Promise<ContactTagsDto> {
+    const contact = await this.prisma.contact.findUnique({
+      where: { id },
+      include: { tags: { include: { tag: true } } },
+    });
+    if (!contact) throw new NotFoundException("Contacto no encontrado");
+    const orgId = this.tenant.orgId();
+
+    // Sin duplicados por mayúsculas: "VIP" y "vip" son la misma etiqueta.
+    const wanted = new Map<string, string>();
+    for (const raw of body.tags) {
+      const name = raw.trim();
+      if (name && !wanted.has(name.toLowerCase())) wanted.set(name.toLowerCase(), name);
+    }
+    const current = new Map(contact.tags.map((ct) => [ct.tag.name.toLowerCase(), ct.tag]));
+
+    const added: { id: string; name: string }[] = [];
+    for (const [key, name] of wanted) {
+      if (current.has(key)) continue;
+      const tag =
+        (await this.prisma.tag.findFirst({ where: { name: { equals: name, mode: "insensitive" } } })) ??
+        (await this.prisma.tag.create({ data: { orgId, name } }));
+      await this.prisma.contactTag.upsert({
+        where: { contactId_tagId: { contactId: id, tagId: tag.id } },
+        create: { contactId: id, tagId: tag.id },
+        update: {},
+      });
+      added.push({ id: tag.id, name: tag.name });
+    }
+    const removed = [...current.entries()].filter(([key]) => !wanted.has(key)).map(([, tag]) => tag.id);
+    if (removed.length) {
+      await this.prisma.contactTag.deleteMany({ where: { contactId: id, tagId: { in: removed } } });
+    }
+    for (const tag of added) {
+      this.events.emit("contact.tagged", { orgId, contactId: id, tag: tag.name });
+    }
+
+    const rows = await this.prisma.contactTag.findMany({
+      where: { contactId: id },
+      include: { tag: true },
+      orderBy: { assignedAt: "asc" },
+    });
+    return rows.map((ct) => ({ id: ct.tag.id, name: ct.tag.name, color: ct.tag.color }));
+  }
+
+  private toListItem(c: ContactRow): ContactListItem {
+    return {
       id: c.id,
       name: c.name,
       phone: c.phone,
@@ -93,7 +171,7 @@ export class ContactsController {
       })(),
       currency: contactCurrency(c),
       currencyOverride: c.currency,
-    }));
+    };
   }
 
   // Los utm_* viven en metadata junto a los campos personalizados, pero son

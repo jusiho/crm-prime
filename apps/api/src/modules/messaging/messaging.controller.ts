@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -45,9 +46,31 @@ export class MessagingController {
     @Query("filter") filter?: string,
     @Query("reply") reply?: string,
     @Query("status") status?: string,
+    @Query("tags") tags?: string,
+    @Query("sourceId") sourceId?: string,
+    @Query("agentId") agentId?: string,
+    @Query("channelId") channelId?: string,
+    @Query("from") from?: string,
+    @Query("to") to?: string,
+    @Query("q") q?: string,
   ) {
-    const q = conversationsQuerySchema.parse({ filter, reply, status });
-    return this.messaging.listConversations(user.sub, q, user.role);
+    // Parámetros vacíos cuentan como ausentes; las etiquetas van separadas por coma.
+    const nz = (v?: string) => (v && v.trim() ? v.trim() : undefined);
+    const parsed = conversationsQuerySchema.safeParse({
+      filter,
+      reply,
+      status: nz(status),
+      tags: nz(tags)?.split(",").map((x) => x.trim()).filter(Boolean),
+      sourceId: nz(sourceId),
+      agentId: nz(agentId),
+      channelId: nz(channelId),
+      from: nz(from),
+      to: nz(to),
+      q: nz(q),
+    });
+    // Un filtro mal formado (fecha inválida, etc.) es un 400, no un fallo del servidor.
+    if (!parsed.success) throw new BadRequestException("Filtros inválidos");
+    return this.messaging.listConversations(user.sub, parsed.data, user.role);
   }
 
   @Get("conversations/:id/messages")

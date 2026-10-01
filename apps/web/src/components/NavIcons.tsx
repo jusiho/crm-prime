@@ -68,6 +68,7 @@ export type IconName =
   // Varios (sustituyen a emojis)
   | "flask"
   | "wrench"
+  | "pencil"
   | "mic"
   | "chevron-down"
   // Primeros pasos y tours
@@ -572,6 +573,13 @@ export function NavIcon({ name, size = 18 }: { name: IconName; size?: number }) 
           <path d="M10 2v7.3L4.3 19.2A1.5 1.5 0 0 0 5.6 21.5h12.8a1.5 1.5 0 0 0 1.3-2.3L14 9.3V2" />
           <path d="M8.5 2h7" />
           <path d="M7.2 15h9.6" />
+        </svg>
+      );
+    case "pencil":
+      return (
+        <svg {...p}>
+          <path d="M17 3a2.83 2.83 0 0 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+          <path d="m15 5 4 4" />
         </svg>
       );
     case "wrench":

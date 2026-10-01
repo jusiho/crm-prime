@@ -1,14 +1,25 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ConversationStatus,
   type ConversationDto,
   type ConversationFilter,
   type ReplyFilter,
 } from "@crm/shared";
-import { fetchConversations, setConversationStatus } from "@/lib/bff";
+import { fetchAgents, fetchConversations, fetchSources, fetchTags, setConversationStatus } from "@/lib/bff";
+import {
+  DateFilter,
+  EMPTY_DATE,
+  FilterGroup,
+  FiltersToggle,
+  TagPicker,
+  dateBounds,
+  isDateActive,
+  type DateFilterValue,
+} from "@/components/Filters";
+import { FILTER_NONE } from "@crm/shared";
 import { useInboxSocket } from "@/hooks/useInboxSocket";
 import { useRealtimeCtx } from "@/components/RealtimeProvider";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
@@ -52,9 +63,49 @@ export function Inbox() {
   const [sort, setSort] = useState<Sort>("recent");
   const [search, setSearch] = useState("");
 
+  // Filtros avanzados: se resuelven en el servidor (la lista viene acotada a
+  // las 100 más recientes; filtrar después de cortar perdería conversaciones).
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [tags, setTags] = useState<string[]>([]);
+  const [sourceId, setSourceId] = useState("");
+  const [agentId, setAgentId] = useState("");
+  const [date, setDate] = useState<DateFilterValue>(EMPTY_DATE);
+  const { data: tagList = [] } = useQuery({ queryKey: ["tags"], queryFn: fetchTags });
+  const { data: sources = [] } = useQuery({ queryKey: ["sources"], queryFn: fetchSources });
+  const { data: agents = [] } = useQuery({ queryKey: ["agents"], queryFn: fetchAgents });
+  const advCount = (tags.length ? 1 : 0) + (sourceId ? 1 : 0) + (agentId ? 1 : 0) + (isDateActive(date) ? 1 : 0);
+  const clearAdvanced = () => {
+    setTags([]);
+    setSourceId("");
+    setAgentId("");
+    setDate(EMPTY_DATE);
+  };
+  // La búsqueda también va al servidor, con un respiro para no pedir por tecla.
+  const [debouncedQ, setDebouncedQ] = useState("");
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedQ(search.trim()), 250);
+    return () => clearTimeout(id);
+  }, [search]);
+  const bounds = dateBounds(date);
+  const fromIso = bounds.from === null ? undefined : new Date(bounds.from).toISOString();
+  const toIso = bounds.to === null ? undefined : new Date(bounds.to).toISOString();
+
   const { data: conversations = [], isLoading } = useQuery({
-    queryKey: ["conversations", filter, reply, status],
-    queryFn: () => fetchConversations(filter, status || undefined, reply),
+    queryKey: ["conversations", filter, reply, status, tags, sourceId, agentId, fromIso, toIso, debouncedQ],
+    queryFn: () =>
+      fetchConversations({
+        filter,
+        status: status || undefined,
+        reply,
+        tags,
+        sourceId: sourceId || undefined,
+        agentId: agentId || undefined,
+        from: fromIso,
+        to: toIso,
+        q: debouncedQ || undefined,
+      }),
+    // Al cambiar un filtro se mantiene la lista anterior hasta que llega la nueva.
+    placeholderData: keepPreviousData,
   });
 
   // Números presentes en lo cargado, para el filtro por canal.
@@ -216,11 +267,19 @@ export function Inbox() {
 
             <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
               {FILTERS.map((f) => (
-                <button key={f.key} onClick={() => setFilter(f.key)} style={chip(filter === f.key)}>
+                <button
+                  key={f.key}
+                  onClick={() => {
+                    setFilter(f.key);
+                    setAgentId("");
+                  }}
+                  style={chip(filter === f.key)}
+                >
                   {t(f.labelKey)}
                 </button>
               ))}
               <span style={{ flex: 1 }} />
+              <FiltersToggle compact open={filtersOpen} count={advCount} onClick={() => setFiltersOpen((v) => !v)} />
               <button
                 type="button"
                 onClick={() => setSort((s) => (s === "recent" ? "waiting" : "recent"))}
@@ -262,6 +321,60 @@ export function Inbox() {
                 </select>
               )}
             </div>
+
+            {filtersOpen && (
+              <div className="flt-panel" data-tour="inbox-filters">
+                <FilterGroup label={t("filters.tags")}>
+                  <TagPicker tags={tagList} selected={tags} onChange={setTags} />
+                </FilterGroup>
+                <div className="flt-row">
+                  <FilterGroup label={t("filters.source")}>
+                    <select
+                      className="field field-sm"
+                      value={sourceId}
+                      onChange={(e) => setSourceId(e.target.value)}
+                      aria-label={t("filters.source")}
+                    >
+                      <option value="">{t("filters.anySource")}</option>
+                      <option value={FILTER_NONE}>{t("filters.noSource")}</option>
+                      {sources.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name}
+                        </option>
+                      ))}
+                    </select>
+                  </FilterGroup>
+                  <FilterGroup label={t("filters.agent")}>
+                    <select
+                      className="field field-sm"
+                      value={agentId}
+                      onChange={(e) => {
+                        setAgentId(e.target.value);
+                        if (e.target.value) setFilter("all");
+                      }}
+                      aria-label={t("filters.agent")}
+                    >
+                      <option value="">{t("filters.anyAgent")}</option>
+                      <option value={FILTER_NONE}>{t("filters.unassigned")}</option>
+                      {agents.map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.name ?? a.email}
+                        </option>
+                      ))}
+                    </select>
+                  </FilterGroup>
+                </div>
+                <FilterGroup label={t("filters.lastMessage")}>
+                  <DateFilter value={date} onChange={setDate} />
+                </FilterGroup>
+                {advCount > 0 && (
+                  <button type="button" className="btn btn-ghost btn-sm" style={{ alignSelf: "flex-start" }} onClick={clearAdvanced}>
+                    <NavIcon name="x" size={12} />
+                    {t("filters.clear")}
+                  </button>
+                )}
+              </div>
+            )}
           </div>
 
           <div style={{ overflowY: "auto", flex: 1 }}>
@@ -272,7 +385,13 @@ export function Inbox() {
                 conversations={shown}
                 selectedId={selected?.id ?? null}
                 onSelect={select}
-                emptyMessage={query ? t("inbox.noMatches", { query: search.trim() }) : undefined}
+                emptyMessage={
+                  query
+                    ? t("inbox.noMatches", { query: search.trim() })
+                    : advCount > 0
+                      ? t("inbox.noFilterMatches")
+                      : undefined
+                }
               />
             )}
           </div>

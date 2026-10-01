@@ -120,6 +120,8 @@ import type {
   MetaLeadDto,
   MetaLeadStatusValue,
   ContactListItem,
+  ContactTagsDto,
+  StageRef,
   UpdateContactInput,
   CreateContactInput,
   CustomFieldDto,
@@ -174,14 +176,30 @@ async function errorMessage(res: Response, fallback: string): Promise<string> {
   return fallback;
 }
 
-export async function fetchConversations(
-  filter: ConversationFilter = "all",
-  status?: ConversationStatus,
-  reply: ReplyFilter = "all",
-): Promise<ConversationDto[]> {
-  const sp = new URLSearchParams({ filter });
-  if (reply !== "all") sp.set("reply", reply);
-  if (status) sp.set("status", status);
+export type ConversationListParams = {
+  filter?: ConversationFilter;
+  status?: ConversationStatus;
+  reply?: ReplyFilter;
+  /** Nombres de etiqueta que debe tener el contacto (FILTER_NONE = ninguna). */
+  tags?: string[];
+  sourceId?: string;
+  agentId?: string;
+  channelId?: string;
+  /** Último mensaje entre estas fechas (ISO). */
+  from?: string;
+  to?: string;
+  /** Nombre o teléfono del contacto. */
+  q?: string;
+};
+
+export async function fetchConversations(params: ConversationListParams = {}): Promise<ConversationDto[]> {
+  const sp = new URLSearchParams({ filter: params.filter ?? "all" });
+  if (params.reply && params.reply !== "all") sp.set("reply", params.reply);
+  if (params.status) sp.set("status", params.status);
+  if (params.tags?.length) sp.set("tags", params.tags.join(","));
+  for (const k of ["sourceId", "agentId", "channelId", "from", "to", "q"] as const) {
+    if (params[k]) sp.set(k, params[k]!);
+  }
   const res = await bffFetch(`/api/bff/conversations?${sp.toString()}`);
   if (!res.ok) throw new Error("No se pudieron cargar las conversaciones");
   return res.json();
@@ -1210,6 +1228,24 @@ export async function fetchContactDirectory(
   return res.json();
 }
 
+/** Ficha de un contacto (lo mismo que una fila del directorio). */
+export async function fetchContact(id: string): Promise<ContactListItem> {
+  const res = await bffFetch(`/api/bff/contacts/${id}`);
+  if (!res.ok) throw new Error("No se pudo cargar el contacto");
+  return res.json();
+}
+
+/** Etiquetas del contacto como conjunto final (las nuevas se crean). */
+export async function setContactTags(id: string, tags: string[]): Promise<ContactTagsDto> {
+  const res = await bffFetch(`/api/bff/contacts/${id}/tags`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ tags }),
+  });
+  if (!res.ok) throw new Error(await bffError(res, "No se pudieron guardar las etiquetas"));
+  return res.json();
+}
+
 export async function updateContact(
   id: string,
   input: UpdateContactInput,
@@ -1446,6 +1482,20 @@ async function bffError(res: Response, fallback: string): Promise<string> {
   const b = (await res.json().catch(() => null)) as { message?: string | string[] } | null;
   const m = Array.isArray(b?.message) ? b?.message[0] : b?.message;
   return m ?? fallback;
+}
+
+/** Oportunidades abiertas de un contacto, la más reciente primero. */
+export async function fetchContactDeals(contactId: string): Promise<DealDto[]> {
+  const res = await bffFetch(`/api/bff/deals?contactId=${encodeURIComponent(contactId)}`);
+  if (!res.ok) throw new Error("No se pudieron cargar las oportunidades");
+  return res.json();
+}
+
+/** Etapas de todos los embudos; el predeterminado va primero. */
+export async function fetchStages(): Promise<StageRef[]> {
+  const res = await bffFetch("/api/bff/stages");
+  if (!res.ok) throw new Error("No se pudieron cargar las etapas");
+  return res.json();
 }
 
 export async function createDeal(input: CreateDealInput): Promise<DealDto> {

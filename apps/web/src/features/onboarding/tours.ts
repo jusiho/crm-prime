@@ -117,7 +117,7 @@ export const TOURS: TourDef[] = [
       {
         target: "[data-tour=pipeline-columns]",
         title: "Arrastra para avanzar",
-        body: "Mueve una tarjeta a otra columna para cambiar de etapa. Ábrela para ver el valor, la moneda, el vendedor y marcarla como ganada o perdida.",
+        body: "Mueve una tarjeta a otra columna para cambiar de etapa. Ábrela para ver el valor, el vendedor y las etiquetas, o pulsa el icono de mensaje para ir a su chat.",
         placement: "top",
       },
       {

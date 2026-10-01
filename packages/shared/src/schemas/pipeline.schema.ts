@@ -53,6 +53,19 @@ export const dealDtoSchema = z.object({
     .object({ id: z.string(), name: z.string(), color: z.string().nullable() })
     .nullable(),
   owner: z.object({ id: z.string(), name: z.string().nullable() }).nullable(),
+  // Etiquetas del contacto: se ven en la tarjeta y se editan desde ella.
+  tags: z.array(z.object({ name: z.string(), color: z.string().nullable() })).default([]),
+  // Su conversación más reciente: para abrir el chat de un toque y ver si el
+  // cliente está esperando respuesta.
+  conversation: z
+    .object({
+      id: z.string(),
+      awaitingReply: z.boolean(),
+      lastMessageAt: z.string().nullable(),
+      unreadCount: z.number(),
+    })
+    .nullable()
+    .default(null),
   // Descartada: no era venta, o nadie la atendió a tiempo ("auto").
   discardedAt: z.string().nullable(),
   discardReason: z.string().nullable(),

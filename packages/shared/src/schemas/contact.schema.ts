@@ -82,6 +82,18 @@ export const updateContactSchema = z.object({
 });
 export type UpdateContactInput = z.infer<typeof updateContactSchema>;
 
+// Etiquetas de un contacto, como conjunto completo: lo que no venga se quita
+// y lo que no exista se crea. Así la bandeja manda el estado final y no una
+// lista de altas y bajas.
+export const setContactTagsSchema = z.object({
+  tags: z.array(z.string().trim().min(1).max(60)).max(30),
+});
+export type SetContactTagsInput = z.infer<typeof setContactTagsSchema>;
+export const contactTagsDtoSchema = z.array(
+  z.object({ id: z.string(), name: z.string(), color: z.string().nullable() }),
+);
+export type ContactTagsDto = z.infer<typeof contactTagsDtoSchema>;
+
 // ── Campos personalizados (definiciones) ─────────────────────
 export const customFieldTypes = ["text", "number", "date", "select"] as const;
 export type CustomFieldType = (typeof customFieldTypes)[number];

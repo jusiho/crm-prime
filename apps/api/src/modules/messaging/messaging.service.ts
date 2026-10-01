@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { InjectQueue } from "@nestjs/bullmq";
-import type { UnreadCount } from "@crm/shared";
+import type { ConversationsQuery, UnreadCount } from "@crm/shared";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { Queue } from "bullmq";
 import {
@@ -21,16 +21,15 @@ import {
   type Utms,
   type AiMode,
   type ConversationDto,
-  type ConversationFilter,
   type ConversationStatus,
   type MessageDto,
-  type ReplyFilter,
   type NoteDto,
   type SendInteractiveInput,
   type SendMessageInput,
   type SendTemplateMessageInput,
   type TemplateButton,
   type TemplateHeader,
+  FILTER_NONE,
 } from "@crm/shared";
 import type { Prisma } from "@prisma/client";
 import { PrismaService } from "../../infra/prisma/prisma.service";
@@ -942,11 +941,7 @@ export class MessagingService {
   // ── Consultas para la bandeja ──────────────────────────────────
   async listConversations(
     userId: string,
-    opts: {
-      filter: ConversationFilter;
-      reply?: ReplyFilter;
-      status?: ConversationStatus;
-    },
+    opts: ConversationsQuery,
     role?: string,
   ): Promise<ConversationDto[]> {
     const where: Prisma.ConversationWhereInput = {};
@@ -963,15 +958,42 @@ export class MessagingService {
     if (opts.reply === "pending") where.awaitingReply = true;
     else if (opts.reply === "replied") where.awaitingReply = false;
 
-    // Vendedor (no admin): solo conversaciones de sus fuentes asignadas.
+    // Vendedor concreto (del panel de filtros): manda sobre Todas/Sin asignar/Mías.
+    if (opts.agentId) where.assignedAgentId = opts.agentId === FILTER_NONE ? null : opts.agentId;
+    if (opts.channelId) where.channelId = opts.channelId;
+    if (opts.from || opts.to) {
+      where.lastMessageAt = {
+        ...(opts.from ? { gte: new Date(opts.from) } : {}),
+        ...(opts.to ? { lte: new Date(opts.to) } : {}),
+      };
+    }
+
+    // Condiciones sobre el contacto: fuente, etiquetas y texto buscado.
+    const contact: Prisma.ContactWhereInput = {};
+    if (opts.tags?.length) {
+      if (opts.tags.includes(FILTER_NONE)) contact.tags = { none: {} };
+      else contact.AND = opts.tags.map((name) => ({ tags: { some: { tag: { name } } } }));
+    }
+    if (opts.q) {
+      contact.OR = [
+        { name: { contains: opts.q, mode: "insensitive" } },
+        { phone: { contains: opts.q.replace(/[^\d+]/g, "") || opts.q } },
+      ];
+    }
+    // Vendedor (no admin): solo conversaciones de sus fuentes asignadas. Si
+    // además filtra por fuente, se cruza con las suyas (`in: []` = nada).
     if (role && role !== "ADMIN") {
       const assigned = await this.prisma.userSource.findMany({
         where: { userId },
         select: { sourceId: true },
       });
-      // `in: []` no coincide con nada → sin fuentes asignadas, ve cero.
-      where.contact = { sourceId: { in: assigned.map((a) => a.sourceId) } };
+      let allowed = assigned.map((a) => a.sourceId);
+      if (opts.sourceId) allowed = allowed.filter((id) => id === opts.sourceId);
+      contact.sourceId = { in: allowed };
+    } else if (opts.sourceId) {
+      contact.sourceId = opts.sourceId === FILTER_NONE ? null : opts.sourceId;
     }
+    if (Object.keys(contact).length) where.contact = contact;
 
     const rows = await this.prisma.conversation.findMany({
       where,

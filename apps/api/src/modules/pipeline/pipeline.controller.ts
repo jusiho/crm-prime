@@ -80,7 +80,20 @@ export class PipelineController {
     return this.pipeline.deletePipeline(id);
   }
 
+  // Etapas de todos los embudos, con el nombre de cada embudo: para los
+  // selectores que no están en el tablero (la bandeja).
+  @Get("stages")
+  listStages() {
+    return this.pipeline.listStagesAll();
+  }
+
   // ── Oportunidades ──────────────────────────────────────────
+  // Las abiertas de un contacto (la bandeja las enseña junto al chat).
+  @Get("deals")
+  listDeals(@Query("contactId") contactId?: string) {
+    return this.pipeline.dealsForContact(contactId ?? "");
+  }
+
   @Post("deals")
   createDeal(
     @Body(new ZodValidationPipe(createDealSchema)) body: CreateDealInput,

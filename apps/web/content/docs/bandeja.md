@@ -4,14 +4,25 @@ La bandeja reúne todas las conversaciones de todos tus números, en tiempo real
 
 ## Moverse por la bandeja
 
-- **Filtros**: *Cualquiera*, *Sin responder* (el cliente escribió y nadie ha contestado) y *Respondidas*. Además puedes filtrar por número, por vendedor y por etiqueta.
+- **Filtros**: *Cualquiera*, *Sin responder* (el cliente escribió y nadie ha contestado) y *Respondidas*; *Todas / Sin asignar / Mías*; estado y número de WhatsApp. El botón de **Filtros** (embudo) abre más: etiquetas (varias a la vez, o «sin etiqueta»), fuente, vendedor concreto y fecha del último mensaje (hoy, 7 días, 30 días o un rango). El buscador encuentra por nombre o teléfono también entre conversaciones antiguas.
 - **Asignación**: cada conversación tiene un dueño. Un vendedor ve las conversaciones de sus [fuentes](/docs/empezar#fuentes-y-reparto) y las que le asignen; un administrador las ve todas.
-- **Etiquetas** (Ajustes › Etiquetas): para segmentar contactos y, después, para las [difusiones](/docs/difusiones).
+- **Etiquetas**: se ponen y se quitan desde el panel del contacto (abajo); sirven para segmentar y, después, para las [difusiones](/docs/difusiones) y los [flujos](/docs/flujos).
 - **Notas**: internas, no las ve el cliente.
 - **Respuestas rápidas** (Ajustes › Respuestas rápidas): textos guardados que insertas con un clic.
 - **Archivos**: imágenes, documentos, audio y ubicación, en los dos sentidos.
 
 Cuando la conversación lleva más de 24 horas sin mensaje del cliente, el cuadro de respuesta te avisa y te ofrece enviar una **plantilla** aprobada.
+
+## El panel del contacto
+
+El botón **Detalles** abre, al lado del chat, todo lo que se decide sobre el cliente sin salir de la conversación:
+
+- **Nombre**: el lápiz junto al nombre lo edita en línea. **Ficha completa** abre la misma ficha que en Contactos (opt-in, moneda para cotizar, de dónde vino).
+- **Embudo**: la oportunidad abierta del contacto con su etapa en un selector; cámbiala ahí mismo y el tablero se actualiza. Si no está en ningún embudo, **Añadir al embudo** la crea con título, etapa y valor.
+- **Etiquetas**: la × quita una; las sugerencias de debajo ponen una existente de un toque; escribe un nombre nuevo y pulsa Enter para crearla. Las etiquetas también disparan los flujos con «Se le pone una etiqueta».
+- **Fuente**, **campos del negocio** (los personalizados de Contactos) y **notas** internas.
+
+La pestaña **Copiloto** del mismo panel resume la conversación y responde preguntas sobre el cliente. En pantallas estrechas el panel se superpone al chat; tócalo fuera para cerrarlo.
 
 ## Copilot y Autopilot
 

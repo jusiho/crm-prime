@@ -13,9 +13,11 @@ Uno de los embudos es el **predeterminado**: es el que usan el agente de IA, los
 
 ## El tablero
 
-En **Pipeline** ves el embudo con sus columnas. Arrastra las tarjetas de una etapa a otra, ábrelas para editar título, valor, vendedor y campos del lead, y márcalas como ganadas o perdidas. Con varios embudos, arriba aparece un selector con el número de oportunidades abiertas de cada uno.
+En **Pipeline** ves el embudo con sus columnas. Arrastra las tarjetas de una etapa a otra, ábrelas para editar título, valor, vendedor, etiquetas y campos del lead, y márcalas como ganadas o perdidas. Con varios embudos, arriba aparece un selector con el número de oportunidades abiertas de cada uno.
 
-Cada tarjeta muestra la **fuente** del contacto y el vendedor. La columna con el icono de bandeja es la **etapa de entrada** (ver abajo).
+Cada tarjeta muestra la **fuente** del contacto, sus **etiquetas**, el vendedor y el estado de su chat: si el cliente **espera respuesta** (y cuánto lleva; en rojo pasada una hora) o cuándo fue el último mensaje. El icono de mensaje abre la conversación en la bandeja; desde el panel de la tarjeta, **Abrir chat** hace lo mismo. La columna con el icono de bandeja es la **etapa de entrada** (ver abajo).
+
+Encima de las columnas puedes **buscar** por título, nombre o teléfono y, con **Filtros**, acotar por etiquetas (varias a la vez, o «sin etiqueta»), fuente, vendedor, fecha (de creación o del último mensaje: hoy, 7 días, 30 días o un rango) y valor mínimo/máximo; aparte, **Esperando respuesta** deja solo las que tienen al cliente esperando. Los totales de cada columna se recalculan con lo filtrado. Desde la bandeja, **Ver tablero** en el panel del contacto abre su tarjeta aquí.
 
 ## Entrada automática desde WhatsApp
 

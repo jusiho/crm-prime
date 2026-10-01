@@ -8,10 +8,8 @@ import {
   MessageType,
   type AiSuggestion,
   type ConversationDto,
-  type NoteDto,
 } from "@crm/shared";
 import {
-  addNote,
   assignConversation,
   fetchAgents,
   fetchMessages,
@@ -36,7 +34,7 @@ import { SendButtonsDialog } from "./SendButtonsDialog";
 import { MediaBubble } from "./MediaBubble";
 import { AiModeSwitch } from "./AiModeSwitch";
 import { Composer } from "./Composer";
-import { CopilotPanel } from "./CopilotPanel";
+import { ContactPanel, type ContactPanelTab } from "./ContactPanel";
 import { useAiStatus } from "@/features/copilot/useAiStatus";
 import { copilotRewrite } from "@/lib/bff";
 import type { RewriteMode } from "@crm/shared";
@@ -82,7 +80,8 @@ export function ChatWindow({
   const locale = useLocale();
   const queryClient = useQueryClient();
   const [text, setText] = useState("");
-  const [showDetails, setShowDetails] = useState(false);
+  // Panel lateral (contacto / copiloto); null = cerrado.
+  const [panel, setPanel] = useState<ContactPanelTab | null>(null);
   // Archivo ya subido y pendiente de enviar (se manda al pulsar Enviar).
   const [attachment, setAttachment] = useState<UploadedMedia | null>(null);
   // Mensaje citado en la respuesta que se está redactando.
@@ -312,13 +311,18 @@ export function ChatWindow({
               {conversation.contact.phone}
             </span>
             {conversation.contact.tags.length > 0 && (
-              <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginTop: 4 }}>
+              <button
+                type="button"
+                className="chat-tags"
+                onClick={() => setPanel("contact")}
+                title={t("inbox.tags")}
+              >
                 {conversation.contact.tags.map((tag) => (
                   <span key={tag.name} style={tagChip(tag.color)}>
                     {tag.name}
                   </span>
                 ))}
-              </div>
+              </button>
             )}
           </div>
         </div>
@@ -409,10 +413,10 @@ export function ChatWindow({
               abrirlo. El número lo dice de un vistazo. */}
           <button
             type="button"
-            onClick={() => setShowDetails((v) => !v)}
+            onClick={() => setPanel((p) => (p ? null : "contact"))}
             title={t("inbox.detailsHint")}
-            aria-pressed={showDetails}
-            style={{ ...toggleBtn(showDetails), width: "auto", padding: "0 10px", gap: 6 }}
+            aria-pressed={panel !== null}
+            style={{ ...toggleBtn(panel !== null), width: "auto", padding: "0 10px", gap: 6 }}
           >
             <NavIcon name="note" size={15} />
             {t("inbox.details")}
@@ -421,27 +425,8 @@ export function ChatWindow({
         </div>
       </header>
 
-      {showDetails && (
-        <CopilotPanel
-          conversationId={conversation.id}
-          onUseText={(v) => {
-            setBeforeRewrite(text || null);
-            setText(v);
-          }}
-        />
-      )}
-      {showDetails && (
-        <DetailsPanel
-          conversationId={conversation.id}
-          notes={notes}
-          notesLoading={notesLoading}
-          sourceId={conversation.contact.source?.id ?? ""}
-          sources={sources}
-          onSourceChange={(id) => sourceMut.mutate(id)}
-          sourceSaving={sourceMut.isPending}
-        />
-      )}
-
+      <div className="chat-body">
+      <div className="chat-main">
       <div style={messagesArea}>
         {isLoading && <MessagesSkeleton />}
         {!isLoading && messages.length === 0 && (
@@ -612,6 +597,31 @@ export function ChatWindow({
           </button>
         </div>
       )}
+      {sendMut.isError && (
+        <div style={{ color: "var(--danger)", padding: "0 16px 12px", fontSize: 13 }}>
+          {(sendMut.error as Error).message}
+        </div>
+      )}
+      </div>
+
+      {panel && (
+        <ContactPanel
+          conversation={conversation}
+          tab={panel}
+          onTab={setPanel}
+          onClose={() => setPanel(null)}
+          notes={notes}
+          notesLoading={notesLoading}
+          sources={sources}
+          onSourceChange={(id) => sourceMut.mutate(id)}
+          sourceSaving={sourceMut.isPending}
+          onUseText={(v) => {
+            setBeforeRewrite(text || null);
+            setText(v);
+          }}
+        />
+      )}
+      </div>
 
       {templateOpen && (
         <SendTemplateDialog
@@ -625,115 +635,6 @@ export function ChatWindow({
           onClose={() => setButtonsOpen(false)}
         />
       )}
-      {sendMut.isError && (
-        <div style={{ color: "var(--danger)", padding: "0 16px 12px", fontSize: 13 }}>
-          {(sendMut.error as Error).message}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/**
- * Datos del contacto en esta conversación y notas internas. La fuente vivía
- * suelta en la cabecera, entre el nombre y el teléfono, donde parecía parte de
- * la identidad del contacto; aquí queda junto a lo demás que se edita.
- */
-function DetailsPanel({
-  conversationId,
-  notes,
-  notesLoading,
-  sourceId,
-  sources,
-  onSourceChange,
-  sourceSaving,
-}: {
-  conversationId: string;
-  notes: NoteDto[];
-  notesLoading: boolean;
-  sourceId: string;
-  sources: { id: string; name: string }[];
-  onSourceChange: (id: string | null) => void;
-  sourceSaving: boolean;
-}) {
-  const t = useT();
-  const locale = useLocale();
-  const queryClient = useQueryClient();
-  const [body, setBody] = useState("");
-
-  const add = useMutation({
-    mutationFn: () => addNote(conversationId, body.trim()),
-    onSuccess: () => {
-      setBody("");
-      queryClient.invalidateQueries({ queryKey: ["notes", conversationId] });
-    },
-  });
-
-  return (
-    <div style={detailsPanel}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <span style={fieldLabel}>{t("inbox.source")}</span>
-        <select
-          value={sourceId}
-          onChange={(e) => onSourceChange(e.target.value || null)}
-          disabled={sourceSaving}
-          aria-label={t("inbox.source")}
-          style={sourceSelect}
-        >
-          <option value="">{t("inbox.noSource")}</option>
-          {sources.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div style={{ fontSize: 12, color: "var(--muted)" }}>
-        {t("inbox.notesHint")}
-      </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 160, overflowY: "auto" }}>
-        {notesLoading && (
-          <span style={{ color: "var(--muted)", fontSize: 13 }}>
-            {t("common.loading")}
-          </span>
-        )}
-        {!notesLoading && notes.length === 0 && (
-          <span style={{ color: "var(--muted)", fontSize: 13 }}>
-            {t("inbox.noNotes")}
-          </span>
-        )}
-        {notes.map((n) => (
-          <div key={n.id} style={noteItem}>
-            <div style={{ fontSize: 13 }}>{n.body}</div>
-            <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>
-              {n.author.name ?? t("inbox.agent")} ·{" "}
-              {new Date(n.createdAt).toLocaleString(locale)}
-            </div>
-          </div>
-        ))}
-      </div>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (body.trim()) add.mutate();
-        }}
-        style={{ display: "flex", gap: 8 }}
-      >
-        <input
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          placeholder={t("inbox.addNote")}
-          style={noteInput}
-        />
-        <button
-          type="submit"
-          disabled={add.isPending || !body.trim()}
-          style={addNoteBtn(!!body.trim() && !add.isPending)}
-        >
-          {t("inbox.add")}
-        </button>
-      </form>
     </div>
   );
 }
@@ -918,23 +819,6 @@ const emojiBtn: React.CSSProperties = {
   borderRadius: 6,
 };
 
-const sourceSelect: React.CSSProperties = {
-  background: "var(--field)",
-  color: "var(--text)",
-  border: "1px solid var(--border)",
-  borderRadius: 7,
-  fontSize: 12.5,
-  padding: "5px 8px",
-};
-
-const fieldLabel: React.CSSProperties = {
-  fontSize: 11,
-  color: "var(--muted)",
-  textTransform: "uppercase",
-  letterSpacing: 0.4,
-  fontWeight: 600,
-};
-
 function tagChip(color: string | null): React.CSSProperties {
   const bg =
     color && /^#?[0-9a-fA-F]{3,8}$/.test(color)
@@ -1023,22 +907,6 @@ const windowChip: React.CSSProperties = {
   whiteSpace: "nowrap",
 };
 
-const detailsPanel: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 10,
-  padding: "12px 16px",
-  borderBottom: "1px solid var(--border)",
-  background: "var(--panel-2)",
-};
-
-const noteItem: React.CSSProperties = {
-  background: "var(--surface-2)",
-  border: "1px solid var(--border)",
-  borderRadius: 8,
-  padding: "8px 10px",
-};
-
 const messagesArea: React.CSSProperties = {
   flex: 1,
   overflowY: "auto",
@@ -1047,27 +915,6 @@ const messagesArea: React.CSSProperties = {
   flexDirection: "column",
   gap: 8,
 };
-
-const noteInput: React.CSSProperties = {
-  flex: 1,
-  padding: "8px 10px",
-  borderRadius: 8,
-  border: "1px solid var(--border)",
-  background: "var(--field)",
-  color: "var(--text)",
-};
-
-function addNoteBtn(active: boolean): React.CSSProperties {
-  return {
-    padding: "8px 16px",
-    borderRadius: 8,
-    border: "none",
-    background: active ? "var(--accent)" : "var(--field)",
-    color: active ? "var(--accent-ink)" : "var(--muted)",
-    fontWeight: 600,
-    cursor: active ? "pointer" : "default",
-  };
-}
 
 const messageButton: React.CSSProperties = {
   background: "rgba(255,255,255,0.08)",
