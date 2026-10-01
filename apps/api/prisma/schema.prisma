@@ -1114,8 +1114,9 @@ model Flow {
   name            String
   isActive        Boolean  @default(false)
   channelId       String? // canal que dispara el flujo (null = cualquiera)
-  triggerType     String   @default("conversation_start") // conversation_start | keyword
+  triggerType     String   @default("conversation_start") // ver flowTriggerTypes en @crm/shared
   triggerKeywords String[] // si triggerType = keyword
+  triggerConfig   Json     @default("{}") // filtros del disparador (etiquetas, etapas, formularios, horas)
   nodes           Json     @default("[]") // [{ id, type, position, data }]
   edges           Json     @default("[]") // [{ id, source, target, sourceHandle? }]
   createdAt       DateTime @default(now())

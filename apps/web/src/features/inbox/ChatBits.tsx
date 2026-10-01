@@ -207,8 +207,9 @@ const dayPill: React.CSSProperties = {
   textTransform: "capitalize",
 };
 
+// A la derecha, como las respuestas del negocio: la IA contesta por él.
 const typingRow: React.CSSProperties = {
-  alignSelf: "flex-start",
+  alignSelf: "flex-end",
   maxWidth: "78%",
 };
 
@@ -217,7 +218,7 @@ const typingBubble: React.CSSProperties = {
   alignItems: "center",
   gap: 8,
   padding: "8px 12px",
-  borderRadius: "10px 10px 10px 2px",
+  borderRadius: "10px 10px 2px 10px",
   background: "var(--surface-2)",
   color: "var(--muted)",
 };

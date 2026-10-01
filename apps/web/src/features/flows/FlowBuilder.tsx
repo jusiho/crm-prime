@@ -21,7 +21,6 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import {
-  flowTriggerTypes,
   type CreateFlowInput,
   type FlowAgentRef,
   type FlowBotRef,
@@ -37,6 +36,9 @@ import { NavIcon } from "@/components/NavIcons";
 import { confirmDialog } from "@/lib/confirm";
 import { toast } from "@/lib/toast";
 import { nodeTypes } from "./FlowNodes";
+import { TRIGGER_BY_TYPE, TRIGGER_META } from "./flowShared";
+import { fetchTags, fetchTemplates } from "@/lib/bff";
+import { EMPTY_TRIGGER_CONFIG, type FlowTriggerConfig } from "@crm/shared";
 import { edgeTypes } from "./FlowEdges";
 import { NodeInspector } from "./NodeInspector";
 import { FlowAssistant } from "./FlowAssistant";
@@ -95,7 +97,17 @@ function Builder({ flowId, channels, bots, stages, agents, flows, onBack }: Prop
   const [isActive, setIsActive] = useState(false);
   const [triggerType, setTriggerType] = useState<string>("conversation_start");
   const [triggerKeywords, setTriggerKeywords] = useState("");
+  const [triggerConfig, setTriggerConfig] = useState<FlowTriggerConfig>(EMPTY_TRIGGER_CONFIG);
   const [channelId, setChannelId] = useState<string | null>(null);
+  // Para los selectores del disparador y del bloque «Enviar plantilla».
+  const { data: tagList = [] } = useQuery({ queryKey: ["tags"], queryFn: fetchTags });
+  const { data: templateList = [] } = useQuery({ queryKey: ["templates"], queryFn: fetchTemplates });
+  const approvedTemplates = templateList.filter((t) => t.status === "APPROVED");
+  const trigger = TRIGGER_BY_TYPE[triggerType];
+  const setConfig = (p: Partial<FlowTriggerConfig>) => {
+    setTriggerConfig((c) => ({ ...c, ...p }));
+    markDirty();
+  };
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [addMenu, setAddMenu] = useState<AddRequest | null>(null);
@@ -122,6 +134,7 @@ function Builder({ flowId, channels, bots, stages, agents, flows, onBack }: Prop
       setIsActive(loaded.isActive);
       setTriggerType(loaded.triggerType);
       setTriggerKeywords(loaded.triggerKeywords.join(", "));
+      setTriggerConfig({ ...EMPTY_TRIGGER_CONFIG, ...(loaded.triggerConfig ?? {}) });
       setChannelId(loaded.channelId);
       setNodes(loaded.nodes as unknown as Node[]);
       setEdges((loaded.edges as unknown as Edge[]).map((e) => ({ ...e, ...EDGE_DEFAULTS })));
@@ -410,6 +423,7 @@ function Builder({ flowId, channels, bots, stages, agents, flows, onBack }: Prop
         channelId,
         triggerType: triggerType as CreateFlowInput["triggerType"],
         triggerKeywords: triggerKeywords.split(",").map((k) => k.trim()).filter(Boolean),
+        triggerConfig,
         nodes: graph.nodes,
         edges: graph.edges,
       };
@@ -470,25 +484,76 @@ function Builder({ flowId, channels, bots, stages, agents, flows, onBack }: Prop
           onChange={(e) => { setName(e.target.value); markDirty(); }}
         />
         <select
-          style={{ ...input, width: 140 }}
+          style={{ ...input, width: 210 }}
           value={triggerType}
-          title="Disparador: cuándo arranca el flujo"
+          title={trigger ? `Cuándo arranca: ${trigger.hint}` : "Disparador: cuándo arranca el flujo"}
           onChange={(e) => { setTriggerType(e.target.value); markDirty(); }}
         >
-          {flowTriggerTypes.map((t) => (
-            <option key={t} value={t}>
-              {t === "conversation_start" ? "Al iniciar chat" : "Por palabra clave"}
+          {TRIGGER_META.map((t) => (
+            <option key={t.type} value={t.type}>
+              {t.label}
             </option>
           ))}
         </select>
-        {triggerType === "keyword" && (
+        {trigger?.needs === "keywords" && (
           <input
             style={{ ...input, width: 160 }}
             value={triggerKeywords}
             placeholder="hola, info, precio"
-            title="Palabras clave que disparan el flujo"
+            title="Palabras clave que disparan el flujo (separadas por comas)"
             onChange={(e) => { setTriggerKeywords(e.target.value); markDirty(); }}
           />
+        )}
+        {trigger?.needs === "tags" && (
+          <>
+            <input
+              style={{ ...input, width: 180 }}
+              list="flow-trigger-tags"
+              value={triggerConfig.tags.join(", ")}
+              placeholder="cualquier etiqueta"
+              title="Solo con estas etiquetas (separadas por comas). Vacío = cualquiera"
+              onChange={(e) => setConfig({ tags: e.target.value.split(",").map((t) => t.trim()).filter(Boolean) })}
+            />
+            <datalist id="flow-trigger-tags">
+              {tagList.map((t) => <option key={t.id} value={t.name} />)}
+            </datalist>
+          </>
+        )}
+        {trigger?.needs === "stages" && (
+          <select
+            style={{ ...input, width: 170 }}
+            value={triggerConfig.stageIds[0] ?? ""}
+            title="Solo al entrar en esta etapa. Vacío = cualquier etapa"
+            onChange={(e) => setConfig({ stageIds: e.target.value ? [e.target.value] : [] })}
+          >
+            <option value="">Cualquier etapa</option>
+            {stages.map((s) => (
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+          </select>
+        )}
+        {trigger?.needs === "forms" && (
+          <input
+            style={{ ...input, width: 180 }}
+            value={triggerConfig.forms.join(", ")}
+            placeholder="cualquier formulario"
+            title="Solo estos formularios de Meta, por nombre (separados por comas). Vacío = cualquiera"
+            onChange={(e) => setConfig({ forms: e.target.value.split(",").map((t) => t.trim()).filter(Boolean) })}
+          />
+        )}
+        {trigger?.needs === "hours" && (
+          <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--muted)" }} title="Horas sin respuesta del cliente desde tu último mensaje">
+            tras
+            <input
+              type="number"
+              min={1}
+              max={720}
+              style={{ ...input, width: 64 }}
+              value={triggerConfig.hours}
+              onChange={(e) => setConfig({ hours: Math.max(1, Math.min(720, Number(e.target.value) || 24)) })}
+            />
+            h sin responder
+          </label>
         )}
         <select
           style={{ ...input, width: 150 }}
@@ -662,6 +727,7 @@ function Builder({ flowId, channels, bots, stages, agents, flows, onBack }: Prop
               node={selectedNode}
               bots={bots}
               stages={stages}
+              templates={approvedTemplates}
               agents={agents}
               flows={flows.filter((f) => f.id !== flowId)}
               variables={variables}

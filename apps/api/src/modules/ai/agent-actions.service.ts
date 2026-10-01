@@ -1,4 +1,5 @@
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import type { Prisma } from "@prisma/client";
 import {
   contactCurrency,
@@ -32,6 +33,7 @@ export class AgentActionsService {
     private readonly prisma: PrismaService,
     private readonly tenant: TenantService,
     private readonly messaging: MessagingService,
+    private readonly events: EventEmitter2,
   ) {}
 
   // Valores reales del workspace para construir los esquemas de las tools.
@@ -138,6 +140,7 @@ export class AgentActionsService {
       create: { contactId, tagId: tag.id },
       update: {},
     });
+    this.events.emit("contact.tagged", { orgId: this.tenant.orgId(), contactId, tag: tag.name });
     return `Etiqueta "${tagName}" añadida al contacto.`;
   }
 
@@ -166,6 +169,12 @@ export class AgentActionsService {
       await this.prisma.deal.update({
         where: { id: deal.id },
         data: { stageId: stage.id },
+      });
+      this.events.emit("deal.stage_changed", {
+        orgId: this.tenant.orgId(),
+        dealId: deal.id,
+        contactId,
+        stageId: stage.id,
       });
       return `Oportunidad movida a "${stageName}".`;
     }

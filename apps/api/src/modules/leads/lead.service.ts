@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import type { Prisma } from "@prisma/client";
 import type {
   CreateCustomFieldInput,
@@ -15,6 +16,7 @@ export class LeadService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly tenant: TenantService,
+    private readonly events: EventEmitter2,
   ) {}
 
   // ── Campos personalizados (definiciones) ─────────────────────
@@ -71,6 +73,8 @@ export class LeadService {
     // Nombre de la clave de API que autenticó la llamada, si la hubo.
     // Es la procedencia fiable: la verifica el servidor, no el que llama.
     viaApiKey: string | null = null,
+    // Por dónde entró, para los flujos que arrancan con un lead nuevo.
+    opts: { via?: "meta" | "webhook" | "api"; formName?: string | null; formId?: string | null } = {},
   ): Promise<{ id: string; created: boolean }> {
     // Ya viene normalizado a E.164 por el esquema (phoneField).
     const phone = input.phone;
@@ -123,10 +127,21 @@ export class LeadService {
         create: { orgId, name: tagName },
         update: {},
       });
-      await this.prisma.contactTag
+      const added = await this.prisma.contactTag
         .create({ data: { contactId: contact.id, tagId: tag.id } })
-        .catch(() => undefined);
+        .then(() => true)
+        .catch(() => false);
+      if (added) this.events.emit("contact.tagged", { orgId, contactId: contact.id, tag: tag.name });
     }
+
+    this.events.emit("lead.created", {
+      orgId,
+      contactId: contact.id,
+      created: !existing,
+      via: opts.via ?? (viaApiKey ? "api" : "webhook"),
+      formName: opts.formName ?? null,
+      formId: opts.formId ?? null,
+    });
 
     return { id: contact.id, created: !existing };
   }

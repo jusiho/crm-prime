@@ -10,6 +10,8 @@ interface FlowResumeJob {
   conversationId: string;
   /** Lo pone quien encola. Los trabajos anteriores al cambio no lo traen. */
   orgId?: string;
+  /** Solo en "no_reply": el mensaje nuestro que el cliente tendría que haber contestado. */
+  messageId?: string;
 }
 
 @Processor(QUEUE_FLOW)
@@ -36,7 +38,9 @@ export class FlowProcessor extends WorkerHost {
       )?.orgId;
 
     await runJobInOrg("flujo", orgId, () =>
-      this.engine.resumeTimer(job.data.conversationId),
+      job.name === "no_reply" && job.data.messageId
+        ? this.engine.checkNoReply(job.data.conversationId, job.data.messageId)
+        : this.engine.resumeTimer(job.data.conversationId),
     );
   }
 }

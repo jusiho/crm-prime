@@ -211,7 +211,12 @@ export class IntegrationSettingsService {
     return this.whatsappApp();
   }
 
-  /** `https://acme.driony.com/api/v1/webhooks/whatsapp`, o null sin dominio base. */
+  /**
+   * `https://api.driony.com/api/v1/webhooks/whatsapp/acme`, o null sin
+   * dominio base. Va directa a la API (que el proxy publica en `api.<dominio>`,
+   * o en `API_PUBLIC_URL` si es otra): bajo el subdominio de la empresa la
+   * ruta se la quedaría el frontend.
+   */
   private async ownWebhookUrl(): Promise<string | null> {
     const base = env("SAAS_BASE_DOMAIN");
     if (!base) return null;
@@ -221,7 +226,8 @@ export class IntegrationSettingsService {
     });
     if (!org) return null;
     const protocolo = base.startsWith("localhost") ? "http" : "https";
-    return `${protocolo}://${org.slug}.${base}/api/v1/webhooks/whatsapp`;
+    const api = (env("API_PUBLIC_URL") ?? `${protocolo}://api.${base}`).replace(/\/+$/, "");
+    return `${api}/api/v1/webhooks/whatsapp/${org.slug}`;
   }
 
   // Llamada mínima real a Voyage para confirmar que la key sirve.

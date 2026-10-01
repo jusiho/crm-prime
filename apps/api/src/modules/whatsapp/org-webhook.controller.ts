@@ -24,7 +24,8 @@ import { normalizeWebhook, type MetaWebhookBody } from "./webhook.types";
 
 /**
  * Webhook de WhatsApp para la **app de Meta propia** de una empresa:
- * `acme.driony.com/api/v1/webhooks/whatsapp`.
+ * `api.driony.com/api/v1/webhooks/whatsapp/acme` (o, si el proxy lo manda
+ * aquí, `acme.driony.com/api/v1/webhooks/whatsapp`).
  *
  * Existe porque el Embedded Signup solo incorpora clientes cuando Meta ha
  * dado a la plataforma acceso avanzado a los permisos de WhatsApp. Mientras
@@ -33,8 +34,8 @@ import { normalizeWebhook, type MetaWebhookBody } from "./webhook.types";
  * app aquí y añade el número a mano con su token. El webhook de la app de la
  * plataforma sigue en `whatsapp/webhook`.
  *
- * El subdominio dice de qué empresa es la ruta; la firma con SU secreto es lo
- * que autentica; y el worker exige además que el número del evento sea suyo
+ * El slug dice de qué empresa es la ruta; la firma con SU secreto es lo que
+ * autentica; y el worker exige además que el número del evento sea suyo
  * (`InboundOrigin`), para que una app ajena no pueda meter mensajes en otra
  * empresa aunque firme bien lo suyo.
  */
@@ -49,30 +50,66 @@ export class OrgWebhookController {
   ) {}
 
   // Verificación: Meta hace GET una sola vez al dar de alta el webhook.
-  @Get()
+  @Get(":slug")
   async verify(
     @Req() req: Request,
     @Query("hub.mode") mode: string,
     @Query("hub.verify_token") token: string,
     @Query("hub.challenge") challenge: string,
   ): Promise<string> {
-    const org = await this.resolver.porHost(req);
-    const propia = await this.settings.ownWhatsappApp(org.id);
-    if (mode === "subscribe" && !!propia?.verifyToken && token === propia.verifyToken) {
-      this.logger.log(`Webhook propio verificado (${org.slug})`);
-      return challenge;
-    }
-    throw new ForbiddenException("verify_token inválido");
+    return this.verificar(req, mode, token, challenge);
+  }
+
+  /** Misma verificación cuando la empresa viene en el subdominio. */
+  @Get()
+  async verifyByHost(
+    @Req() req: Request,
+    @Query("hub.mode") mode: string,
+    @Query("hub.verify_token") token: string,
+    @Query("hub.challenge") challenge: string,
+  ): Promise<string> {
+    return this.verificar(req, mode, token, challenge);
   }
 
   // Eventos. 200 inmediato; el trabajo va a la cola, atado a la empresa.
-  @Post()
+  @Post(":slug")
   @HttpCode(200)
   @UseGuards(OrgWebhookSignatureGuard)
   async receive(
     @Req() req: OrgWebhookRequest,
     @Body() body: MetaWebhookBody,
   ): Promise<{ received: true }> {
+    return this.recibir(req, body);
+  }
+
+  @Post()
+  @HttpCode(200)
+  @UseGuards(OrgWebhookSignatureGuard)
+  async receiveByHost(
+    @Req() req: OrgWebhookRequest,
+    @Body() body: MetaWebhookBody,
+  ): Promise<{ received: true }> {
+    return this.recibir(req, body);
+  }
+
+  private async verificar(req: Request, mode: string, token: string, challenge: string): Promise<string> {
+    const org = await this.resolver.de(req);
+    const propia = await this.settings.ownWhatsappApp(org.id);
+    if (!propia?.verifyToken) {
+      // Que se vea en el log por qué Meta no pudo verificar: no es el token,
+      // es que esta empresa aún no guardó el suyo.
+      this.logger.warn(`Webhook propio de ${org.slug}: sin verify token guardado en Ajustes › Integraciones`);
+      throw new ForbiddenException("Esta empresa no tiene verify token guardado en Ajustes › Integraciones");
+    }
+    if (mode === "subscribe" && token === propia.verifyToken) {
+      this.logger.log(`Webhook propio verificado (${org.slug})`);
+      return challenge;
+    }
+    this.logger.warn(`Webhook propio de ${org.slug}: verify token distinto al guardado`);
+    throw new ForbiddenException("verify_token inválido");
+  }
+
+  private async recibir(req: OrgWebhookRequest, body: MetaWebhookBody): Promise<{ received: true }> {
     const { orgId } = req.orgWebhook;
     const jobs = normalizeWebhook(body);
     if (jobs.length) {

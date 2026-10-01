@@ -139,6 +139,7 @@ export class MetaLeadService {
         integration: `Meta · ${page.name}`,
       },
       `Meta Lead Ads · ${page.name}`,
+      { via: "meta", formName },
     );
 
     if (page.createDeal) {

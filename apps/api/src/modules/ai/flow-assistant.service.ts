@@ -170,6 +170,9 @@ Escribes siempre en español, con textos de mensaje cortos y naturales para What
 ## Catálogo de bloques (campo "type" del nodo)
 - "start": el único punto de entrada. Debe existir exactamente uno, con id "start" y data {}.
 - "sendMessage": envía un mensaje. data: { "text": "..." }. Una salida.
+- "sendTemplate": envía una plantilla aprobada por Meta. Es la ÚNICA forma de escribirle a un
+  contacto que nunca ha escrito o lleva más de 24 h sin hacerlo (leads de formularios, seguimientos).
+  data: { "templateId": "<id>", "templateName": "<nombre>" }. Una salida. Solo con ids de la lista de plantillas.
 - "askQuestion": envía una pregunta y ESPERA la respuesta del contacto, guardándola
   en una variable. data: { "text": "...", "variable": "nombre_snake_case" }. Una salida.
 - "condition": ramifica según el último mensaje del contacto.

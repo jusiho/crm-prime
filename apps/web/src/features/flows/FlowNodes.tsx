@@ -159,6 +159,19 @@ export function SendMessageNode({ id, data, selected }: NodeProps) {
   );
 }
 
+export function SendTemplateNode({ id, data, selected }: NodeProps) {
+  const d = data as FlowNodeData;
+  return (
+    <Shell id={id} type="sendTemplate" selected={selected}>
+      <Handle type="target" position={Position.Top} style={targetStyle} />
+      <Head type="sendTemplate" />
+      <div style={body}>{d.templateName ? <Clamp>{d.templateName}</Clamp> : <i style={placeholder}>Sin plantilla…</i>}</div>
+      <Handle type="source" position={Position.Bottom} style={handleStyle} />
+      <AddNextButton sourceId={id} />
+    </Shell>
+  );
+}
+
 export function AskQuestionNode({ id, data, selected }: NodeProps) {
   const d = data as FlowNodeData;
   return (
@@ -292,6 +305,7 @@ export function JumpToFlowNode({ id, data, selected }: NodeProps) {
 export const nodeTypes = {
   start: StartNode,
   sendMessage: SendMessageNode,
+  sendTemplate: SendTemplateNode,
   askQuestion: AskQuestionNode,
   condition: ConditionNode,
   action: ActionNode,

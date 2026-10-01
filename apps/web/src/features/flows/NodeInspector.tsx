@@ -57,6 +57,7 @@ export function NodeInspector({
   node,
   bots,
   stages,
+  templates,
   agents,
   flows,
   variables,
@@ -68,6 +69,8 @@ export function NodeInspector({
   node: Node;
   bots: FlowBotRef[];
   stages: { id: string; name: string }[];
+  /** Plantillas aprobadas por Meta, para «Enviar plantilla». */
+  templates: { id: string; name: string; language: string }[];
   agents: FlowAgentRef[];
   flows: FlowSummary[];
   /** Variables definidas en el flujo, para insertarlas en los textos. */
@@ -137,6 +140,34 @@ export function NodeInspector({
           <Counter value={data.text ?? ""} />
           <VarChips variables={variables} onPick={(v) => patch({ text: `${data.text ?? ""}{{${v}}}` })} />
         </Field>
+      )}
+
+      {node.type === "sendTemplate" && (
+        <>
+          <Field label="Plantilla aprobada por Meta">
+            <select
+              style={input}
+              value={data.templateId ?? ""}
+              onChange={(e) => {
+                const t = templates.find((x) => x.id === e.target.value);
+                patch({ templateId: e.target.value, templateName: t ? `${t.name} · ${t.language}` : "" });
+              }}
+            >
+              <option value="">Elige una plantilla…</option>
+              {templates.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name} · {t.language}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <p style={hint}>
+            Es la única forma de escribirle a quien nunca te escribió (un lead de un formulario) o
+            lleva más de 24 h callado. Si la plantilla tiene <code>{"{{1}}"}</code>, va el nombre del
+            contacto. Las plantillas se crean y aprueban en Difusiones.
+          </p>
+          {templates.length === 0 && <p style={hint}>Todavía no tienes plantillas aprobadas.</p>}
+        </>
       )}
 
       {node.type === "askQuestion" && (

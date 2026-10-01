@@ -10,6 +10,7 @@ import {
   disconnectWhatsapp,
   fetchWhatsappChannels,
   fetchWhatsappConnectStatus,
+  fetchIntegrationSettings,
   requestWhatsappConnectTicket,
   testWhatsappChannel,
 } from "@/lib/bff";
@@ -643,6 +644,9 @@ function WebhookInfo({ hub }: { hub: boolean }) {
   const [origin, setOrigin] = useState("");
   useEffect(() => setOrigin(window.location.origin), []);
   const isLocal = /localhost|127\.0\.0\.1/.test(origin);
+  // SaaS: la URL del webhook propio la da la API (lleva el slug de la empresa).
+  const { data: integ } = useQuery({ queryKey: ["integration-settings"], queryFn: fetchIntegrationSettings, enabled: hub, staleTime: 60_000 });
+  const ownUrl = integ?.whatsappWebhookUrl ?? null;
 
   // SaaS: la plataforma ya recibe los mensajes de los números conectados con
   // el botón. Esta URL, bajo el subdominio de la empresa, es solo para quien
@@ -659,10 +663,11 @@ function WebhookInfo({ hub }: { hub: boolean }) {
           propia app, en tu app → WhatsApp → Configuración → Webhooks pon como{" "}
           <strong>Callback URL</strong>:
         </p>
-        <code style={urlBox}>{origin}/api/v1/webhooks/whatsapp</code>
+        <code style={urlBox}>{ownUrl ?? "…"}</code>
         <p style={{ margin: "8px 0 0" }}>
           El <strong>Verify token</strong> es el que guardaste en Ajustes ›
-          Integraciones. Suscribe los campos <code>messages</code> y{" "}
+          Integraciones (guárdalo ahí <strong>antes</strong> de pulsar «Verificar y
+          guardar» en Meta). Suscribe los campos <code>messages</code> y{" "}
           <code>message_echoes</code>.
         </p>
       </div>

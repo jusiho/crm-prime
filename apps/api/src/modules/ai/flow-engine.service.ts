@@ -1,4 +1,5 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import { InjectQueue } from "@nestjs/bullmq";
 import { Queue } from "bullmq";
 import {
@@ -8,6 +9,8 @@ import {
   MessageType,
   type FlowEdge,
   type FlowNode,
+  type FlowTriggerConfig,
+  type FlowTriggerType,
 } from "@crm/shared";
 import type { Prisma } from "@prisma/client";
 import { PrismaService } from "../../infra/prisma/prisma.service";
@@ -16,6 +19,7 @@ import { TenantService } from "../../infra/tenant/tenant.service";
 import { QUEUE_FLOW } from "../../infra/queue/queue.constants";
 import { MessagingService } from "../messaging/messaging.service";
 import { AutopilotService } from "./autopilot.service";
+import { parseTriggerConfig } from "./flow.service";
 
 const MAX_STEPS = 50; // cortafuegos anti-bucle
 
@@ -38,6 +42,7 @@ export class FlowEngineService {
     private readonly messaging: MessagingService,
     private readonly autopilot: AutopilotService,
     @InjectQueue(QUEUE_FLOW) private readonly flowQueue: Queue,
+    private readonly events: EventEmitter2,
   ) {}
 
   // ── Conversación nueva: ¿arranca un flujo "al iniciar"? ─────
@@ -48,10 +53,156 @@ export class FlowEngineService {
     });
     if (!convo || !convo.contact.optIn) return false;
 
+    // Nace desde un anuncio Click-to-WhatsApp: ese disparador va primero.
+    if (convo.referral) {
+      const ad = await this.findFlow(convo.channelId, "ad_click");
+      if (ad) {
+        await this.startFlow(ad, conversationId, "");
+        return true;
+      }
+    }
+
     const flow = await this.findFlow(convo.channelId, "conversation_start");
     if (!flow) return false;
     await this.startFlow(flow, conversationId, "");
     return true;
+  }
+
+  // ── Disparadores por eventos del CRM (no por un mensaje) ────
+  /** Lead nuevo: de un formulario de Meta Lead Ads, o por webhook/API. */
+  async onLead(
+    contactId: string,
+    via: "meta" | "webhook" | "api",
+    form: { formName: string | null; formId: string | null },
+  ): Promise<void> {
+    const type: FlowTriggerType = via === "meta" ? "meta_lead" : "lead_webhook";
+    await this.onContactEvent(contactId, type, (f) => {
+      if (type !== "meta_lead" || f.triggerConfig.forms.length === 0) return true;
+      const wanted = f.triggerConfig.forms.map((x) => x.toLowerCase());
+      return [form.formName, form.formId].some((v) => !!v && wanted.includes(v.toLowerCase()));
+    });
+  }
+
+  async onTagAdded(contactId: string, tag: string): Promise<void> {
+    await this.onContactEvent(
+      contactId,
+      "tag_added",
+      (f) => f.triggerConfig.tags.length === 0 || f.triggerConfig.tags.some((t) => t.toLowerCase() === tag.toLowerCase()),
+    );
+  }
+
+  async onDealStage(contactId: string, stageId: string): Promise<void> {
+    await this.onContactEvent(
+      contactId,
+      "deal_stage",
+      (f) => f.triggerConfig.stageIds.length === 0 || f.triggerConfig.stageIds.includes(stageId),
+    );
+  }
+
+  async onClosed(conversationId: string): Promise<void> {
+    const convo = await this.prisma.conversation.findUnique({
+      where: { id: conversationId },
+      include: { contact: true },
+    });
+    if (!convo || !convo.contact.optIn) return;
+    const flow = await this.findFlow(convo.channelId, "conversation_closed");
+    if (flow) await this.startIfIdle(flow, conversationId);
+  }
+
+  /**
+   * Le escribimos (una persona, la IA o un flujo): si hay un flujo «sin
+   * respuesta», se programa la comprobación para dentro de sus horas.
+   */
+  async onOutbound(conversationId: string, messageId: string, _author: string): Promise<void> {
+    const convo = await this.prisma.conversation.findUnique({
+      where: { id: conversationId },
+      select: { channelId: true, orgId: true },
+    });
+    if (!convo) return;
+    const flow = await this.findFlow(convo.channelId, "no_reply");
+    if (!flow) return;
+    await this.flowQueue.add(
+      "no_reply",
+      { conversationId, orgId: convo.orgId, messageId },
+      { delay: flow.triggerConfig.hours * 3600_000, jobId: `no-reply-${messageId}` },
+    );
+  }
+
+  /** Venció el plazo: ¿sigue sin contestar y sigue siendo nuestro último mensaje? */
+  async checkNoReply(conversationId: string, messageId: string): Promise<void> {
+    const convo = await this.prisma.conversation.findUnique({
+      where: { id: conversationId },
+      include: { contact: true },
+    });
+    if (!convo || !convo.contact.optIn || convo.status === ConversationStatus.CLOSED) return;
+    // Desempate por id (cuid, creciente): dos mensajes en el mismo milisegundo
+    // no deben decidir al azar cuál fue el último.
+    const last = await this.prisma.message.findFirst({
+      where: { conversationId },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      select: { id: true },
+    });
+    // Respondió, o le escribimos otra vez (ese mensaje trae su propio aviso).
+    if (!last || last.id !== messageId) return;
+    const flow = await this.findFlow(convo.channelId, "no_reply");
+    if (!flow) return;
+    // Una vez por silencio: si este flujo ya corrió desde el último mensaje
+    // del cliente, no se repite (si no, se dispararía con sus propios mensajes).
+    const [session, lastInbound] = await Promise.all([
+      this.prisma.flowSession.findUnique({ where: { conversationId } }),
+      this.prisma.message.findFirst({
+        where: { conversationId, direction: "INBOUND" },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        select: { createdAt: true },
+      }),
+    ]);
+    if (session && session.flowId === flow.id && (!lastInbound || session.updatedAt > lastInbound.createdAt)) return;
+    await this.startIfIdle(flow, conversationId);
+  }
+
+  /**
+   * Un evento del contacto (lead, etiqueta, etapa) se atiende en su
+   * conversación abierta más reciente; si no tiene, se abre una. Así el flujo
+   * puede etiquetar, mover el embudo, avisar por HTTP o mandarle una plantilla.
+   */
+  private async onContactEvent(
+    contactId: string,
+    type: FlowTriggerType,
+    pick: (f: FlowRow) => boolean,
+  ): Promise<void> {
+    const contact = await this.prisma.contact.findUnique({
+      where: { id: contactId },
+      select: { optIn: true, orgId: true },
+    });
+    if (!contact?.optIn) return;
+    const open = await this.prisma.conversation.findFirst({
+      where: { contactId, status: { not: ConversationStatus.CLOSED } },
+      orderBy: { updatedAt: "desc" },
+      select: { id: true, channelId: true },
+    });
+    const flow = await this.findFlow(open?.channelId ?? null, type, undefined, pick);
+    if (!flow) return;
+    const conversationId =
+      open?.id ??
+      (
+        await this.prisma.conversation.create({
+          data: { orgId: contact.orgId, contactId, status: ConversationStatus.OPEN },
+        })
+      ).id;
+    await this.startIfIdle(flow, conversationId);
+  }
+
+  /** Arranca el flujo salvo que otro esté a medias (esperando respuesta o un temporizador). */
+  private async startIfIdle(flow: FlowRow, conversationId: string): Promise<void> {
+    const session = await this.prisma.flowSession.findUnique({ where: { conversationId } });
+    const busy =
+      !!session &&
+      (session.status === "waiting_timer" || (session.status === "running" && !!session.currentNodeId));
+    if (busy) {
+      this.logger.log(`Flujo "${flow.name}" no arranca en ${conversationId}: hay otro flujo a medias`);
+      return;
+    }
+    await this.startFlow(flow, conversationId, await this.lastInboundText(conversationId));
   }
 
   // ── Entrante: reanudar sesión o disparar flujo por palabra ──
@@ -115,8 +266,15 @@ export class FlowEngineService {
     const firstId = start
       ? this.nextNodeId(flow.edges, start.id)
       : (flow.nodes[0]?.id ?? null);
-    await this.walk(flow, conversationId, firstId, lastText, {});
     this.logger.log(`Flujo "${flow.name}" iniciado en ${conversationId}`);
+    try {
+      await this.walk(flow, conversationId, firstId, lastText, {});
+    } catch (e) {
+      // Un bloque que falla (p. ej. un mensaje fuera de la ventana de 24 h)
+      // no deja la sesión colgada en "running": queda parada y en el log.
+      this.logger.warn(`Flujo "${flow.name}" se detuvo en ${conversationId}: ${(e as Error).message}`);
+      await this.persist(conversationId, null, {}, "stopped").catch(() => undefined);
+    }
   }
 
   private async resume(
@@ -158,6 +316,12 @@ export class FlowEngineService {
 
       if (node.type === "sendMessage") {
         await this.send(conversationId, this.interpolate(node.data.text, vars));
+        current = this.nextNodeId(flow.edges, node.id);
+        continue;
+      }
+
+      if (node.type === "sendTemplate") {
+        await this.sendTemplate(conversationId, node.data.templateId);
         current = this.nextNodeId(flow.edges, node.id);
         continue;
       }
@@ -340,9 +504,13 @@ export class FlowEngineService {
       create: { orgId: convo.orgId, name },
       update: {},
     });
-    await this.prisma.contactTag
+    const added = await this.prisma.contactTag
       .create({ data: { contactId: convo.contactId, tagId: tag.id } })
-      .catch(() => undefined); // ya existía
+      .then(() => true)
+      .catch(() => false); // ya existía
+    if (added) {
+      this.events.emit("contact.tagged", { orgId: convo.orgId, contactId: convo.contactId, tag: name });
+    }
   }
 
   private async moveDeal(conversationId: string, stageId: string): Promise<void> {
@@ -359,6 +527,12 @@ export class FlowEngineService {
       await this.prisma.deal.update({
         where: { id: deal.id },
         data: { stageId },
+      });
+      this.events.emit("deal.stage_changed", {
+        orgId: deal.orgId,
+        dealId: deal.id,
+        contactId: convo.contactId,
+        stageId,
       });
     }
   }
@@ -394,6 +568,32 @@ export class FlowEngineService {
   private interpolate(text: string | undefined, vars: Vars): string {
     if (!text) return "";
     return text.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, k: string) => vars[k] ?? "");
+  }
+
+  /**
+   * Plantilla aprobada por Meta: la única forma de escribirle a quien no nos
+   * ha escrito (leads de formularios) o lleva más de 24 h callado. Si lleva
+   * {{1}}, va el nombre del contacto; el resto de variables quedan vacías.
+   */
+  private async sendTemplate(conversationId: string, templateId?: string): Promise<void> {
+    if (!templateId) return;
+    const template = await this.prisma.template.findUnique({
+      where: { id: templateId },
+      select: { body: true },
+    });
+    if (!template) {
+      this.logger.warn(`Plantilla ${templateId} no existe: el flujo sigue sin enviarla`);
+      return;
+    }
+    const body = /\{\{\s*1\s*\}\}/.test(template.body) ? [{ index: 1, source: "contact_name" as const }] : [];
+    try {
+      await this.messaging.sendTemplateMessage(
+        { conversationId, templateId, fill: { body, urlButtons: [] } },
+        MessageAuthor.AI,
+      );
+    } catch (e) {
+      this.logger.warn(`No se pudo enviar la plantilla en ${conversationId}: ${(e as Error).message}`);
+    }
   }
 
   private async send(conversationId: string, text: string): Promise<void> {
@@ -432,8 +632,9 @@ export class FlowEngineService {
   // ── Selección de flujo ──────────────────────────────────────
   private async findFlow(
     channelId: string | null,
-    triggerType: "conversation_start" | "keyword",
+    triggerType: FlowTriggerType,
     text?: string,
+    pick?: (f: FlowRow) => boolean,
   ): Promise<FlowRow | null> {
     const rows = await this.prisma.flow.findMany({
       where: {
@@ -453,6 +654,7 @@ export class FlowEngineService {
         ) ?? null
       );
     }
+    if (pick) return flows.find(pick) ?? null;
     return flows[0] ?? null;
   }
 
@@ -464,14 +666,18 @@ export class FlowEngineService {
   private toRow(f: {
     id: string;
     name: string;
+    triggerType: string;
     triggerKeywords: string[];
+    triggerConfig?: unknown;
     nodes: unknown;
     edges: unknown;
   }): FlowRow {
     return {
       id: f.id,
       name: f.name,
+      triggerType: f.triggerType as FlowTriggerType,
       triggerKeywords: f.triggerKeywords,
+      triggerConfig: parseTriggerConfig(f.triggerConfig),
       nodes: (f.nodes as FlowNode[] | null) ?? [],
       edges: (f.edges as FlowEdge[] | null) ?? [],
     };
@@ -481,7 +687,9 @@ export class FlowEngineService {
 interface FlowRow {
   id: string;
   name: string;
+  triggerType: FlowTriggerType;
   triggerKeywords: string[];
+  triggerConfig: FlowTriggerConfig;
   nodes: FlowNode[];
   edges: FlowEdge[];
 }

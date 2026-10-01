@@ -11,6 +11,7 @@ export const flowNodeTypes = [
   "http",
   "assign",
   "jumpToFlow",
+  "sendTemplate",
 ] as const;
 export type FlowNodeType = (typeof flowNodeTypes)[number];
 
@@ -54,6 +55,9 @@ export const flowNodeDataSchema = z.object({
   headers: z.string().optional(), // JSON crudo: { "Authorization": "..." }
   httpBody: z.string().optional(), // cuerpo (admite {{variables}})
   saveAs: z.string().optional(), // variable donde guardar la respuesta
+  // sendTemplate: plantilla aprobada por Meta (abre la ventana de 24 h)
+  templateId: z.string().optional(),
+  templateName: z.string().optional(), // solo para mostrar en el lienzo
   // assign: asignar a un agente
   agentId: z.string().nullable().optional(),
   agentName: z.string().optional(), // solo para mostrar en el lienzo
@@ -80,8 +84,44 @@ export const flowEdgeSchema = z.object({
 });
 export type FlowEdge = z.infer<typeof flowEdgeSchema>;
 
-export const flowTriggerTypes = ["conversation_start", "keyword"] as const;
+/**
+ * Cuándo arranca un flujo.
+ *  - conversation_start: primer mensaje de una conversación nueva.
+ *  - keyword: un mensaje entrante contiene alguna palabra clave.
+ *  - ad_click: la conversación nace desde un anuncio Click-to-WhatsApp.
+ *  - meta_lead: entra un lead de un formulario de Meta Lead Ads.
+ *  - lead_webhook: entra un lead por la API o un webhook (formulario web, n8n…).
+ *  - tag_added: se le pone una etiqueta al contacto.
+ *  - deal_stage: su oportunidad cambia de etapa.
+ *  - conversation_closed: se cierra la conversación.
+ *  - no_reply: el cliente lleva X horas sin responder al último mensaje.
+ */
+export const flowTriggerTypes = [
+  "conversation_start",
+  "keyword",
+  "ad_click",
+  "meta_lead",
+  "lead_webhook",
+  "tag_added",
+  "deal_stage",
+  "conversation_closed",
+  "no_reply",
+] as const;
 export type FlowTriggerType = (typeof flowTriggerTypes)[number];
+
+/** Filtros del disparador. Vacío = sin filtro (cualquiera). */
+export const flowTriggerConfigSchema = z.object({
+  /** tag_added: solo estas etiquetas (por nombre). */
+  tags: z.array(z.string().trim().min(1)).max(50).default([]),
+  /** deal_stage: solo al entrar en estas etapas. */
+  stageIds: z.array(z.string()).max(50).default([]),
+  /** meta_lead: solo estos formularios (por nombre o id). */
+  forms: z.array(z.string().trim().min(1)).max(50).default([]),
+  /** no_reply: horas sin respuesta del cliente. */
+  hours: z.number().int().min(1).max(720).default(24),
+});
+export type FlowTriggerConfig = z.infer<typeof flowTriggerConfigSchema>;
+export const EMPTY_TRIGGER_CONFIG: FlowTriggerConfig = { tags: [], stageIds: [], forms: [], hours: 24 };
 
 // Referencia ligera a un canal (para el selector de disparador).
 export const flowChannelRefSchema = z.object({
@@ -115,6 +155,7 @@ export const flowSchema = z.object({
   channel: flowChannelRefSchema.nullable(),
   triggerType: z.enum(flowTriggerTypes),
   triggerKeywords: z.array(z.string()),
+  triggerConfig: flowTriggerConfigSchema,
   nodes: z.array(flowNodeSchema),
   edges: z.array(flowEdgeSchema),
   createdAt: z.string(),
@@ -149,6 +190,7 @@ const flowFields = {
   channelId: z.string().nullable(),
   triggerType: z.enum(flowTriggerTypes),
   triggerKeywords: z.array(z.string()),
+  triggerConfig: flowTriggerConfigSchema,
   nodes: z.array(flowNodeSchema),
   edges: z.array(flowEdgeSchema),
 };
@@ -159,6 +201,7 @@ export const createFlowSchema = z.object({
   channelId: flowFields.channelId.default(null),
   triggerType: flowFields.triggerType.default("conversation_start"),
   triggerKeywords: flowFields.triggerKeywords.default([]),
+  triggerConfig: flowFields.triggerConfig.default(EMPTY_TRIGGER_CONFIG),
   nodes: flowFields.nodes.default([]),
   edges: flowFields.edges.default([]),
 });
@@ -170,6 +213,7 @@ export const updateFlowSchema = z.object({
   channelId: flowFields.channelId.optional(),
   triggerType: flowFields.triggerType.optional(),
   triggerKeywords: flowFields.triggerKeywords.optional(),
+  triggerConfig: flowFields.triggerConfig.optional(),
   nodes: flowFields.nodes.optional(),
   edges: flowFields.edges.optional(),
 });

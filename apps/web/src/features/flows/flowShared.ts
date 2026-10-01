@@ -1,5 +1,5 @@
 import { createContext } from "react";
-import type { FlowNodeData, FlowNodeType } from "@crm/shared";
+import type { FlowNodeData, FlowNodeType, FlowTriggerType } from "@crm/shared";
 import type { IconName } from "@/components/NavIcons";
 
 export interface NodeMeta {
@@ -14,9 +14,38 @@ export interface NodeMeta {
   accent: string;
 }
 
+/** Qué dato extra pide cada disparador en la cabecera del editor. */
+export type TriggerNeeds = "keywords" | "tags" | "stages" | "forms" | "hours" | null;
+
+export interface TriggerMeta {
+  type: FlowTriggerType;
+  label: string;
+  /** Etiqueta corta para la lista de flujos. */
+  short: string;
+  hint: string;
+  icon: IconName;
+  needs: TriggerNeeds;
+}
+
+// Cuándo puede arrancar un flujo. El orden es el del selector.
+export const TRIGGER_META: TriggerMeta[] = [
+  { type: "conversation_start", label: "Al iniciar un chat", short: "al iniciar chat", hint: "Cuando un contacto escribe por primera vez o abre una conversación nueva.", icon: "message", needs: null },
+  { type: "keyword", label: "Por palabra clave", short: "palabra clave", hint: "Cuando un mensaje del contacto contiene alguna de estas palabras.", icon: "search", needs: "keywords" },
+  { type: "ad_click", label: "Llega desde un anuncio", short: "desde anuncio", hint: "Cuando la conversación nace de un anuncio Click to WhatsApp de Meta.", icon: "megaphone", needs: null },
+  { type: "meta_lead", label: "Nuevo lead de Meta Ads (formulario)", short: "lead de Meta", hint: "Cuando entra un lead de un formulario de Meta Lead Ads. El lead aún no te escribió: para hablarle usa el bloque «Enviar plantilla».", icon: "target", needs: "forms" },
+  { type: "lead_webhook", label: "Nuevo lead por API o formulario web", short: "lead por API", hint: "Cuando entra un lead por el webhook de leads o la API (tu web, n8n, Zapier…). Para escribirle usa «Enviar plantilla».", icon: "plug", needs: null },
+  { type: "tag_added", label: "Se le pone una etiqueta", short: "etiqueta", hint: "Cuando alguien, la IA u otro flujo etiqueta al contacto.", icon: "tag", needs: "tags" },
+  { type: "deal_stage", label: "Cambia de etapa en el embudo", short: "cambio de etapa", hint: "Cuando su oportunidad se mueve a una etapa (a mano, por la IA o por otro flujo).", icon: "pipeline", needs: "stages" },
+  { type: "conversation_closed", label: "Se cierra la conversación", short: "al cerrar", hint: "Cuando tu equipo cierra la conversación. Ideal para una encuesta o una despedida.", icon: "check", needs: null },
+  { type: "no_reply", label: "El cliente no responde", short: "sin respuesta", hint: "Cuando pasan estas horas sin que el cliente conteste a tu último mensaje. Se dispara una vez por silencio.", icon: "hourglass", needs: "hours" },
+];
+
+export const TRIGGER_BY_TYPE: Record<string, TriggerMeta> = Object.fromEntries(TRIGGER_META.map((t) => [t.type, t]));
+
 // Catálogo de bloques que se pueden añadir (paleta, menú "+" y arrastre).
 export const NODE_PALETTE: NodeMeta[] = [
   { type: "sendMessage", label: "Enviar mensaje", icon: "message", hint: "Un texto al contacto", color: "#2c4b7a", accent: "var(--accent-text)" },
+  { type: "sendTemplate", label: "Enviar plantilla", icon: "template", hint: "Una plantilla aprobada por Meta: sirve aunque el contacto no haya escrito", color: "#2c6b7a", accent: "#8fd9e8" },
   { type: "askQuestion", label: "Preguntar y guardar", icon: "question", hint: "Espera la respuesta y la guarda en una variable", color: "#7a5fb0", accent: "#cbb6ff" },
   { type: "condition", label: "Condición", icon: "branch", hint: "Ramifica según palabras clave", color: "#b08a3f", accent: "#ffd98a" },
   { type: "action", label: "Acción", icon: "bolt", hint: "IA, humano, etiqueta o pipeline", color: "#3f8c6e", accent: "#8fe6c0" },
@@ -36,6 +65,8 @@ export function defaultNodeData(type: FlowNodeType): FlowNodeData {
   switch (type) {
     case "sendMessage":
       return { text: "" };
+    case "sendTemplate":
+      return { templateId: "" };
     case "askQuestion":
       return { text: "", variable: "" };
     case "condition":

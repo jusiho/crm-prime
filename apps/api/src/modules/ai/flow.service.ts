@@ -1,3 +1,4 @@
+import { flowTriggerConfigSchema, type FlowTriggerConfig } from "@crm/shared";
 import { Injectable, NotFoundException } from "@nestjs/common";
 import type { Prisma } from "@prisma/client";
 import type {
@@ -90,6 +91,7 @@ export class FlowService {
         channelId: input.channelId,
         triggerType: input.triggerType,
         triggerKeywords: input.triggerKeywords,
+        triggerConfig: input.triggerConfig as unknown as Prisma.InputJsonValue,
         nodes: input.nodes as unknown as Prisma.InputJsonValue,
         edges: input.edges as unknown as Prisma.InputJsonValue,
       },
@@ -112,6 +114,9 @@ export class FlowService {
           : {}),
         ...(input.triggerKeywords !== undefined
           ? { triggerKeywords: input.triggerKeywords }
+          : {}),
+        ...(input.triggerConfig !== undefined
+          ? { triggerConfig: input.triggerConfig as unknown as Prisma.InputJsonValue }
           : {}),
         ...(input.nodes !== undefined
           ? { nodes: input.nodes as unknown as Prisma.InputJsonValue }
@@ -139,6 +144,7 @@ export class FlowService {
     channelId: string | null;
     triggerType: string;
     triggerKeywords: string[];
+    triggerConfig?: unknown;
     nodes: unknown;
     edges: unknown;
     createdAt: Date;
@@ -163,10 +169,17 @@ export class FlowService {
         : null,
       triggerType: f.triggerType as FlowTriggerType,
       triggerKeywords: f.triggerKeywords,
+      triggerConfig: parseTriggerConfig(f.triggerConfig),
       nodes: (f.nodes as FlowNode[] | null) ?? [],
       edges: (f.edges as FlowEdge[] | null) ?? [],
       createdAt: f.createdAt.toISOString(),
       updatedAt: f.updatedAt.toISOString(),
     };
   }
+}
+
+/** Lo guardado puede venir de antes de que existieran filtros: siempre completo. */
+export function parseTriggerConfig(raw: unknown): FlowTriggerConfig {
+  const r = flowTriggerConfigSchema.safeParse(raw ?? {});
+  return r.success ? r.data : flowTriggerConfigSchema.parse({});
 }

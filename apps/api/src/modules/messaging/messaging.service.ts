@@ -106,6 +106,11 @@ export class MessagingService {
     private readonly pipeline: PipelineService,
   ) {}
 
+  /** Un mensaje nuestro salió: los flujos «el cliente no responde» cuentan desde aquí. */
+  private outboundSent(orgId: string, conversationId: string, messageId: string, author: string): void {
+    this.events.emit("message.outbound", { orgId, conversationId, messageId, author });
+  }
+
   private notify(conversationId: string): void {
     this.events.emit("inbox.changed", {
       conversationId,
@@ -385,7 +390,7 @@ export class MessagingService {
           },
         });
 
-    await this.prisma.message.create({
+    const echoMsg = await this.prisma.message.create({
       data: {
         orgId,
         conversationId: conversation.id,
@@ -398,6 +403,7 @@ export class MessagingService {
       },
     });
 
+    this.outboundSent(orgId, conversation.id, echoMsg.id, MessageAuthor.HUMAN);
     this.logger.log(`→ (desde celular) ${echo.to}: "${echo.text ?? echo.type}"`);
     this.notify(conversation.id);
   }
@@ -728,6 +734,7 @@ export class MessagingService {
         where: { id: message.id },
         data: { waMessageId: res.waMessageId, status: MessageStatus.SENT },
       });
+      this.outboundSent(conversation.orgId, conversation.id, sent.id, author);
       await this.prisma.conversation.update({
         where: { id: conversation.id },
         data: {
@@ -903,6 +910,7 @@ export class MessagingService {
       where: { id: message.id },
       data: { waMessageId: result.waMessageId, status: MessageStatus.SENT },
     });
+    this.outboundSent(message.orgId, message.conversationId, message.id, message.author);
     this.notify(message.conversationId);
   }
 

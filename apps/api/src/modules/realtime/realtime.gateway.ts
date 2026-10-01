@@ -18,6 +18,13 @@ export interface InboxChangedPayload {
   orgId?: string;
 }
 
+/** La IA empieza (on) o termina (off) de redactar en una conversación. */
+export interface AiTypingPayload {
+  conversationId: string;
+  orgId?: string;
+  on: boolean;
+}
+
 @WebSocketGateway({
   // Mismo criterio que la API REST: cualquier subdominio de empresa vale.
   cors: { origin: corsOrigin(), credentials: true },
@@ -66,6 +73,12 @@ export class RealtimeGateway implements OnGatewayConnection {
   @OnEvent("inbox.changed")
   onInboxChanged(payload: InboxChangedPayload): void {
     this.emitir("inbox.changed", payload.orgId, payload);
+  }
+
+  // «La IA está escribiendo»: lo decide el autopilot, no la bandeja.
+  @OnEvent("ai.typing")
+  onAiTyping(payload: AiTypingPayload): void {
+    this.emitir("ai.typing", payload.orgId, payload);
   }
 
   // Reemite cuando cambia el pipeline (deal creado/movido/editado).

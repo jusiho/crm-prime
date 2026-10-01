@@ -50,6 +50,8 @@ services:
       # SaaS: "true" cuando Meta apruebe a la plataforma como proveedor
       # tecnológico; hasta entonces las empresas ven un aviso en WhatsApp.
       WHATSAPP_TECH_PROVIDER_APPROVED: ${WHATSAPP_TECH_PROVIDER_APPROVED:-}
+      # Dirección pública de la API, si no es https://api.<SAAS_BASE_DOMAIN>.
+      API_PUBLIC_URL: ${API_PUBLIC_URL:-}
       # Correo al que escriben para cambiar de plan (Ajustes › Plan).
       NEXT_PUBLIC_CONTACT_EMAIL: ${NEXT_PUBLIC_CONTACT_EMAIL:-}
       # Row-Level Security. Solo sirve si DATABASE_URL apunta a un rol que NO

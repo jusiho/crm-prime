@@ -9,6 +9,7 @@ import { FlowService } from "./flow.service";
 import { FlowAssistantService } from "./flow-assistant.service";
 import { PromptAssistantService } from "./prompt-assistant.service";
 import { FlowEngineService } from "./flow-engine.service";
+import { FlowTriggersService } from "./flow-triggers.service";
 import { FlowProcessor } from "./flow.processor";
 import { AiController } from "./ai.controller";
 import { BotsController } from "./bots.controller";
@@ -41,6 +42,7 @@ import { OnboardingModule } from "../onboarding/onboarding.module";
     FlowAssistantService,
     PromptAssistantService,
     FlowEngineService,
+    FlowTriggersService,
     FlowProcessor,
     CopilotService,
   ],

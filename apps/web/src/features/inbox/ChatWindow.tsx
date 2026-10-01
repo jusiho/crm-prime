@@ -49,6 +49,7 @@ import {
 } from "./ChatBits";
 import { NavIcon } from "@/components/NavIcons";
 import { useLocale, useT } from "@/i18n/I18nProvider";
+import { useAiTyping } from "./aiTyping";
 import type { Translator } from "@/i18n/translate";
 import type { MessageDto } from "@crm/shared";
 
@@ -164,14 +165,11 @@ export function ChatWindow({
     return messages.filter((m) => (m.content ?? "").toLowerCase().includes(q));
   }, [messages, search, searching]);
 
-  // La IA está redactando: o la pediste tú (copilot), o el autopilot está al
-  // mando y el contacto escribió lo último.
-  const aiThinking =
-    suggestMut.isPending ||
-    (conversation.aiMode === AiMode.AUTOPILOT &&
-      !conversation.aiPaused &&
-      messages.length > 0 &&
-      messages[messages.length - 1]?.direction === "INBOUND");
+  // La IA está redactando: o la pediste tú (copilot), o el servidor avisa de
+  // que el autopilot está escribiendo. Antes se adivinaba («el último mensaje
+  // es del contacto») y se quedaba encendido cuando la IA decidía no contestar.
+  const serverTyping = useAiTyping(conversation.id);
+  const aiThinking = suggestMut.isPending || serverTyping;
 
   const invalidateConvs = () =>
     queryClient.invalidateQueries({ queryKey: ["conversations"] });

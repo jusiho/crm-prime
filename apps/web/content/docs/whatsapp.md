@@ -43,7 +43,7 @@ Si prefieres usar tu propia app de desarrollador de Meta (o mientras la platafor
 
 1. En [developers.facebook.com](https://developers.facebook.com) crea una app de tipo **Negocio** y añádele el producto **WhatsApp**.
 2. En **Ajustes › Integraciones → Tu propia app de Meta**, pega el **App ID**, el **App secret** (Configuración › Básica de tu app) y un **verify token** que inventes tú. Guarda.
-3. En tu app → WhatsApp → Configuración → **Webhooks**: URL de devolución de llamada = la que te muestra esa pantalla (`https://tu-empresa.driony.com/api/v1/webhooks/whatsapp`) y el verify token que guardaste. Suscribe `messages` (y `message_echoes`).
+3. En tu app → WhatsApp → Configuración → **Webhooks**: URL de devolución de llamada = la que te muestra esa pantalla (`https://api.driony.com/api/v1/webhooks/whatsapp/tu-empresa`) y el verify token que guardaste. **Guarda primero en Driony y después pulsa «Verificar y guardar» en Meta**: Meta comprueba el token en ese momento. Suscribe `messages` (y `message_echoes`).
 4. En **WhatsApp → Añadir un número a mano**: el *Phone number ID*, el *WABA ID* y un token **permanente** (usuario del sistema con los permisos `whatsapp_business_messaging` y `whatsapp_business_management`).
 
 Con tu propia app el número trabaja en **modo API**: se atiende solo desde el CRM. La Coexistencia con el celular no se puede activar por esta vía: solo la habilita Meta a través de un proveedor aprobado, con el botón de la plataforma (ver «Quién puede activarla», más arriba).
@@ -58,6 +58,7 @@ Es una regla de WhatsApp, no del CRM: puedes escribir libremente a quien te haya
 |---|---|
 | La pantalla dice **«Conexión con un clic: en revisión por Meta»** | Meta aún no ha aprobado a la plataforma como proveedor tecnológico. Conecta con tu propia app (arriba); cuando llegue la aprobación aparecerá el botón. |
 | Meta dice **«la app de socio no tiene los permisos avanzados…» (#2655111)** al abrir el registro | Lo mismo: abriste el registro de Meta sin que la plataforma esté aprobada y sin un rol en su app. Conecta con tu propia app mientras tanto. |
+| Meta dice **«No se pudo validar la URL de devolución de llamada o el token de verificación»** | El token escrito en Meta no es el que Driony espera, o la URL no es exactamente la de la pantalla. Con tu propia app: guarda el verify token en Ajustes › Integraciones antes de verificar en Meta, y copia la URL con el botón. En la app de la plataforma: el token es `WHATSAPP_VERIFY_TOKEN` del servidor, y la URL `https://api.driony.com/api/v1/whatsapp/webhook`. |
 | **«Dominio de host desconocido de JSSDK»** | Solo puede pasar si abres el conector fuera de `driony.com`. Vuelve a pulsar el botón desde tu panel. |
 | El número aparece con **«Token caducado»** | Pegaste un token temporal (caduca en 24 h). Genera uno permanente de usuario del sistema y pulsa **Actualizar token**. |
 | Envías pero **no recibes** | El webhook de tu app no apunta a Driony o el verify token no coincide (solo con app propia). Revisa la URL y suscribe `messages`. |

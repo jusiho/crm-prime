@@ -247,6 +247,11 @@ export function IntegrationsSettings() {
                 Copiar
               </button>
             </div>
+            <p style={{ color: "var(--muted)", fontSize: 12.5, margin: "6px 0 0", lineHeight: 1.5 }}>
+              Pégala en tu app de Meta → WhatsApp → Configuración → Webhooks. <strong>Guarda primero
+              aquí el verify token</strong> y después pulsa «Verificar y guardar» en Meta: Meta lo
+              comprueba en ese momento y, si no coincide, dice que no pudo validar la URL.
+            </p>
           </>
         ) : (
           <>

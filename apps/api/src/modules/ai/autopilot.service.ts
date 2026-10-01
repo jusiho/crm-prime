@@ -1,4 +1,5 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import {
   AiMode,
   ConversationStatus,
@@ -32,7 +33,17 @@ export class AutopilotService {
     private readonly messaging: MessagingService,
     @Inject(WHATSAPP_PROVIDER) private readonly wa: WhatsAppProvider,
     private readonly webhooks: WebhookOutService,
+    private readonly events: EventEmitter2,
   ) {}
+
+  /**
+   * Enciende o apaga «la IA está escribiendo» en la bandeja. Solo mientras
+   * el modelo redacta de verdad: si un guardrail decide no contestar, nunca
+   * se enciende, y si algo falla a medias, se apaga igual (finally).
+   */
+  private typing(conversationId: string, orgId: string | undefined, on: boolean): void {
+    this.events.emit("ai.typing", { conversationId, orgId, on });
+  }
 
   /**
    * Muestra "escribiendo…" al cliente. Necesita el waMessageId del último
@@ -61,6 +72,7 @@ export class AutopilotService {
    * AutomationService tras pasar sus reglas (palabras clave, horario).
    */
   async run(conversationId: string): Promise<void> {
+    let redactando: { orgId: string | undefined } | null = null;
     try {
       const convo = await this.prisma.conversation.findUnique({
         where: { id: conversationId },
@@ -73,8 +85,10 @@ export class AutopilotService {
         return;
       }
 
-      // "Escribiendo…" en el móvil del cliente mientras el modelo redacta.
-      // Se lanza sin await: es cosmético y no debe retrasar la respuesta.
+      // "Escribiendo…" en el móvil del cliente y en la bandeja mientras el
+      // modelo redacta. Lo del móvil va sin await: es cosmético.
+      redactando = { orgId: convo.orgId ?? undefined };
+      this.typing(conversationId, redactando.orgId, true);
       void this.showTyping(conversationId);
 
       const res = await this.agent.suggest(conversationId);
@@ -108,6 +122,8 @@ export class AutopilotService {
       this.logger.error(
         `Autopilot falló en ${conversationId}: ${(e as Error).message}`,
       );
+    } finally {
+      if (redactando) this.typing(conversationId, redactando.orgId, false);
     }
   }
 }

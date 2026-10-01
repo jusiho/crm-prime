@@ -4,8 +4,24 @@ Un flujo es una automatización paso a paso: «cuando pase esto, envía esto, pr
 
 ## Disparadores
 
-- **Al iniciar chat**: cuando un contacto escribe por primera vez (o abre una conversación nueva).
-- **Por palabra clave**: cuando el mensaje contiene alguna de las palabras que definas (`hola, info, precio`).
+Un flujo arranca cuando pasa una de estas cosas. Se elige arriba, en el editor, junto a su filtro.
+
+| Disparador | Cuándo | Filtro |
+|---|---|---|
+| **Al iniciar un chat** | Un contacto escribe por primera vez o abre una conversación nueva. | — |
+| **Por palabra clave** | Un mensaje del contacto contiene alguna de las palabras. | Palabras separadas por comas. |
+| **Llega desde un anuncio** | La conversación nace de un anuncio Click to WhatsApp de Meta. Tiene prioridad sobre «Al iniciar un chat». | — |
+| **Nuevo lead de Meta Ads (formulario)** | Entra un lead de un formulario de Meta Lead Ads ([Meta Ads](/docs/meta-ads)). | Nombres de formulario; vacío = todos. |
+| **Nuevo lead por API o formulario web** | Entra un lead por el [webhook de leads](/docs/webhooks) o la API (tu web, n8n, Zapier). | — |
+| **Se le pone una etiqueta** | Alguien, la IA u otro flujo etiqueta al contacto. | Etiquetas; vacío = cualquiera. |
+| **Cambia de etapa en el embudo** | Su oportunidad se mueve a una etapa, a mano, por la IA o por otro flujo. | Una etapa; vacío = cualquiera. |
+| **Se cierra la conversación** | Tu equipo cierra la conversación. Útil para una encuesta o una despedida. | — |
+| **El cliente no responde** | Pasan X horas sin que el cliente conteste a tu último mensaje (de una persona, de la IA o de un flujo). Se dispara una vez por silencio: no se repite hasta que el cliente vuelva a escribir. | Horas (1 a 720). |
+
+Dos cosas a tener en cuenta:
+
+- **Los leads de formularios nunca te han escrito.** WhatsApp solo permite escribirles con una plantilla aprobada: en esos flujos usa el bloque **Enviar plantilla** (o etiqueta, mueve el embudo y avisa por HTTP, que no necesitan ventana abierta). Lo mismo si el cliente lleva más de 24 h callado.
+- Si en esa conversación ya hay un flujo a medias (esperando una respuesta o un «Esperar»), el nuevo no lo interrumpe: se registra en el log y no arranca.
 
 Cada flujo puede aplicar a **un número** o a todos, y hay que marcarlo **Activo** para que corra. Un flujo con avisos no se puede activar hasta corregirlos.
 
@@ -14,6 +30,7 @@ Cada flujo puede aplicar a **un número** o a todos, y hay que marcarlo **Activo
 | Bloque | Para qué |
 |---|---|
 | **Enviar mensaje** | Un texto al contacto. Admite variables: `{{nombre_variable}}`. |
+| **Enviar plantilla** | Una plantilla aprobada por Meta. Es la única forma de escribirle a quien no te ha escrito o lleva más de 24 h sin hacerlo. Si tiene `{{1}}`, va el nombre del contacto. |
 | **Preguntar y guardar** | Envía una pregunta, espera la respuesta y la guarda en una variable. |
 | **Condición** | Ramifica según palabras clave del último mensaje. Cada rama es una salida; *en otro caso* es la salida por defecto. Gana la primera rama que coincide, en orden. |
 | **Acción** | Pasar al agente de IA, pasar a humano, poner etiqueta o mover en el embudo. |

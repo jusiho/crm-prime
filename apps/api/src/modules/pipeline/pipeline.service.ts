@@ -320,6 +320,12 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
         throw new NotFoundException("Deal no encontrado");
       });
     this.changed(deal.id);
+    this.events.emit("deal.stage_changed", {
+      orgId: deal.orgId,
+      dealId: deal.id,
+      contactId: deal.contactId,
+      stageId: input.stageId,
+    });
     return this.toDealDto(deal);
   }
 

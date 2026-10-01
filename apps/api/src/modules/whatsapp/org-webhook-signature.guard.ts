@@ -20,7 +20,7 @@ export interface OrgWebhookRequest extends Request {
  * empresa, calculada con el app secret de **su propia app de Meta**.
  *
  * A diferencia del guard de la plataforma, aquí no hay "modo dev" sin
- * secreto: la ruta es pública y cualquiera puede llamarla con el subdominio de
+ * secreto: la ruta es pública y cualquiera puede llamarla con el slug de
  * otro. Sin secreto guardado, no entra nada.
  */
 @Injectable()
@@ -32,7 +32,7 @@ export class OrgWebhookSignatureGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest<OrgWebhookRequest>();
-    const org = await this.resolver.porHost(req);
+    const org = await this.resolver.de(req);
     const propia = await this.settings.ownWhatsappApp(org.id);
     if (!propia?.appSecret) {
       throw new UnauthorizedException("Esta empresa no tiene configurada su propia app de Meta");
