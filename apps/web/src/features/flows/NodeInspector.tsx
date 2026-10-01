@@ -3,24 +3,44 @@
 import { useEffect, useState } from "react";
 import type { Node } from "@xyflow/react";
 import {
+  answerValidations,
   delayUnits,
   flowActionTypes,
+  flowStatuses,
   httpMethods,
+  weekday,
+  type CustomFieldDto,
   type FlowAgentRef,
   type FlowBotRef,
   type FlowBranch,
+  type FlowButton,
+  type FlowChannelRef,
   type FlowNodeData,
+  type FlowRule,
+  type FlowSplit,
   type FlowSummary,
+  type SourceDto,
+  type TagDto,
 } from "@crm/shared";
 import { NavIcon } from "@/components/NavIcons";
-import { NODE_META } from "./flowShared";
+import { uploadMedia } from "@/lib/bff";
+import { toast } from "@/lib/toast";
+import {
+  ACTION_LABEL,
+  AI_MODE_LABEL,
+  CONDITION_FIELDS,
+  CONDITION_FIELD_BY,
+  CONDITION_GROUPS,
+  NODE_META,
+  OPS_BY_KIND,
+  OP_LABEL,
+  STATUS_LABEL,
+  VALIDATION_LABEL,
+  defaultHours,
+  rulesOf,
+} from "./flowShared";
 
-const ACTION_LABEL: Record<string, string> = {
-  ai: "Pasar a agente IA",
-  handoff: "Pasar a humano",
-  tag: "Poner etiqueta",
-  move_deal: "Mover en pipeline",
-};
+const DAY_LABEL: Record<string, string> = { mon: "Lun", tue: "Mar", wed: "Mié", thu: "Jue", fri: "Vie", sat: "Sáb", sun: "Dom" };
 
 // Límite de un mensaje de texto en WhatsApp.
 const WA_TEXT_MAX = 4096;
@@ -59,6 +79,10 @@ export function NodeInspector({
   stages,
   templates,
   agents,
+  fields,
+  tags,
+  sources,
+  channels,
   flows,
   variables,
   issues,
@@ -72,6 +96,12 @@ export function NodeInspector({
   /** Plantillas aprobadas por Meta, para «Enviar plantilla». */
   templates: { id: string; name: string; language: string }[];
   agents: FlowAgentRef[];
+  /** Campos personalizados del contacto, para «Guardar en el contacto» y las condiciones. */
+  fields: CustomFieldDto[];
+  /** Para los valores de las condiciones. */
+  tags: TagDto[];
+  sources: SourceDto[];
+  channels: FlowChannelRef[];
   flows: FlowSummary[];
   /** Variables definidas en el flujo, para insertarlas en los textos. */
   variables: string[];
@@ -139,8 +169,100 @@ export function NodeInspector({
           />
           <Counter value={data.text ?? ""} />
           <VarChips variables={variables} onPick={(v) => patch({ text: `${data.text ?? ""}{{${v}}}` })} />
+          <Attachment data={data} onChange={patch} />
         </Field>
       )}
+
+      {node.type === "buttons" && (
+        <>
+          <Field label="Texto del mensaje">
+            <textarea
+              style={{ ...input, minHeight: 80, resize: "vertical", fontFamily: "inherit" }}
+              value={data.text ?? ""}
+              maxLength={1024}
+              placeholder="¿Qué te interesa?"
+              onChange={(e) => patch({ text: e.target.value })}
+            />
+            <VarChips variables={variables} onPick={(v) => patch({ text: `${data.text ?? ""}{{${v}}}` })} />
+          </Field>
+          <ButtonsFields buttons={data.buttons ?? []} onChange={(buttons) => patch({ buttons })} />
+          <Field label="Guardar lo que pulsó en la variable (opcional)">
+            <input
+              style={{ ...input, fontFamily: "ui-monospace, monospace" }}
+              value={data.variable ?? ""}
+              placeholder="opcion"
+              onChange={(e) => patch({ variable: e.target.value.replace(/[^\w]/g, "") })}
+            />
+          </Field>
+          <p style={hint}>
+            WhatsApp muestra hasta 3 botones de 20 caracteres. Si el contacto escribe en vez de pulsar, también
+            vale el texto exacto del botón o su número; cualquier otra cosa sale por «otra respuesta». Fuera de la
+            ventana de 24 h el mensaje va como texto con las opciones numeradas.
+          </p>
+        </>
+      )}
+
+      {node.type === "setField" && (
+        <>
+          <Field label="Campo del contacto">
+            <select style={input} value={data.fieldKey ?? ""} onChange={(e) => patch({ fieldKey: e.target.value })}>
+              <option value="">Elige un campo…</option>
+              <option value="name">Nombre del contacto</option>
+              {fields.map((f) => (
+                <option key={f.id} value={f.key}>
+                  {f.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Valor">
+            <input
+              style={input}
+              value={data.value ?? ""}
+              placeholder="{{nombre}}"
+              onChange={(e) => patch({ value: e.target.value })}
+            />
+            <VarChips variables={variables} onPick={(v) => patch({ value: `${data.value ?? ""}{{${v}}}` })} />
+          </Field>
+          <p style={hint}>
+            Lo típico: preguntar el nombre con «Preguntar y guardar» y guardarlo aquí en el contacto. Los campos
+            personalizados se crean en Contactos.
+          </p>
+        </>
+      )}
+
+      {node.type === "addNote" && (
+        <Field label="Nota para el equipo">
+          <textarea
+            style={{ ...input, minHeight: 90, resize: "vertical", fontFamily: "inherit" }}
+            value={data.text ?? ""}
+            maxLength={1000}
+            placeholder="Pidió presupuesto para {{producto}}"
+            onChange={(e) => patch({ text: e.target.value })}
+          />
+          <VarChips variables={variables} onPick={(v) => patch({ text: `${data.text ?? ""}{{${v}}}` })} />
+          <p style={hint}>Queda en las notas internas de la conversación; el cliente no la ve.</p>
+        </Field>
+      )}
+
+      {node.type === "setStatus" && (
+        <Field label="Dejar la conversación como">
+          <select style={input} value={data.status ?? ""} onChange={(e) => patch({ status: e.target.value as FlowNodeData["status"] })}>
+            {flowStatuses.map((s) => (
+              <option key={s} value={s}>
+                {STATUS_LABEL[s]}
+              </option>
+            ))}
+          </select>
+          <p style={hint}>
+            «Pendiente» la deja esperando a una persona; «Cerrada» la archiva (y puede disparar un flujo «al cerrar»).
+          </p>
+        </Field>
+      )}
+
+      {node.type === "split" && <SplitFields splits={data.splits ?? []} onChange={(splits) => patch({ splits })} />}
+
+      {node.type === "schedule" && <HoursFields hours={data.hours ?? defaultHours()} onChange={(hours) => patch({ hours })} />}
 
       {node.type === "sendTemplate" && (
         <>
@@ -194,11 +316,64 @@ export function NodeInspector({
             Úsala luego en cualquier texto como{" "}
             <code>{`{{${data.variable || "variable"}}}`}</code>.
           </p>
+          <Field label="La respuesta debe ser">
+            <select
+              style={input}
+              value={data.validate ?? "any"}
+              onChange={(e) => patch({ validate: e.target.value as FlowNodeData["validate"] })}
+            >
+              {answerValidations.map((v) => (
+                <option key={v} value={v}>
+                  {VALIDATION_LABEL[v]}
+                </option>
+              ))}
+            </select>
+          </Field>
+          {data.validate === "regex" && (
+            <Field label="Patrón (expresión regular)">
+              <input
+                style={{ ...input, fontFamily: "ui-monospace, monospace" }}
+                value={data.pattern ?? ""}
+                placeholder="^[A-Z]{3}-\\d{4}$"
+                onChange={(e) => patch({ pattern: e.target.value })}
+              />
+            </Field>
+          )}
+          {data.validate && data.validate !== "any" && (
+            <>
+              <Field label="Si no es válida, responder">
+                <input
+                  style={input}
+                  value={data.retryText ?? ""}
+                  placeholder="Mmm, eso no parece un teléfono. ¿Me lo repites?"
+                  onChange={(e) => patch({ retryText: e.target.value })}
+                />
+              </Field>
+              <Field label="Intentos antes de rendirse">
+                <input
+                  style={{ ...input, width: 90 }}
+                  type="number"
+                  min={0}
+                  max={5}
+                  value={data.maxRetries ?? 2}
+                  onChange={(e) => patch({ maxRetries: Math.max(0, Math.min(5, Number(e.target.value) || 0)) })}
+                />
+              </Field>
+              <p style={hint}>
+                Tras agotar los intentos sigue por la salida «si no es válida» (o por la normal si no la conectas),
+                guardando lo último que escribió.
+              </p>
+            </>
+          )}
         </>
       )}
 
       {node.type === "condition" && (
-        <ConditionFields branches={data.branches ?? []} onChange={(branches) => patch({ branches })} />
+        <ConditionFields
+          branches={data.branches ?? []}
+          onChange={(branches) => patch({ branches })}
+          lookups={{ variables, fields, tags, sources, channels, agents, stages }}
+        />
       )}
 
       {node.type === "action" && (
@@ -238,8 +413,8 @@ export function NodeInspector({
               del equipo.
             </p>
           )}
-          {data.action === "tag" && (
-            <Field label="Etiqueta a poner">
+          {(data.action === "tag" || data.action === "untag") && (
+            <Field label={data.action === "tag" ? "Etiqueta a poner" : "Etiqueta a quitar"}>
               <input
                 style={input}
                 value={data.tag ?? ""}
@@ -247,6 +422,30 @@ export function NodeInspector({
                 onChange={(e) => patch({ tag: e.target.value })}
               />
             </Field>
+          )}
+          {data.action === "create_deal" && (
+            <>
+              <Field label="Crear la oportunidad en la etapa">
+                <select style={input} value={data.stageId ?? ""} onChange={(e) => patch({ stageId: e.target.value })}>
+                  <option value="">Elige una etapa…</option>
+                  {stages.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Título (opcional)">
+                <input
+                  style={input}
+                  value={data.dealTitle ?? ""}
+                  placeholder="Oportunidad: {{nombre}}"
+                  onChange={(e) => patch({ dealTitle: e.target.value })}
+                />
+                <VarChips variables={variables} onPick={(v) => patch({ dealTitle: `${data.dealTitle ?? ""}{{${v}}}` })} />
+              </Field>
+              <p style={hint}>Si el contacto ya tiene una oportunidad abierta en ese embudo, no se duplica.</p>
+            </>
           )}
           {data.action === "move_deal" && (
             <Field label="Mover el deal a la etapa">
@@ -401,6 +600,160 @@ export function NodeInspector({
 }
 
 /** Variables del flujo como chips: un clic las inserta al final del texto. */
+/** Imagen o archivo que acompaña al mensaje. */
+function Attachment({ data, onChange }: { data: FlowNodeData; onChange: (p: Partial<FlowNodeData>) => void }) {
+  const [busy, setBusy] = useState(false);
+  async function pick(file: File | undefined) {
+    if (!file) return;
+    setBusy(true);
+    try {
+      const up = await uploadMedia(file);
+      onChange({ mediaUrl: up.mediaUrl, mediaKind: up.kind, mediaName: up.fileName });
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div style={{ marginTop: 10 }}>
+      <div style={lbl}>Adjunto (opcional)</div>
+      {data.mediaUrl ? (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
+          <NavIcon name={data.mediaKind === "DOCUMENT" ? "file" : "image"} size={14} />
+          <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {data.mediaName || "Adjunto"}
+          </span>
+          <button style={miniBtn} title="Quitar adjunto" onClick={() => onChange({ mediaUrl: undefined, mediaKind: undefined, mediaName: undefined })}>
+            <NavIcon name="x" size={12} />
+          </button>
+        </div>
+      ) : (
+        <label style={{ ...ghost, display: "inline-flex", alignItems: "center", gap: 6, cursor: busy ? "wait" : "pointer" }}>
+          <NavIcon name="paperclip" size={13} />
+          {busy ? "Subiendo…" : "Adjuntar imagen o archivo"}
+          <input type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" style={{ display: "none" }} disabled={busy} onChange={(e) => void pick(e.target.files?.[0])} />
+        </label>
+      )}
+      {data.mediaUrl && <p style={hint}>El texto de arriba va como pie del adjunto.</p>}
+    </div>
+  );
+}
+
+function ButtonsFields({ buttons, onChange }: { buttons: FlowButton[]; onChange: (b: FlowButton[]) => void }) {
+  const update = (i: number, title: string) => onChange(buttons.map((b, idx) => (idx === i ? { ...b, title } : b)));
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <div style={lbl}>Botones (cada uno es una salida)</div>
+      {buttons.map((b, i) => (
+        <div key={b.id} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <input
+            style={{ ...input, flex: 1 }}
+            value={b.title}
+            maxLength={20}
+            placeholder={`Botón ${i + 1}`}
+            onChange={(e) => update(i, e.target.value)}
+          />
+          <span style={{ ...hint, margin: 0, width: 38, textAlign: "right" }}>{b.title.length}/20</span>
+          <button style={{ ...miniBtn, color: "#e08a8a" }} title="Quitar botón" onClick={() => onChange(buttons.filter((_, idx) => idx !== i))}>
+            <NavIcon name="x" size={12} />
+          </button>
+        </div>
+      ))}
+      {buttons.length < 3 && (
+        <button
+          style={ghost}
+          onClick={() => onChange([...buttons, { id: `b${Date.now().toString(36)}`, title: "" }])}
+        >
+          + Añadir botón
+        </button>
+      )}
+    </div>
+  );
+}
+
+function SplitFields({ splits, onChange }: { splits: FlowSplit[]; onChange: (s: FlowSplit[]) => void }) {
+  const total = splits.reduce((s, x) => s + (x.weight || 0), 0);
+  const update = (i: number, p: Partial<FlowSplit>) => onChange(splits.map((s, idx) => (idx === i ? { ...s, ...p } : s)));
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <p style={{ ...hint, margin: 0 }}>
+        Cada contacto que llega aquí sale por una variante al azar, según su peso. Útil para probar dos mensajes
+        (A/B) o repartir entre vendedores.
+      </p>
+      {splits.map((s, i) => (
+        <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <input style={{ ...input, flex: 1 }} value={s.label} placeholder={`Variante ${i + 1}`} onChange={(e) => update(i, { label: e.target.value })} />
+          <input
+            style={{ ...input, width: 70 }}
+            type="number"
+            min={0}
+            max={100}
+            value={s.weight}
+            onChange={(e) => update(i, { weight: Math.max(0, Math.min(100, Number(e.target.value) || 0)) })}
+          />
+          <span style={{ ...hint, margin: 0 }}>%</span>
+          <button style={{ ...miniBtn, color: "#e08a8a" }} title="Quitar variante" disabled={splits.length <= 2} onClick={() => onChange(splits.filter((_, idx) => idx !== i))}>
+            <NavIcon name="x" size={12} />
+          </button>
+        </div>
+      ))}
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        {splits.length < 5 && (
+          <button
+            style={ghost}
+            onClick={() => onChange([...splits, { id: `s${Date.now().toString(36)}`, label: "", weight: 0 }])}
+          >
+            + Añadir variante
+          </button>
+        )}
+        <span style={{ ...hint, margin: 0, color: total === 100 ? "var(--muted)" : "#e0b766" }}>
+          Suma {total}% {total !== 100 ? "(se reparte en proporción)" : ""}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function HoursFields({
+  hours,
+  onChange,
+}: {
+  hours: NonNullable<FlowNodeData["hours"]>;
+  onChange: (h: NonNullable<FlowNodeData["hours"]>) => void;
+}) {
+  const setDay = (d: (typeof weekday)[number], range: { from: string; to: string } | null) =>
+    onChange({ ...hours, days: { ...hours.days, [d]: range } });
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <Field label="Zona horaria">
+        <input
+          style={input}
+          value={hours.timezone}
+          placeholder="America/Lima"
+          onChange={(e) => onChange({ ...hours, timezone: e.target.value })}
+        />
+      </Field>
+      <div style={lbl}>Días y horas de atención</div>
+      {weekday.map((d) => {
+        const r = hours.days?.[d] ?? null;
+        return (
+          <div key={d} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 6, width: 64, fontSize: 13 }}>
+              <input type="checkbox" checked={!!r} onChange={(e) => setDay(d, e.target.checked ? { from: "09:00", to: "18:00" } : null)} />
+              {DAY_LABEL[d]}
+            </label>
+            <input style={{ ...input, flex: 1 }} type="time" value={r?.from ?? ""} disabled={!r} onChange={(e) => r && setDay(d, { ...r, from: e.target.value })} />
+            <span style={{ ...hint, margin: 0 }}>a</span>
+            <input style={{ ...input, flex: 1 }} type="time" value={r?.to ?? ""} disabled={!r} onChange={(e) => r && setDay(d, { ...r, to: e.target.value })} />
+          </div>
+        );
+      })}
+      <p style={hint}>Dentro del horario sigue por «en horario»; si no, por «fuera de horario» (por ejemplo, para avisar que se responderá mañana).</p>
+    </div>
+  );
+}
+
 function VarChips({ variables, onPick }: { variables: string[]; onPick: (v: string) => void }) {
   if (!variables.length) {
     return (
@@ -431,12 +784,24 @@ function Counter({ value }: { value: string }) {
   );
 }
 
+interface RuleLookups {
+  variables: string[];
+  fields: CustomFieldDto[];
+  tags: TagDto[];
+  sources: SourceDto[];
+  channels: FlowChannelRef[];
+  agents: FlowAgentRef[];
+  stages: { id: string; name: string }[];
+}
+
 function ConditionFields({
   branches,
   onChange,
+  lookups,
 }: {
   branches: FlowBranch[];
   onChange: (b: FlowBranch[]) => void;
+  lookups: RuleLookups;
 }) {
   function update(i: number, p: Partial<FlowBranch>) {
     onChange(branches.map((b, idx) => (idx === i ? { ...b, ...p } : b)));
@@ -448,45 +813,73 @@ function ConditionFields({
     [next[i], next[j]] = [next[j], next[i]];
     onChange(next);
   }
+  const newRule = (): FlowRule => ({ id: `r_${Math.random().toString(36).slice(2, 8)}`, field: "message", op: "contains", value: "" });
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <p style={{ ...hint, margin: 0 }}>
-        Cada rama compara el mensaje del contacto con sus palabras clave, en
-        orden: gana la primera que coincide. «En otro caso» es la salida por
-        defecto. Conecta cada salida (●) o usa su «+».
+        Cada rama es una salida. Se comprueban en orden y gana la primera cuyas condiciones se
+        cumplen; «En otro caso» recoge el resto. Puedes mirar el mensaje, variables, el contacto
+        (campos, etiquetas, fuente), la conversación o la etapa del embudo.
       </p>
-      {branches.map((b, i) => (
-        <div key={b.id} style={branchBox}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ ...lbl, margin: 0, flex: 1 }}>Rama {i + 1}</span>
-            <button style={miniBtn} title="Subir" disabled={i === 0} onClick={() => move(i, -1)}>
-              <NavIcon name="arrow-up" size={12} />
-            </button>
-            <button style={miniBtn} title="Bajar" disabled={i === branches.length - 1} onClick={() => move(i, 1)}>
-              <NavIcon name="arrow-down" size={12} />
-            </button>
-            <button
-              style={{ ...miniBtn, color: "#e08a8a" }}
-              title="Quitar rama"
-              onClick={() => onChange(branches.filter((_, idx) => idx !== i))}
-            >
-              <NavIcon name="x" size={12} />
-            </button>
+      {branches.map((b, i) => {
+        const rules = rulesOf(b);
+        const setRules = (next: FlowRule[]) => update(i, { rules: next, keywords: [] });
+        return (
+          <div key={b.id} style={branchBox}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ ...lbl, margin: 0, flex: 1 }}>Rama {i + 1}</span>
+              <button style={miniBtn} title="Subir" disabled={i === 0} onClick={() => move(i, -1)}>
+                <NavIcon name="arrow-up" size={12} />
+              </button>
+              <button style={miniBtn} title="Bajar" disabled={i === branches.length - 1} onClick={() => move(i, 1)}>
+                <NavIcon name="arrow-down" size={12} />
+              </button>
+              <button
+                style={{ ...miniBtn, color: "#e08a8a" }}
+                title="Quitar rama"
+                onClick={() => onChange(branches.filter((_, idx) => idx !== i))}
+              >
+                <NavIcon name="x" size={12} />
+              </button>
+            </div>
+            <input
+              style={input}
+              value={b.label}
+              placeholder="Nombre (ej: Quiere precio)"
+              onChange={(e) => update(i, { label: e.target.value })}
+            />
+            {rules.map((r, ri) => (
+              <RuleRow
+                key={r.id}
+                rule={r}
+                lookups={lookups}
+                onChange={(p) => setRules(rules.map((x, idx) => (idx === ri ? { ...x, ...p } : x)))}
+                onRemove={() => setRules(rules.filter((_, idx) => idx !== ri))}
+              />
+            ))}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <button style={ghost} onClick={() => setRules([...rules, newRule()])}>
+                + Añadir condición
+              </button>
+              {rules.length > 1 && (
+                <div className="seg" role="tablist" aria-label="Cómo se combinan">
+                  <button type="button" role="tab" aria-selected={(b.match ?? "all") === "all"} onClick={() => update(i, { match: "all" })}>
+                    todas
+                  </button>
+                  <button type="button" role="tab" aria-selected={b.match === "any"} onClick={() => update(i, { match: "any" })}>
+                    alguna
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
-          <input
-            style={input}
-            value={b.label}
-            placeholder="Nombre (ej: Quiere precio)"
-            onChange={(e) => update(i, { label: e.target.value })}
-          />
-          <KeywordsInput keywords={b.keywords} onChange={(keywords) => update(i, { keywords })} />
-        </div>
-      ))}
+        );
+      })}
       <button
         onClick={() =>
           onChange([
             ...branches,
-            { id: `b_${Math.random().toString(36).slice(2, 8)}`, label: "", keywords: [] },
+            { id: `b_${Math.random().toString(36).slice(2, 8)}`, label: "", keywords: [], rules: [newRule()], match: "all" },
           ])
         }
         style={ghost}
@@ -497,29 +890,180 @@ function ConditionFields({
   );
 }
 
-/**
- * Palabras clave separadas por comas. El texto que se teclea es local: si el
- * campo mostrara siempre `keywords.join(", ")`, la coma y el espacio
- * desaparecerían en cuanto se pulsan (se normalizan antes de verse). Solo se
- * resincroniza cuando el valor cambia desde fuera (deshacer, otra rama).
- */
-function KeywordsInput({ keywords, onChange }: { keywords: string[]; onChange: (k: string[]) => void }) {
-  const parse = (s: string) => s.split(",").map((k) => k.trim()).filter(Boolean);
-  const [text, setText] = useState(keywords.join(", "));
-  useEffect(() => {
-    if (parse(text).join("\u0000") !== keywords.join("\u0000")) setText(keywords.join(", "));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [keywords]);
+/** Una condición: qué se mira, cómo se compara y con qué. */
+function RuleRow({
+  rule,
+  lookups,
+  onChange,
+  onRemove,
+}: {
+  rule: FlowRule;
+  lookups: RuleLookups;
+  onChange: (p: Partial<FlowRule>) => void;
+  onRemove: () => void;
+}) {
+  const meta = CONDITION_FIELD_BY[rule.field] ?? CONDITION_FIELDS[0]!;
+  const ops = OPS_BY_KIND[meta.kind];
+  const needsValue = !["empty", "not_empty"].includes(rule.op);
+  const small: React.CSSProperties = { ...input, padding: "6px 8px", fontSize: 12.5, minWidth: 0 };
+
+  function setField(field: FlowRule["field"]) {
+    const m = CONDITION_FIELD_BY[field]!;
+    const op = OPS_BY_KIND[m.kind].includes(rule.op) ? rule.op : OPS_BY_KIND[m.kind][0]!;
+    onChange({ field, op, key: undefined, value: field === "is_new" ? "yes" : "" });
+  }
+
+  const valueControl = (() => {
+    if (!needsValue) return null;
+    switch (rule.field) {
+      case "status":
+        return (
+          <select style={small} value={rule.value ?? ""} onChange={(e) => onChange({ value: e.target.value })}>
+            <option value="">Elige…</option>
+            {flowStatuses.map((s) => (
+              <option key={s} value={s}>
+                {STATUS_LABEL[s]}
+              </option>
+            ))}
+          </select>
+        );
+      case "ai_mode":
+        return (
+          <select style={small} value={rule.value ?? ""} onChange={(e) => onChange({ value: e.target.value })}>
+            <option value="">Elige…</option>
+            {Object.entries(AI_MODE_LABEL).map(([k, v]) => (
+              <option key={k} value={k}>
+                {v}
+              </option>
+            ))}
+          </select>
+        );
+      case "assigned":
+        return (
+          <select style={small} value={rule.value ?? ""} onChange={(e) => onChange({ value: e.target.value })}>
+            <option value="">Elige…</option>
+            <option value="none">Nadie (sin asignar)</option>
+            {lookups.agents.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name ?? a.email}
+              </option>
+            ))}
+          </select>
+        );
+      case "source":
+        return (
+          <select style={small} value={rule.value ?? ""} onChange={(e) => onChange({ value: e.target.value })}>
+            <option value="">Elige…</option>
+            {lookups.sources.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+        );
+      case "channel":
+        return (
+          <select style={small} value={rule.value ?? ""} onChange={(e) => onChange({ value: e.target.value })}>
+            <option value="">Elige…</option>
+            {lookups.channels.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.label ?? c.displayPhoneNumber ?? c.id}
+              </option>
+            ))}
+          </select>
+        );
+      case "stage":
+        return (
+          <select style={small} value={rule.value ?? ""} onChange={(e) => onChange({ value: e.target.value })}>
+            <option value="">Elige…</option>
+            {lookups.stages.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+        );
+      case "is_new":
+        return (
+          <select style={small} value={rule.value ?? "yes"} onChange={(e) => onChange({ value: e.target.value })}>
+            <option value="yes">Sí</option>
+            <option value="no">No</option>
+          </select>
+        );
+      case "tag":
+        return (
+          <>
+            <input style={small} list="cond-tag-options" value={rule.value ?? ""} placeholder="nombre de la etiqueta" onChange={(e) => onChange({ value: e.target.value })} />
+            <datalist id="cond-tag-options">
+              {lookups.tags.map((t) => (
+                <option key={t.id} value={t.name} />
+              ))}
+            </datalist>
+          </>
+        );
+      case "messages_count":
+        return <input style={small} type="number" min={0} value={rule.value ?? ""} onChange={(e) => onChange({ value: e.target.value })} />;
+      default:
+        return (
+          <input
+            style={small}
+            value={rule.value ?? ""}
+            placeholder={rule.op === "contains" || rule.op === "equals" ? "precio, costo, cuánto" : rule.op === "regex" ? "^\\d{8}$" : "valor o {{variable}}"}
+            onChange={(e) => onChange({ value: e.target.value })}
+          />
+        );
+    }
+  })();
+
   return (
-    <input
-      style={input}
-      value={text}
-      placeholder="palabras clave: precio, costo, cuánto"
-      onChange={(e) => {
-        setText(e.target.value);
-        onChange(parse(e.target.value));
-      }}
-    />
+    <div style={{ display: "flex", flexDirection: "column", gap: 5, padding: "8px 8px 8px 10px", borderRadius: 8, background: "var(--surface-2)" }}>
+      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+        <select style={{ ...small, flex: 1 }} value={rule.field} onChange={(e) => setField(e.target.value as FlowRule["field"])}>
+          {CONDITION_GROUPS.map((g) => (
+            <optgroup key={g} label={g}>
+              {CONDITION_FIELDS.filter((f) => f.group === g).map((f) => (
+                <option key={f.field} value={f.field}>
+                  {f.label}
+                </option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+        <button style={{ ...miniBtn, color: "#e08a8a" }} title="Quitar condición" onClick={onRemove}>
+          <NavIcon name="x" size={12} />
+        </button>
+      </div>
+      {meta.needsKey === "variable" && (
+        <>
+          <input style={small} list="cond-var-options" value={rule.key ?? ""} placeholder="nombre de la variable" onChange={(e) => onChange({ key: e.target.value.replace(/[^\w]/g, "") })} />
+          <datalist id="cond-var-options">
+            {lookups.variables.map((v) => (
+              <option key={v} value={v} />
+            ))}
+          </datalist>
+        </>
+      )}
+      {meta.needsKey === "field" && (
+        <select style={small} value={rule.key ?? ""} onChange={(e) => onChange({ key: e.target.value })}>
+          <option value="">Elige el campo…</option>
+          {lookups.fields.map((f) => (
+            <option key={f.id} value={f.key}>
+              {f.label}
+            </option>
+          ))}
+        </select>
+      )}
+      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+        <select style={{ ...small, flex: needsValue ? "0 0 46%" : 1 }} value={rule.op} onChange={(e) => onChange({ op: e.target.value as FlowRule["op"] })}>
+          {ops.map((o) => (
+            <option key={o} value={o}>
+              {OP_LABEL[o]}
+            </option>
+          ))}
+        </select>
+        {valueControl && <div style={{ flex: 1, minWidth: 0, display: "flex" }}>{valueControl}</div>}
+      </div>
+    </div>
   );
 }
 

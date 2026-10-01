@@ -1,6 +1,6 @@
 # Embudos
 
-Un embudo es un tablero de oportunidades con etapas. Puedes tener **varios** —Ventas, Soporte, Renovaciones— y cada número de WhatsApp decide a cuál entran sus conversaciones.
+Un embudo es un tablero de oportunidades con etapas. Puedes tener **varios** —Ventas, Soporte, Renovaciones— y cada número de WhatsApp decide a cuál entran sus conversaciones: se elige en **WhatsApp › Configurar** (en el número) o aquí, marcando los números de cada embudo.
 
 ## Etapas
 

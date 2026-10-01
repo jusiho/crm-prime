@@ -6,6 +6,7 @@ import {
   type FlowAssistantRequest,
   type FlowEdge,
   type FlowNode,
+  flowRuleSchema,
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { LLM_PROVIDER, type LLMProvider } from "./llm.provider";
@@ -175,8 +176,14 @@ Escribes siempre en español, con textos de mensaje cortos y naturales para What
   data: { "templateId": "<id>", "templateName": "<nombre>" }. Una salida. Solo con ids de la lista de plantillas.
 - "askQuestion": envía una pregunta y ESPERA la respuesta del contacto, guardándola
   en una variable. data: { "text": "...", "variable": "nombre_snake_case" }. Una salida.
-- "condition": ramifica según el último mensaje del contacto.
-  data: { "branches": [ { "id": "b1", "label": "Precio", "keywords": ["precio","costo"] } ] }.
+- "condition": ramifica por reglas. data: { "branches": [ { "id":"b1", "label":"Precio", "match":"all"|"any",
+  "rules":[ { "id":"r1", "field":"message", "op":"contains", "value":"precio, costo" } ] } ] }.
+  Campos (field): "message" (último mensaje), "variable" (key = nombre), "contact_name", "contact_phone",
+  "contact_field" (key = clave), "tag" (op is/is_not, value = nombre de etiqueta), "source" (value = id de fuente),
+  "channel" (id), "status" (OPEN|PENDING|CLOSED), "ai_mode" (OFF|COPILOT|AUTOPILOT), "assigned" (id de agente o "none"),
+  "stage" (id de etapa), "is_new" (yes|no), "messages_count" (número).
+  Operadores (op): contains, not_contains, equals, not_equals, starts_with, regex, empty, not_empty, gt, lt, is, is_not.
+  En "contains"/"equals" el value admite varias opciones separadas por comas. Gana la primera rama que cumple, en orden.
   Cada rama es una salida cuyo sourceHandle es el id de la rama. Existe además la
   salida "else" (obligatoria conectarla si quieres cubrir el resto de casos).
 - "action": ejecuta una acción. data.action puede ser:
@@ -191,6 +198,21 @@ Escribes siempre en español, con textos de mensaje cortos y naturales para What
           "httpBody":"{...}", "saveAs":"variable_respuesta" }. Una salida.
 - "assign": asigna la conversación a un agente humano. data: { "agentId":"<id>", "agentName":"<nombre>" }. Una salida.
 - "jumpToFlow": continúa en otro flujo. data: { "flowId":"<id>", "flowName":"<nombre>" }. SIN salida (es terminal).
+- "buttons": mensaje con hasta 3 botones de respuesta (títulos de máx. 20 caracteres) y ESPERA.
+  data: { "text":"...", "buttons":[{"id":"b1","title":"Sí"},{"id":"b2","title":"No"}], "variable":"opcional" }.
+  Cada botón es una salida cuyo sourceHandle es su id; "else" = escribió otra cosa. Prefiérelo a
+  "askQuestion"+"condition" cuando las opciones son pocas y fijas.
+- "setField": guarda un valor en la ficha del contacto. data: { "fieldKey":"name"|"<clave_de_campo>", "value":"{{variable}} o texto" }. Una salida.
+- "addNote": nota interna para el equipo (el cliente no la ve). data: { "text":"..." }. Una salida.
+- "setStatus": estado de la conversación. data: { "status":"OPEN"|"PENDING"|"CLOSED" }. Una salida.
+- "split": reparte al azar (A/B). data: { "splits":[{"id":"a","label":"A","weight":50},{"id":"b","label":"B","weight":50}] }.
+  Cada split es una salida (sourceHandle = su id).
+- "schedule": según el horario de atención. data: { "hours": { "timezone":"America/Lima", "days": { "mon": {"from":"09:00","to":"18:00"}, ..., "sun": null } } }.
+  Salidas: sourceHandle "in" (en horario) y "out" (fuera de horario).
+- "askQuestion" admite validación: data.validate = "phone"|"email"|"number"|"regex" (+ "pattern"),
+  "retryText" y "maxRetries"; tras agotar los intentos sale por el sourceHandle "invalid" (opcional).
+- "action" admite además "untag" (quita una etiqueta: { "action":"untag", "tag":"<nombre>" }) y
+  "create_deal" (crea una oportunidad: { "action":"create_deal", "stageId":"<id>", "dealTitle":"opcional" }).
 
 ## Reglas duras
 1. Cada salida admite como máximo UNA arista. Para bifurcar usa "condition".
@@ -466,6 +488,11 @@ Petición: ${input.prompt}`;
         id: b.id?.trim() || `b${i + 1}`,
         label: b.label ?? "",
         keywords: b.keywords ?? [],
+        // Reglas: solo las bien formadas; las demás se descartan sin romper el flujo.
+        rules: (b.rules ?? [])
+          .map((r, j) => flowRuleSchema.safeParse({ ...r, id: r.id?.trim() || `r${j + 1}` }))
+          .flatMap((res) => (res.success ? [res.data] : [])),
+        match: b.match === "any" ? "any" : "all",
       }));
     }
 

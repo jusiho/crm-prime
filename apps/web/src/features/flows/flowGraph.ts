@@ -1,5 +1,6 @@
 import type { Edge, Node } from "@xyflow/react";
-import type { FlowBranch, FlowNodeData } from "@crm/shared";
+import type { FlowNodeData } from "@crm/shared";
+import { outputsOf, rulesOf } from "./flowShared";
 
 // Tamaño por defecto de un bloque hasta que React Flow lo mide.
 export const NODE_W = 220;
@@ -44,11 +45,8 @@ export function placeAfter(
 ): { x: number; y: number } {
   const { w, h } = sizeOf(source);
   if (sourceHandle) {
-    const branches = ((source.data as FlowNodeData).branches ?? []) as FlowBranch[];
-    const idx =
-      sourceHandle === "else"
-        ? branches.length
-        : Math.max(0, branches.findIndex((b) => b.id === sourceHandle));
+    const outs = outputsOf(source.type, source.data as FlowNodeData);
+    const idx = Math.max(0, outs.findIndex((o) => o.id === sourceHandle));
     return findFreeSpot(nodes, {
       x: source.position.x + w + 90,
       y: source.position.y + idx * 110,
@@ -134,7 +132,7 @@ export function collectVariables(nodes: Node[]): string[] {
   const out = new Set<string>();
   for (const n of nodes) {
     const d = n.data as FlowNodeData;
-    if (n.type === "askQuestion" && d.variable) out.add(d.variable);
+    if ((n.type === "askQuestion" || n.type === "buttons") && d.variable) out.add(d.variable);
     if (n.type === "http" && d.saveAs) out.add(d.saveAs);
   }
   return [...out];
@@ -176,14 +174,57 @@ export function computeIssues(nodes: Node[], edges: Edge[]): Map<string, string[
       case "askQuestion":
         if (!d.text?.trim()) add(n.id, "Falta la pregunta");
         if (!d.variable) add(n.id, "Falta la variable donde guardar la respuesta");
+        if (d.validate === "regex") {
+          if (!d.pattern?.trim()) add(n.id, "Falta el patrón (regex)");
+          else {
+            try {
+              new RegExp(d.pattern);
+            } catch {
+              add(n.id, "El patrón no es una expresión regular válida");
+            }
+          }
+        }
+        break;
+      case "buttons": {
+        const titles = (d.buttons ?? []).map((b) => b.title.trim()).filter(Boolean);
+        if (!titles.length) add(n.id, "Añade al menos un botón");
+        if ((d.buttons ?? []).some((b) => b.title.length > 20)) add(n.id, "Los botones admiten 20 caracteres como máximo");
+        if (new Set(titles.map((t) => t.toLowerCase())).size !== titles.length) add(n.id, "Hay botones repetidos");
+        break;
+      }
+      case "setField":
+        if (!d.fieldKey?.trim()) add(n.id, "Elige el campo a guardar");
+        break;
+      case "addNote":
+        if (!d.text?.trim()) add(n.id, "Falta el texto de la nota");
+        break;
+      case "setStatus":
+        if (!d.status) add(n.id, "Elige el estado");
+        break;
+      case "split": {
+        const splits = d.splits ?? [];
+        if (splits.length < 2) add(n.id, "Añade al menos dos variantes");
+        if (!splits.some((s) => s.weight > 0)) add(n.id, "Algún peso debe ser mayor que 0");
+        break;
+      }
+      case "schedule":
+        if (!d.hours || !Object.values(d.hours.days ?? {}).some(Boolean)) add(n.id, "Marca al menos un día con horario");
+        if (!edges.some((e) => e.source === n.id && e.sourceHandle === "out")) add(n.id, "Conecta la salida «fuera de horario»");
         break;
       case "condition":
         if (!d.branches?.length) add(n.id, "La condición no tiene ramas");
-        else if (d.branches.some((b) => !b.keywords.length)) add(n.id, "Hay ramas sin palabras clave");
+        else {
+          if (d.branches.some((b) => !rulesOf(b).length)) add(n.id, "Hay ramas sin condiciones");
+          const needValue = (r: { op: string; value?: string }) => !["empty", "not_empty"].includes(r.op) && !r.value?.trim();
+          if (d.branches.some((b) => rulesOf(b).some(needValue))) add(n.id, "Hay condiciones sin valor");
+          if (d.branches.some((b) => rulesOf(b).some((r) => (r.field === "variable" || r.field === "contact_field") && !r.key))) {
+            add(n.id, "Elige la variable o el campo en la condición");
+          }
+        }
         break;
       case "action":
-        if (d.action === "tag" && !d.tag?.trim()) add(n.id, "Falta la etiqueta");
-        if (d.action === "move_deal" && !d.stageId) add(n.id, "Falta la etapa del pipeline");
+        if ((d.action === "tag" || d.action === "untag") && !d.tag?.trim()) add(n.id, "Falta la etiqueta");
+        if ((d.action === "move_deal" || d.action === "create_deal") && !d.stageId) add(n.id, "Falta la etapa del embudo");
         break;
       case "http":
         if (!d.url?.trim()) add(n.id, "Falta la URL");

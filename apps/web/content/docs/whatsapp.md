@@ -35,7 +35,14 @@ La Coexistencia **no la activa cada empresa por su cuenta**. Meta solo la habili
 
 ### Varios números
 
-Puedes conectar tantos números como quieras (**Añadir número**). A cada uno le pones un alias («Ventas», «Soporte»), un [agente de IA](/docs/agentes) propio, [flujos](/docs/flujos) propios y un [embudo](/docs/embudos) al que entran sus conversaciones. Cada respuesta sale siempre por el número por el que entró el mensaje.
+Puedes conectar tantos números como quieras (**Añadir número**). Cada respuesta sale siempre por el número por el que entró el mensaje.
+
+En cada número, **Configurar** decide qué pasa cuando alguien le escribe:
+
+- **Alias** («Ventas», «Soporte»): el nombre con el que verás el número en la bandeja y los filtros.
+- **Embudo de entrada**: el [embudo](/docs/embudos) donde se crea la oportunidad al primer mensaje (y en qué etapa). Si no eliges ninguno, entra al predeterminado. Lo mismo se puede ver desde el embudo, en Ajustes › Embudos.
+- **Agente de IA**: el [agente](/docs/agentes) que atiende ese número. Un agente atiende un solo número; si eliges uno que ya atendía otro, pasa a este. Sin elegir ninguno, responde el agente predeterminado.
+- Debajo verás cuántos [flujos](/docs/flujos) escuchan solo ese número; se asignan desde el propio flujo.
 
 ## Con tu propia app de Meta
 

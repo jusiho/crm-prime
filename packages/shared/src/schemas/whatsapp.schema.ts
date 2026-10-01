@@ -16,8 +16,19 @@ export const whatsappChannelSchema = z.object({
   connectedAt: z.string().nullable(),
   // Embudo al que entran sus conversaciones nuevas; null = el predeterminado.
   pipelineId: z.string().nullable(),
+  // Agente de IA que atiende este número; null = el predeterminado de la empresa.
+  bot: z.object({ id: z.string(), name: z.string() }).nullable().default(null),
 });
 export type WhatsappChannel = z.infer<typeof whatsappChannelSchema>;
+
+// Configuración de un número desde su propia ficha: alias, a qué embudo entran
+// sus conversaciones y qué agente lo atiende (null = el predeterminado).
+export const updateChannelSchema = z.object({
+  label: z.string().max(60).nullable().optional(),
+  pipelineId: z.string().nullable().optional(),
+  botId: z.string().nullable().optional(),
+});
+export type UpdateChannelInput = z.infer<typeof updateChannelSchema>;
 
 // Lista de canales que muestra el panel (multi-número).
 export const whatsappChannelsSchema = z.object({

@@ -3,10 +3,12 @@ import {
   ConflictException,
   Injectable,
   Logger,
+  NotFoundException,
 } from "@nestjs/common";
 import type {
   ChannelTestResult,
   ConnectWhatsappInput,
+  UpdateChannelInput,
   WhatsappChannel,
   WhatsappConnectionStatus,
 } from "@crm/shared";
@@ -188,10 +190,41 @@ export class WhatsappConnectionService {
     );
   }
 
+  /**
+   * Configuración del número desde su ficha: alias, embudo de entrada y agente
+   * de IA. El agente se ata al número (y se suelta del que tuviera): un bot
+   * atiende un solo número, y un número lo atiende un solo bot.
+   */
+  async updateChannel(id: string, input: UpdateChannelInput): Promise<WhatsappChannel[]> {
+    const existing = await this.prisma.whatsappConnection.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException("Número no encontrado");
+    if (input.pipelineId) {
+      const p = await this.prisma.pipeline.findUnique({ where: { id: input.pipelineId }, select: { id: true } });
+      if (!p) throw new BadRequestException("Embudo no encontrado");
+    }
+    await this.prisma.whatsappConnection.update({
+      where: { id },
+      data: {
+        ...(input.label !== undefined ? { label: input.label?.trim() || null } : {}),
+        ...(input.pipelineId !== undefined ? { pipelineId: input.pipelineId } : {}),
+      },
+    });
+    if (input.botId !== undefined) {
+      await this.prisma.agentConfig.updateMany({ where: { channelId: id }, data: { channelId: null } });
+      if (input.botId) {
+        const bot = await this.prisma.agentConfig.findUnique({ where: { id: input.botId }, select: { id: true } });
+        if (!bot) throw new BadRequestException("Agente no encontrado");
+        await this.prisma.agentConfig.update({ where: { id: bot.id }, data: { channelId: id } });
+      }
+    }
+    return this.listChannels();
+  }
+
   // ── Listado de canales (multi-número) ────────────────────────
   async listChannels(): Promise<WhatsappChannel[]> {
     const rows = await this.prisma.whatsappConnection.findMany({
       orderBy: { connectedAt: "desc" },
+      include: { bot: { select: { id: true, name: true } } },
     });
     const channels: WhatsappChannel[] = rows.map((c) => ({
       id: c.id,
@@ -206,6 +239,7 @@ export class WhatsappConnectionService {
       isActive: c.isActive,
       connectedAt: c.connectedAt.toISOString(),
       pipelineId: c.pipelineId,
+      bot: c.bot ? { id: c.bot.id, name: c.bot.name } : null,
     }));
 
     // El número del .env aparece como canal extra si no está ya en la BD.
@@ -219,6 +253,7 @@ export class WhatsappConnectionService {
       channels.push({
         statusReason: null,
         pipelineId: null,
+        bot: null,
         id: "env",
         phoneNumberId: envPhone,
         displayPhoneNumber: null,

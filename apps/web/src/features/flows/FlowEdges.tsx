@@ -8,8 +8,8 @@ import {
   useNodesData,
   type EdgeProps,
 } from "@xyflow/react";
-import type { FlowBranch, FlowNodeData } from "@crm/shared";
-import { FlowActionsContext } from "./flowShared";
+import type { FlowNodeData } from "@crm/shared";
+import { FlowActionsContext, outputsOf } from "./flowShared";
 
 /**
  * Conexión entre bloques. En su punto medio lleva la etiqueta de la rama (si
@@ -48,11 +48,8 @@ export function FlowEdge(props: EdgeProps) {
   // inspector, la conexión lo refleja al momento.
   let label: string | null = null;
   if (sourceHandleId) {
-    const branches = ((src?.data as FlowNodeData | undefined)?.branches ?? []) as FlowBranch[];
-    label =
-      sourceHandleId === "else"
-        ? "en otro caso"
-        : branches.find((b) => b.id === sourceHandleId)?.label || "rama";
+    const out = outputsOf(src?.type, src?.data as FlowNodeData | undefined).find((o) => o.id === sourceHandleId);
+    label = out?.label || sourceHandleId;
   }
 
   return (

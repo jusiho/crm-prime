@@ -13,6 +13,7 @@ import {
   useEdgesState,
   useNodesState,
   useReactFlow,
+  type FinalConnectionState,
   type Connection,
   type Edge,
   type Node,
@@ -36,8 +37,13 @@ import { NavIcon } from "@/components/NavIcons";
 import { confirmDialog } from "@/lib/confirm";
 import { toast } from "@/lib/toast";
 import { nodeTypes } from "./FlowNodes";
-import { TRIGGER_BY_TYPE, TRIGGER_META } from "./flowShared";
-import { fetchTags, fetchTemplates } from "@/lib/bff";
+import {
+  TRIGGER_BY_TYPE,
+  TRIGGER_META,
+  outputsOf,
+  PALETTE_GROUPS,
+} from "./flowShared";
+import { fetchCustomFields, fetchSources, fetchTags, fetchTemplates } from "@/lib/bff";
 import { EMPTY_TRIGGER_CONFIG, type FlowTriggerConfig } from "@crm/shared";
 import { edgeTypes } from "./FlowEdges";
 import { NodeInspector } from "./NodeInspector";
@@ -102,6 +108,8 @@ function Builder({ flowId, channels, bots, stages, agents, flows, onBack }: Prop
   // Para los selectores del disparador y del bloque «Enviar plantilla».
   const { data: tagList = [] } = useQuery({ queryKey: ["tags"], queryFn: fetchTags });
   const { data: templateList = [] } = useQuery({ queryKey: ["templates"], queryFn: fetchTemplates });
+  const { data: customFields = [] } = useQuery({ queryKey: ["custom-fields"], queryFn: fetchCustomFields });
+  const { data: sourceList = [] } = useQuery({ queryKey: ["sources"], queryFn: fetchSources });
   const approvedTemplates = templateList.filter((t) => t.status === "APPROVED");
   const trigger = TRIGGER_BY_TYPE[triggerType];
   const setConfig = (p: Partial<FlowTriggerConfig>) => {
@@ -193,7 +201,9 @@ function Builder({ flowId, channels, bots, stages, agents, flows, onBack }: Prop
     history.record(snap());
 
     let position: { x: number; y: number };
-    if (req.insertBefore) {
+    if (req.at) {
+      position = findFreeSpot(all, { x: req.at.x - 20, y: req.at.y - 16 });
+    } else if (req.insertBefore) {
       const target = all.find((n) => n.id === req.insertBefore);
       position = target
         ? findFreeSpot(all, {
@@ -216,8 +226,8 @@ function Builder({ flowId, channels, bots, stages, agents, flows, onBack }: Prop
       // Al insertar en medio, el nuevo hereda la conexión hacia el destino por
       // su salida por defecto (o por "en otro caso" si es una condición).
       if (req.insertBefore) {
-        if (type === "condition") next.push(makeEdge(node.id, req.insertBefore, "else"));
-        else if (hasDefaultOutput(type)) next.push(makeEdge(node.id, req.insertBefore, null));
+        const first = outputsOf(type, node.data as FlowNodeData)[0];
+        if (first) next.push(makeEdge(node.id, req.insertBefore, first.id));
       }
       return next;
     });
@@ -241,6 +251,26 @@ function Builder({ flowId, channels, bots, stages, agents, flows, onBack }: Prop
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [history.record, snap, setEdges, markDirty],
+  );
+
+  /**
+   * Soltar una conexión en el vacío: abre el menú de bloques ahí mismo y el
+   * nuevo queda conectado a esa salida. Soltar sobre un bloque ya enlaza por
+   * sí solo (todo el bloque es destino mientras se arrastra).
+   */
+  const onConnectEnd = useCallback(
+    (event: MouseEvent | TouchEvent, state: FinalConnectionState) => {
+      if (state.isValid || state.toNode || !state.fromNode || state.fromHandle?.type !== "source") return;
+      const pt = "changedTouches" in event ? event.changedTouches[0] : (event as MouseEvent);
+      if (!pt) return;
+      setAddMenu({
+        sourceId: state.fromNode.id,
+        sourceHandle: state.fromHandle.id ?? null,
+        anchor: { x: pt.clientX, y: pt.clientY },
+        at: rf.screenToFlowPosition({ x: pt.clientX, y: pt.clientY }),
+      });
+    },
+    [rf],
   );
 
   const removeEdge = useCallback(
@@ -641,26 +671,32 @@ function Builder({ flowId, channels, bots, stages, agents, flows, onBack }: Prop
         {/* Paleta */}
         <aside style={palette}>
           <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 6, lineHeight: 1.4 }}>
-            Haz clic para añadir en el centro, o arrastra al lienzo. Con el «+»
-            de cada salida se añade ya conectado.
+            Clic para añadir, o arrastra al lienzo. Para enlazar, arrastra desde
+            el punto ● de una salida y suelta sobre otro bloque; si sueltas en
+            el vacío, eliges qué bloque sigue.
           </div>
-          {NODE_PALETTE.map((p) => (
-            <button
-              key={p.type}
-              onClick={() => addAtCenter(p.type)}
-              style={paletteBtn}
-              draggable
-              onDragStart={(e) => {
-                e.dataTransfer.setData(DRAG_MIME, p.type);
-                e.dataTransfer.effectAllowed = "move";
-              }}
-              title={p.hint}
-            >
-              <span style={{ color: p.accent, display: "inline-flex" }}>
-                <NavIcon name={p.icon} size={16} />
-              </span>
-              <span style={{ flex: 1 }}>{p.label}</span>
-            </button>
+          {PALETTE_GROUPS.map((g) => (
+            <div key={g} style={{ display: "contents" }}>
+              <div style={paletteGroup}>{g}</div>
+              {NODE_PALETTE.filter((p) => p.group === g).map((p) => (
+                <button
+                  key={p.type}
+                  onClick={() => addAtCenter(p.type)}
+                  style={paletteBtn}
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData(DRAG_MIME, p.type);
+                    e.dataTransfer.effectAllowed = "move";
+                  }}
+                  title={p.hint}
+                >
+                  <span style={{ color: p.accent, display: "inline-flex" }}>
+                    <NavIcon name={p.icon} size={16} />
+                  </span>
+                  <span style={{ flex: 1 }}>{p.label}</span>
+                </button>
+              ))}
+            </div>
           ))}
           <div style={{ marginTop: "auto", fontSize: 11, color: "var(--muted)", lineHeight: 1.5 }}>
             Ctrl+Z deshacer · Supr borrar · Ctrl+D duplicar · Ctrl+S guardar
@@ -689,6 +725,10 @@ function Builder({ flowId, channels, bots, stages, agents, flows, onBack }: Prop
               }}
               onEdgesChange={onEdgesChange}
               onConnect={onConnect}
+              onConnectEnd={onConnectEnd}
+              isValidConnection={(c) => c.source !== c.target}
+              connectionRadius={40}
+              connectionLineStyle={{ stroke: "var(--accent)", strokeWidth: 2 }}
               onNodeDragStart={() => history.record(snap())}
               onSelectionChange={onSelectionChange}
               onBeforeDelete={onBeforeDelete}
@@ -729,6 +769,10 @@ function Builder({ flowId, channels, bots, stages, agents, flows, onBack }: Prop
               stages={stages}
               templates={approvedTemplates}
               agents={agents}
+              fields={customFields}
+              tags={tagList}
+              sources={sourceList}
+              channels={channels}
               flows={flows.filter((f) => f.id !== flowId)}
               variables={variables}
               issues={issues.get(selectedNode.id) ?? []}
@@ -782,14 +826,16 @@ function AddMenu({
     return !s || p.label.toLowerCase().includes(s) || p.hint.toLowerCase().includes(s);
   });
   const W = 270;
-  const H = 400;
+  // Alto real del menú (con todos los bloques no cabe en pantallas bajas):
+  // se recorta al viewport y el resto se desplaza con scroll.
+  const H = Math.min(window.innerHeight - 16, 70 + NODE_PALETTE.length * 46);
   const left = Math.max(8, Math.min(req.anchor.x - 20, window.innerWidth - W - 8));
   const top = Math.max(8, Math.min(req.anchor.y + 10, window.innerHeight - H - 8));
 
   return (
     <>
       <div style={menuBackdrop} onClick={onClose} />
-      <div style={{ ...menu, left, top, width: W }} role="menu">
+      <div style={{ ...menu, left, top, width: W, maxHeight: H, overflowY: "auto" }} role="menu">
         <div style={{ fontSize: 11.5, color: "var(--muted)", padding: "4px 6px 6px" }}>
           {req.insertBefore ? "Insertar en medio de la conexión" : "Añadir el siguiente bloque"}
         </div>
@@ -985,6 +1031,13 @@ const issuesItem: React.CSSProperties = {
   fontSize: 12.5,
   cursor: "pointer",
   textAlign: "left",
+};
+
+const paletteGroup: React.CSSProperties = {
+  fontSize: 11,
+  fontWeight: 600,
+  color: "var(--muted)",
+  margin: "8px 0 2px",
 };
 
 const paletteBtn: React.CSSProperties = {

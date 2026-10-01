@@ -5,19 +5,13 @@ import {
   Handle,
   NodeToolbar,
   Position,
+  useConnection,
   useUpdateNodeInternals,
   type NodeProps,
 } from "@xyflow/react";
 import type { FlowBranch, FlowNodeData } from "@crm/shared";
 import { NavIcon } from "@/components/NavIcons";
-import { FlowActionsContext, NODE_META } from "./flowShared";
-
-const ACTION_LABEL: Record<string, string> = {
-  ai: "Pasar a agente IA",
-  handoff: "Pasar a humano",
-  tag: "Poner etiqueta",
-  move_deal: "Mover en pipeline",
-};
+import { ACTION_LABEL, FlowActionsContext, NODE_META, STATUS_LABEL, VALIDATION_LABEL, branchTitle } from "./flowShared";
 
 /** "+" en una salida: abre el menú de bloques anclado al botón. */
 function AddNextButton({
@@ -77,8 +71,22 @@ function Shell({
   const actions = useContext(FlowActionsContext);
   const meta = NODE_META[type];
   const issues = actions?.issuesFor(id) ?? [];
+  // Mientras se arrastra una conexión desde otro bloque, este entero es un
+  // destino válido: basta soltar encima, sin apuntar al punto de entrada.
+  const connection = useConnection();
+  const dropping = connection.inProgress && connection.fromNode?.id !== id && type !== "start";
   return (
     <div style={shell(!!selected, meta?.color ?? "#3a4c6a", minWidth)}>
+      {type !== "start" && (
+        <Handle
+          type="target"
+          position={Position.Top}
+          id="body"
+          isConnectableStart={false}
+          className="flow-body-target"
+          style={{ pointerEvents: dropping ? "all" : "none" }}
+        />
+      )}
       {type !== "start" && (
         <NodeToolbar isVisible={!!selected} position={Position.Top} offset={8}>
           <div style={toolbar}>
@@ -152,7 +160,15 @@ export function SendMessageNode({ id, data, selected }: NodeProps) {
     <Shell id={id} type="sendMessage" selected={selected}>
       <Handle type="target" position={Position.Top} style={targetStyle} />
       <Head type="sendMessage" />
-      <div style={body}>{d.text ? <Clamp>{d.text}</Clamp> : <i style={placeholder}>Sin texto…</i>}</div>
+      <div style={body}>
+        {d.mediaUrl && (
+          <div style={{ display: "flex", alignItems: "center", gap: 5, color: "#9ad8e8", marginBottom: 4, fontSize: 11.5 }}>
+            <NavIcon name={d.mediaKind === "DOCUMENT" ? "file" : "image"} size={12} />
+            {d.mediaName || (d.mediaKind === "DOCUMENT" ? "Archivo" : "Imagen")}
+          </div>
+        )}
+        {d.text ? <Clamp>{d.text}</Clamp> : !d.mediaUrl && <i style={placeholder}>Sin texto…</i>}
+      </div>
       <Handle type="source" position={Position.Bottom} style={handleStyle} />
       <AddNextButton sourceId={id} />
     </Shell>
@@ -185,7 +201,19 @@ export function AskQuestionNode({ id, data, selected }: NodeProps) {
             → {`{{${d.variable}}}`}
           </div>
         )}
+        {d.validate && d.validate !== "any" && (
+          <div style={{ marginTop: 4, fontSize: 11, color: "#cbb6ff" }}>
+            Espera: {VALIDATION_LABEL[d.validate]?.toLowerCase()}
+          </div>
+        )}
       </div>
+      {d.validate && d.validate !== "any" && (
+        <div style={{ position: "relative", height: 26, display: "flex", alignItems: "center", padding: "0 10px", borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+          <span style={{ ...branchText, color: "#e0b766" }}>si no es válida</span>
+          <Handle type="source" position={Position.Right} id="invalid" style={{ ...handleStyle, background: "#e0b766", top: 13 }} />
+          <AddNextButton sourceId={id} sourceHandle="invalid" placement="right" />
+        </div>
+      )}
       <Handle type="source" position={Position.Bottom} style={handleStyle} />
       <AddNextButton sourceId={id} />
     </Shell>
@@ -211,7 +239,7 @@ export function ConditionNode({ id, data, selected }: NodeProps) {
         {branches.length === 0 && <i style={{ ...placeholder, fontSize: 11.5 }}>Añade ramas en el panel…</i>}
         {branches.map((b) => (
           <div key={b.id} style={{ position: "relative", height: rowH, display: "flex", alignItems: "center" }}>
-            <span style={branchText}>{b.label || b.keywords.join(", ") || "rama"}</span>
+            <span style={branchText}>{branchTitle(b)}</span>
             <Handle type="source" position={Position.Right} id={b.id} style={{ ...handleStyle, top: rowH / 2 }} />
             <AddNextButton sourceId={id} sourceHandle={b.id} placement="right" />
           </div>
@@ -240,7 +268,8 @@ export function ActionNode({ id, data, selected }: NodeProps) {
       <Head type="action" />
       <div style={body}>
         {label}
-        {d.action === "tag" && d.tag ? ` · ${d.tag}` : ""}
+        {(d.action === "tag" || d.action === "untag") && d.tag ? ` · ${d.tag}` : ""}
+        {d.action === "create_deal" && d.dealTitle ? ` · ${d.dealTitle}` : ""}
       </div>
       <Handle type="source" position={Position.Bottom} style={handleStyle} />
       <AddNextButton sourceId={id} />
@@ -302,8 +331,135 @@ export function JumpToFlowNode({ id, data, selected }: NodeProps) {
   );
 }
 
+/** Filas con una salida a la derecha cada una (botones, dividir, horario). */
+function OutputRows({ id, rows, muted }: { id: string; rows: { id: string; label: string; color?: string }[]; muted?: string }) {
+  const updateInternals = useUpdateNodeInternals();
+  useEffect(() => {
+    updateInternals(id);
+  }, [rows.length, id, updateInternals]);
+  const rowH = 28;
+  return (
+    <div style={{ padding: "4px 10px 8px" }}>
+      {rows.map((r) => (
+        <div key={r.id} style={{ position: "relative", height: rowH, display: "flex", alignItems: "center" }}>
+          <span style={{ ...branchText, color: r.color }}>{r.label}</span>
+          <Handle type="source" position={Position.Right} id={r.id} style={{ ...handleStyle, background: r.color ?? "var(--accent)", top: rowH / 2 }} />
+          <AddNextButton sourceId={id} sourceHandle={r.id} placement="right" />
+        </div>
+      ))}
+      {muted && <i style={{ ...placeholder, fontSize: 11.5 }}>{muted}</i>}
+    </div>
+  );
+}
+
+export function ButtonsNode({ id, data, selected }: NodeProps) {
+  const d = data as FlowNodeData;
+  const buttons = d.buttons ?? [];
+  return (
+    <Shell id={id} type="buttons" selected={selected}>
+      <Handle type="target" position={Position.Top} style={targetStyle} />
+      <Head type="buttons" />
+      <div style={{ ...body, paddingBottom: 2 }}>{d.text ? <Clamp>{d.text}</Clamp> : <i style={placeholder}>Sin texto…</i>}</div>
+      <OutputRows
+        id={id}
+        rows={[
+          ...buttons.map((b, i) => ({ id: b.id, label: `▢ ${b.title || `Botón ${i + 1}`}` })),
+          { id: "else", label: "otra respuesta", color: "#8aa0bd" },
+        ]}
+      />
+    </Shell>
+  );
+}
+
+export function SetFieldNode({ id, data, selected }: NodeProps) {
+  const d = data as FlowNodeData;
+  return (
+    <Shell id={id} type="setField" selected={selected}>
+      <Handle type="target" position={Position.Top} style={targetStyle} />
+      <Head type="setField" />
+      <div style={body}>
+        {d.fieldKey ? (
+          <>
+            <span style={{ color: "#8fd6e6" }}>{d.fieldKey === "name" ? "Nombre" : d.fieldKey}</span> ={" "}
+            {d.value || <i style={placeholder}>vacío</i>}
+          </>
+        ) : (
+          <i style={placeholder}>Elige un campo…</i>
+        )}
+      </div>
+      <Handle type="source" position={Position.Bottom} style={handleStyle} />
+      <AddNextButton sourceId={id} />
+    </Shell>
+  );
+}
+
+export function AddNoteNode({ id, data, selected }: NodeProps) {
+  const d = data as FlowNodeData;
+  return (
+    <Shell id={id} type="addNote" selected={selected}>
+      <Handle type="target" position={Position.Top} style={targetStyle} />
+      <Head type="addNote" />
+      <div style={body}>{d.text ? <Clamp>{d.text}</Clamp> : <i style={placeholder}>Sin texto…</i>}</div>
+      <Handle type="source" position={Position.Bottom} style={handleStyle} />
+      <AddNextButton sourceId={id} />
+    </Shell>
+  );
+}
+
+export function SetStatusNode({ id, data, selected }: NodeProps) {
+  const d = data as FlowNodeData;
+  return (
+    <Shell id={id} type="setStatus" selected={selected} minWidth={160}>
+      <Handle type="target" position={Position.Top} style={targetStyle} />
+      <Head type="setStatus" />
+      <div style={body}>{d.status ? STATUS_LABEL[d.status] : <i style={placeholder}>Elige un estado…</i>}</div>
+      <Handle type="source" position={Position.Bottom} style={handleStyle} />
+      <AddNextButton sourceId={id} />
+    </Shell>
+  );
+}
+
+export function SplitNode({ id, data, selected }: NodeProps) {
+  const d = data as FlowNodeData;
+  const splits = d.splits ?? [];
+  return (
+    <Shell id={id} type="split" selected={selected}>
+      <Handle type="target" position={Position.Top} style={targetStyle} />
+      <Head type="split" />
+      <OutputRows id={id} rows={splits.map((s) => ({ id: s.id, label: `${s.label || s.id} · ${s.weight}%` }))} muted={splits.length ? undefined : "Añade variantes en el panel…"} />
+    </Shell>
+  );
+}
+
+export function ScheduleNode({ id, data, selected }: NodeProps) {
+  const d = data as FlowNodeData;
+  const open = d.hours ? Object.values(d.hours.days ?? {}).filter(Boolean).length : 0;
+  return (
+    <Shell id={id} type="schedule" selected={selected}>
+      <Handle type="target" position={Position.Top} style={targetStyle} />
+      <Head type="schedule" />
+      <div style={{ ...body, paddingBottom: 2, fontSize: 11.5 }}>
+        {d.hours ? `${open} día${open === 1 ? "" : "s"} · ${d.hours.timezone}` : <i style={placeholder}>Sin horario…</i>}
+      </div>
+      <OutputRows
+        id={id}
+        rows={[
+          { id: "in", label: "en horario", color: "#7ee2a8" },
+          { id: "out", label: "fuera de horario", color: "#e0b766" },
+        ]}
+      />
+    </Shell>
+  );
+}
+
 export const nodeTypes = {
   start: StartNode,
+  buttons: ButtonsNode,
+  setField: SetFieldNode,
+  addNote: AddNoteNode,
+  setStatus: SetStatusNode,
+  split: SplitNode,
+  schedule: ScheduleNode,
   sendMessage: SendMessageNode,
   sendTemplate: SendTemplateNode,
   askQuestion: AskQuestionNode,
@@ -317,8 +473,8 @@ export const nodeTypes = {
 
 // ── Estilos ───────────────────────────────────────────────────
 
-const handleStyle: React.CSSProperties = { width: 11, height: 11, background: "var(--accent)", border: "2px solid var(--panel-2)" };
-const targetStyle: React.CSSProperties = { width: 11, height: 11, background: "#5a6b85", border: "2px solid var(--panel-2)" };
+const handleStyle: React.CSSProperties = { width: 14, height: 14, background: "var(--accent)", border: "2px solid var(--panel-2)" };
+const targetStyle: React.CSSProperties = { width: 14, height: 14, background: "#5a6b85", border: "2px solid var(--panel-2)" };
 
 function shell(selected: boolean, color: string, minWidth = 190): React.CSSProperties {
   return {

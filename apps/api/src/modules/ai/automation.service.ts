@@ -10,6 +10,7 @@ import {
   type Weekday,
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
+import { isWithinHours } from "../../common/utils/business-hours";
 import { MessagingService } from "../messaging/messaging.service";
 import { BotService } from "./bot.service";
 import { AutopilotService } from "./autopilot.service";
@@ -17,7 +18,6 @@ import { MediaUnderstandingService } from "./media-understanding.service";
 import { FlowEngineService } from "./flow-engine.service";
 
 // getDay(): 0=domingo … 6=sábado.
-const WEEKDAYS: Weekday[] = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
 
 /**
  * Reglas de automatización que se ejecutan ALREDEDOR del agente IA:
@@ -189,32 +189,6 @@ export class AutomationService {
 
   // ── Horario: ¿la hora actual cae dentro del rango del día? ──
   private isWithinHours(hours: BusinessHours): boolean {
-    const tz = hours.timezone || "America/Lima";
-    let parts: Intl.DateTimeFormatPart[];
-    try {
-      parts = new Intl.DateTimeFormat("en-US", {
-        timeZone: tz,
-        weekday: "short",
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-      }).formatToParts(new Date());
-    } catch {
-      // Zona horaria inválida: no bloquear, asumir dentro de horario.
-      return true;
-    }
-    const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
-    // Día actual en la zona horaria.
-    const now = new Date(
-      new Date().toLocaleString("en-US", { timeZone: tz }),
-    );
-    const day = WEEKDAYS[now.getDay()]!;
-    const range = hours.days?.[day];
-    if (!range) return false; // día cerrado
-
-    const hh = get("hour").padStart(2, "0");
-    const mm = get("minute").padStart(2, "0");
-    const cur = `${hh}:${mm}`;
-    return cur >= range.from && cur <= range.to;
+    return isWithinHours(hours);
   }
 }

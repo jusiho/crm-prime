@@ -1,13 +1,15 @@
-import { Body, Controller, Get, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, Patch, Post, UseGuards } from "@nestjs/common";
 import {
   connectWhatsappSchema,
   disconnectWhatsappSchema,
   testChannelSchema,
+  updateChannelSchema,
   Role,
   type ChannelTestResult,
   type ConnectWhatsappInput,
   type DisconnectWhatsappInput,
   type TestChannelInput,
+  type UpdateChannelInput,
 } from "@crm/shared";
 import { ZodValidationPipe } from "../../common/pipes/zod-validation.pipe";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
@@ -35,6 +37,18 @@ export class ConnectionController {
     body: ConnectWhatsappInput,
   ) {
     const channels = await this.connection.connect(body);
+    return { channels };
+  }
+
+  // Alias, embudo de entrada y agente de IA del número.
+  @Patch(":id")
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
+  async update(
+    @Param("id") id: string,
+    @Body(new ZodValidationPipe(updateChannelSchema)) body: UpdateChannelInput,
+  ) {
+    const channels = await this.connection.updateChannel(id, body);
     return { channels };
   }
 

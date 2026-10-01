@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "@/lib/toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { WhatsappChannel } from "@crm/shared";
+import { ChannelConfigDialog, useChannelRouting } from "./ChannelConfigDialog";
 import {
   connectWhatsapp,
   disconnectWhatsapp,
@@ -49,6 +50,9 @@ export function WhatsAppConnect({ hub = false }: { hub?: boolean }) {
   const [manualOpen, setManualOpen] = useState(false);
   // Canal cuyo token se va a renovar: precarga el formulario manual.
   const [editing, setEditing] = useState<WhatsappChannel | null>(null);
+  // Número cuya configuración (alias, embudo, agente) se está editando.
+  const [configuring, setConfiguring] = useState<WhatsappChannel | null>(null);
+  const routing = useChannelRouting();
   const manualRef = useRef<HTMLDivElement | null>(null);
   const signupRef = useRef<{ phoneNumberId?: string; wabaId?: string }>({});
 
@@ -299,6 +303,8 @@ export function WhatsAppConnect({ hub = false }: { hub?: boolean }) {
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {list.map((ch) => (
               <ChannelRow
+                routing={routing.describe(ch)}
+                onConfigure={() => setConfiguring(ch)}
                 key={ch.id}
                 channel={ch}
                 onUpdateToken={() => {
@@ -376,6 +382,13 @@ export function WhatsAppConnect({ hub = false }: { hub?: boolean }) {
           />
         )}
       </div>
+
+      {configuring && (
+        <ChannelConfigDialog
+          channel={list.find((c) => c.id === configuring.id) ?? configuring}
+          onClose={() => setConfiguring(null)}
+        />
+      )}
 
       <WebhookInfo hub={hub} />
 
@@ -781,11 +794,16 @@ const syncNote: React.CSSProperties = {
 
 function ChannelRow({
   channel,
+  routing,
+  onConfigure,
   onDisconnect,
   onUpdateToken,
   disconnecting,
 }: {
   channel: WhatsappChannel;
+  /** A qué embudo entra y qué agente lo atiende, en palabras. */
+  routing: { pipeline: string; bot: string; flows: number };
+  onConfigure: () => void;
   onDisconnect: () => void;
   onUpdateToken: () => void;
   disconnecting: boolean;
@@ -836,6 +854,24 @@ function ChannelRow({
             {channel.displayPhoneNumber ?? channel.phoneNumberId}
           </div>
         )}
+        {channel.source !== "env" && (
+          <div style={routingRow}>
+            <span style={routingChip} title="Embudo al que entran las conversaciones nuevas de este número">
+              <NavIcon name="pipeline" size={12} />
+              {routing.pipeline}
+            </span>
+            <span style={routingChip} title="Agente de IA que atiende este número">
+              <NavIcon name="bot" size={12} />
+              {routing.bot}
+            </span>
+            {routing.flows > 0 && (
+              <span style={routingChip} title="Flujos que escuchan solo este número">
+                <NavIcon name="flow" size={12} />
+                {routing.flows === 1 ? "1 flujo" : `${routing.flows} flujos`}
+              </span>
+            )}
+          </div>
+        )}
         {broken && (
           <div style={errorNote}>
             {channel.statusReason}
@@ -863,6 +899,16 @@ function ChannelRow({
           </div>
         )}
       </div>
+      {channel.source !== "env" && (
+        <button
+          onClick={onConfigure}
+          style={{ ...ghostBtn, borderColor: "var(--border)", color: "var(--text)" }}
+          title="Alias, embudo de entrada y agente de IA de este número"
+        >
+          <NavIcon name="settings" size={13} />
+          Configurar
+        </button>
+      )}
       <button
         onClick={() => test.mutate()}
         disabled={test.isPending}
@@ -899,6 +945,21 @@ const primaryBtn: React.CSSProperties = {
   fontSize: 13,
   fontWeight: 600,
   whiteSpace: "nowrap",
+};
+
+const routingRow: React.CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "4px 14px",
+  marginTop: 6,
+  fontSize: 12.5,
+  color: "var(--muted)",
+};
+
+const routingChip: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 5,
 };
 
 const errorNote: React.CSSProperties = {

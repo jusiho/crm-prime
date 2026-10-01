@@ -121,6 +121,7 @@ import type {
   MetaLeadStatusValue,
   ContactListItem,
   ContactTagsDto,
+  UpdateChannelInput,
   StageRef,
   UpdateContactInput,
   CreateContactInput,
@@ -289,6 +290,18 @@ export async function revokeSession(id: string): Promise<void> {
 
 // ── Configuración del agente IA ──────────────────────────────
 // ── Conexión de WhatsApp ─────────────────────────────────────
+/** Alias, embudo de entrada y agente de IA de un número. Devuelve la lista actualizada. */
+export async function updateWhatsappChannel(id: string, input: UpdateChannelInput): Promise<WhatsappChannel[]> {
+  const res = await bffFetch(`/api/bff/whatsapp/connection/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(await bffError(res, "No se pudo guardar el número"));
+  const data = (await res.json()) as { channels: WhatsappChannel[] };
+  return data.channels ?? [];
+}
+
 export async function fetchWhatsappChannels(): Promise<WhatsappChannel[]> {
   const res = await bffFetch("/api/bff/whatsapp/connection");
   if (!res.ok) throw new Error("No se pudo obtener el estado de WhatsApp");

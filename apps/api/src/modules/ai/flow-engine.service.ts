@@ -7,11 +7,15 @@ import {
   ConversationStatus,
   MessageAuthor,
   MessageType,
+  contactCurrency,
+  type FlowBranch,
   type FlowEdge,
   type FlowNode,
+  type FlowRule,
   type FlowTriggerConfig,
   type FlowTriggerType,
 } from "@crm/shared";
+import { isWithinHours } from "../../common/utils/business-hours";
 import type { Prisma } from "@prisma/client";
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { currentOrgId } from "../../infra/tenant/tenant.context";
@@ -25,6 +29,31 @@ import { MediaUnderstandingService } from "./media-understanding.service";
 const MAX_STEPS = 50; // cortafuegos anti-bucle
 
 type Vars = Record<string, string>;
+
+/** Lo último que escribió el contacto: texto y, si pulsó un botón, su id. */
+interface Inbound {
+  text: string;
+  payload: string | null;
+}
+
+/** Todo lo que puede mirar una condición, cargado una vez por bloque. */
+interface CondCtx {
+  text: string;
+  vars: Vars;
+  contact: { name: string | null; phone: string; tags: string[]; sourceId: string | null; fields: Record<string, string> };
+  convo: { status: string; assignedAgentId: string | null; channelId: string | null; aiMode: string };
+  stageId: string | null;
+  inboundCount: number;
+}
+
+// Qué decir cuando la respuesta no pasa la validación (si el bloque no trae texto propio).
+const RETRY_TEXT: Record<string, string> = {
+  phone: "No reconocí un número de teléfono. ¿Me lo escribes con código de país? (ej. +51 999 999 999)",
+  email: "Ese correo no parece válido. ¿Me lo escribes de nuevo?",
+  number: "Necesito un número. ¿Me lo escribes en cifras?",
+  regex: "No entendí tu respuesta. ¿Me la repites?",
+  any: "No entendí tu respuesta. ¿Me la repites?",
+};
 
 /**
  * Motor de ejecución de flujos visuales. Recorre el grafo (nodos + aristas)
@@ -215,7 +244,8 @@ export class FlowEngineService {
     });
     if (!convo || !convo.contact.optIn) return false;
 
-    const text = await this.lastInboundText(conversationId);
+    const inbound = await this.lastInbound(conversationId);
+    const text = inbound.text;
     const session = await this.prisma.flowSession.findUnique({
       where: { conversationId },
     });
@@ -223,11 +253,11 @@ export class FlowEngineService {
     // Flujo pausado en un "Esperar": ignorar el mensaje hasta que venza el timer.
     if (session && session.status === "waiting_timer") return true;
 
-    // Sesión esperando respuesta a una pregunta → reanudar.
+    // Sesión esperando respuesta (pregunta o botones) → reanudar.
     if (session && session.status === "running" && session.currentNodeId) {
       const flow = await this.loadFlow(session.flowId);
       if (!flow) return false;
-      await this.resume(flow, conversationId, session.currentNodeId, text, {
+      await this.resume(flow, conversationId, session.currentNodeId, inbound, {
         ...((session.variables as Vars | null) ?? {}),
       });
       return true;
@@ -282,16 +312,89 @@ export class FlowEngineService {
     flow: FlowRow,
     conversationId: string,
     waitingNodeId: string,
-    text: string,
+    inbound: Inbound,
     vars: Vars,
   ): Promise<void> {
     const node = flow.nodes.find((n) => n.id === waitingNodeId);
-    // Guardar la respuesta en la variable indicada por la pregunta.
-    if (node?.type === "askQuestion" && node.data.variable) {
-      vars[node.data.variable] = text;
+    const text = inbound.text;
+    try {
+      if (node?.type === "askQuestion") {
+        const check = this.validateAnswer(node, text);
+        if (!check.ok) {
+          // Respuesta que no vale: se repite la pregunta hasta agotar los
+          // intentos; después sigue por la salida "no válida" (o la normal).
+          const tries = Number(vars.__retries ?? 0) + 1;
+          const max = node.data.maxRetries ?? 2;
+          if (tries <= max) {
+            vars.__retries = String(tries);
+            const retry = node.data.retryText?.trim() || RETRY_TEXT[node.data.validate ?? "any"]!;
+            await this.send(conversationId, this.interpolate(retry, vars));
+            await this.persist(conversationId, node.id, vars, "running");
+            return;
+          }
+          delete vars.__retries;
+          if (node.data.variable) vars[node.data.variable] = text;
+          await this.walk(flow, conversationId, this.nextNodeId(flow.edges, node.id, "invalid"), text, vars);
+          return;
+        }
+        delete vars.__retries;
+        if (node.data.variable) vars[node.data.variable] = check.value;
+      }
+      if (node?.type === "buttons") {
+        const handle = this.matchButton(node, inbound);
+        if (node.data.variable) vars[node.data.variable] = text;
+        await this.walk(flow, conversationId, this.nextNodeId(flow.edges, node.id, handle), text, vars);
+        return;
+      }
+      const nextId = node ? this.nextNodeId(flow.edges, node.id) : null;
+      await this.walk(flow, conversationId, nextId, text, vars);
+    } catch (e) {
+      this.logger.warn(`Flujo "${flow.name}" se detuvo en ${conversationId}: ${(e as Error).message}`);
+      await this.persist(conversationId, null, vars, "stopped").catch(() => undefined);
     }
-    const nextId = node ? this.nextNodeId(flow.edges, node.id) : null;
-    await this.walk(flow, conversationId, nextId, text, vars);
+  }
+
+  /** ¿La respuesta pasa la validación del bloque? Devuelve el valor normalizado. */
+  private validateAnswer(node: FlowNode, text: string): { ok: boolean; value: string } {
+    const kind = node.data.validate ?? "any";
+    const t = text.trim();
+    if (kind === "any") return { ok: true, value: t };
+    if (!t) return { ok: false, value: t };
+    if (kind === "phone") {
+      const digits = t.replace(/[^\d+]/g, "");
+      return { ok: digits.replace(/\D/g, "").length >= 7, value: digits };
+    }
+    if (kind === "email") {
+      const m = t.match(/[\w.+-]+@[\w-]+(\.[\w-]+)+/);
+      return { ok: !!m, value: m ? m[0].toLowerCase() : t };
+    }
+    if (kind === "number") {
+      const m = t.replace(/\s/g, "").replace(",", ".").match(/-?\d+(\.\d+)?/);
+      return { ok: !!m, value: m ? m[0] : t };
+    }
+    if (kind === "regex") {
+      try {
+        return { ok: new RegExp(node.data.pattern ?? "", "i").test(t), value: t };
+      } catch {
+        return { ok: true, value: t };
+      }
+    }
+    return { ok: true, value: t };
+  }
+
+  /** Qué botón pulsó: por id (webhook), por título o por número de opción. */
+  private matchButton(node: FlowNode, inbound: Inbound): string {
+    const buttons = node.data.buttons ?? [];
+    if (inbound.payload) {
+      const byId = buttons.find((b) => b.id === inbound.payload);
+      if (byId) return byId.id;
+    }
+    const t = inbound.text.trim().toLowerCase();
+    const byTitle = buttons.find((b) => b.title.trim().toLowerCase() === t);
+    if (byTitle) return byTitle.id;
+    const n = Number.parseInt(t, 10);
+    if (n >= 1 && buttons[n - 1]) return buttons[n - 1]!.id;
+    return "else";
   }
 
   // ── Recorrido del grafo ─────────────────────────────────────
@@ -316,8 +419,48 @@ export class FlowEngineService {
       }
 
       if (node.type === "sendMessage") {
-        await this.send(conversationId, this.interpolate(node.data.text, vars));
+        await this.sendMessageNode(conversationId, node, vars);
         current = this.nextNodeId(flow.edges, node.id);
+        continue;
+      }
+
+      if (node.type === "buttons") {
+        await this.sendButtons(conversationId, node, vars);
+        // Esperar a que pulse (o escriba): persistir el nodo actual y parar.
+        await this.persist(conversationId, node.id, vars, "running");
+        return;
+      }
+
+      if (node.type === "setField") {
+        await this.setField(conversationId, node, vars);
+        current = this.nextNodeId(flow.edges, node.id);
+        continue;
+      }
+
+      if (node.type === "addNote") {
+        await this.addNote(flow, conversationId, this.interpolate(node.data.text, vars));
+        current = this.nextNodeId(flow.edges, node.id);
+        continue;
+      }
+
+      if (node.type === "setStatus") {
+        if (node.data.status) {
+          await this.messaging
+            .setStatus(conversationId, node.data.status as ConversationStatus)
+            .catch(() => undefined);
+        }
+        current = this.nextNodeId(flow.edges, node.id);
+        continue;
+      }
+
+      if (node.type === "split") {
+        current = this.nextNodeId(flow.edges, node.id, this.pickSplit(node));
+        continue;
+      }
+
+      if (node.type === "schedule") {
+        const inside = node.data.hours ? isWithinHours(node.data.hours) : true;
+        current = this.nextNodeId(flow.edges, node.id, inside ? "in" : "out");
         continue;
       }
 
@@ -335,7 +478,8 @@ export class FlowEngineService {
       }
 
       if (node.type === "condition") {
-        const handle = this.evalCondition(node, lastText);
+        const ctx = await this.condCtx(conversationId, lastText, vars);
+        const handle = this.evalCondition(node, ctx);
         current = this.nextNodeId(flow.edges, node.id, handle);
         continue;
       }
@@ -491,7 +635,166 @@ export class FlowEngineService {
       await this.moveDeal(conversationId, node.data.stageId);
       return false;
     }
+    if (action === "untag" && node.data.tag?.trim()) {
+      await this.removeTag(conversationId, node.data.tag.trim());
+      return false;
+    }
+    if (action === "create_deal" && node.data.stageId) {
+      await this.createDeal(conversationId, node, vars);
+      return false;
+    }
     return false;
+  }
+
+  private async removeTag(conversationId: string, name: string): Promise<void> {
+    const convo = await this.prisma.conversation.findUnique({
+      where: { id: conversationId },
+      select: { contactId: true },
+    });
+    if (!convo) return;
+    const tag = await this.prisma.tag.findFirst({ where: { name: { equals: name, mode: "insensitive" } } });
+    if (!tag) return;
+    await this.prisma.contactTag.deleteMany({ where: { contactId: convo.contactId, tagId: tag.id } });
+  }
+
+  /** Oportunidad nueva en la etapa indicada; si ya tiene una abierta en ese embudo, no duplica. */
+  private async createDeal(conversationId: string, node: FlowNode, vars: Vars): Promise<void> {
+    const convo = await this.prisma.conversation.findUnique({
+      where: { id: conversationId },
+      include: { contact: { select: { id: true, name: true, phone: true, currency: true } } },
+    });
+    const stage = await this.prisma.pipelineStage.findUnique({
+      where: { id: node.data.stageId! },
+      select: { id: true, pipelineId: true },
+    });
+    if (!convo || !stage) return;
+    const open = await this.prisma.deal.findFirst({
+      where: { contactId: convo.contactId, discardedAt: null, stage: { pipelineId: stage.pipelineId } },
+      select: { id: true },
+    });
+    if (open) return;
+    const deal = await this.prisma.deal.create({
+      data: {
+        orgId: convo.orgId,
+        contactId: convo.contactId,
+        stageId: stage.id,
+        title:
+          this.interpolate(node.data.dealTitle, vars).trim() ||
+          `Oportunidad: ${convo.contact.name ?? convo.contact.phone}`,
+        currency: contactCurrency(convo.contact) ?? "USD",
+      },
+    });
+    this.events.emit("pipeline.changed", { orgId: convo.orgId, dealId: deal.id });
+    this.events.emit("deal.stage_changed", {
+      orgId: convo.orgId,
+      dealId: deal.id,
+      contactId: convo.contactId,
+      stageId: stage.id,
+    });
+  }
+
+  /** Guarda un valor en la ficha del contacto: su nombre o un campo personalizado. */
+  private async setField(conversationId: string, node: FlowNode, vars: Vars): Promise<void> {
+    const key = node.data.fieldKey?.trim();
+    if (!key) return;
+    const convo = await this.prisma.conversation.findUnique({
+      where: { id: conversationId },
+      select: { contactId: true },
+    });
+    if (!convo) return;
+    const value = this.interpolate(node.data.value, vars).trim();
+    if (key === "name") {
+      await this.prisma.contact.update({ where: { id: convo.contactId }, data: { name: value || null } });
+      return;
+    }
+    const contact = await this.prisma.contact.findUnique({
+      where: { id: convo.contactId },
+      select: { metadata: true },
+    });
+    const metadata = {
+      ...((contact?.metadata as Record<string, unknown> | null) ?? {}),
+      [key]: value,
+    };
+    await this.prisma.contact.update({
+      where: { id: convo.contactId },
+      data: { metadata: metadata as Prisma.InputJsonObject },
+    });
+  }
+
+  /**
+   * Nota interna firmada por el flujo. La nota necesita un autor del equipo:
+   * va a nombre del primer administrador de la empresa, con el flujo delante.
+   */
+  private async addNote(flow: FlowRow, conversationId: string, text: string): Promise<void> {
+    if (!text.trim()) return;
+    const convo = await this.prisma.conversation.findUnique({
+      where: { id: conversationId },
+      select: { orgId: true },
+    });
+    if (!convo) return;
+    const author =
+      (await this.prisma.user.findFirst({ where: { orgId: convo.orgId, role: "ADMIN" }, orderBy: { createdAt: "asc" } })) ??
+      (await this.prisma.user.findFirst({ where: { orgId: convo.orgId }, orderBy: { createdAt: "asc" } }));
+    if (!author) return;
+    await this.messaging.addNote(conversationId, author.id, `🤖 Flujo «${flow.name}»: ${text.trim()}`);
+  }
+
+  /** Salida al azar del bloque «Dividir», ponderada por los pesos. */
+  private pickSplit(node: FlowNode): string {
+    const splits = (node.data.splits ?? []).filter((s) => s.weight > 0);
+    if (!splits.length) return node.data.splits?.[0]?.id ?? "else";
+    const total = splits.reduce((s, x) => s + x.weight, 0);
+    let r = Math.random() * total;
+    for (const s of splits) {
+      r -= s.weight;
+      if (r <= 0) return s.id;
+    }
+    return splits[splits.length - 1]!.id;
+  }
+
+  /** Mensaje con botones de respuesta; fuera de la ventana de 24 h, como texto numerado. */
+  private async sendButtons(conversationId: string, node: FlowNode, vars: Vars): Promise<void> {
+    const text = this.interpolate(node.data.text, vars).trim();
+    const buttons = (node.data.buttons ?? [])
+      .filter((b) => b.title.trim())
+      .slice(0, 3)
+      .map((b) => ({ id: b.id, title: b.title.trim().slice(0, 20) }));
+    if (!buttons.length) {
+      await this.send(conversationId, text);
+      return;
+    }
+    try {
+      await this.messaging.queueInteractive(
+        {
+          conversationId,
+          body: text || "Elige una opción:",
+          buttons,
+          ...(node.data.footer?.trim() ? { footer: node.data.footer.trim() } : {}),
+        },
+        MessageAuthor.AI,
+      );
+    } catch (e) {
+      this.logger.warn(`Botones no enviados en ${conversationId} (${(e as Error).message}); van como texto`);
+      await this.send(conversationId, `${text}\n\n${buttons.map((b, i) => `${i + 1}. ${b.title}`).join("\n")}`);
+    }
+  }
+
+  /** Mensaje de texto o, si el bloque lleva adjunto, la imagen/documento con el texto de pie. */
+  private async sendMessageNode(conversationId: string, node: FlowNode, vars: Vars): Promise<void> {
+    const text = this.interpolate(node.data.text, vars);
+    if (node.data.mediaUrl) {
+      await this.messaging.queueOutbound(
+        {
+          conversationId,
+          type: node.data.mediaKind === "DOCUMENT" ? MessageType.DOCUMENT : MessageType.IMAGE,
+          mediaUrl: node.data.mediaUrl,
+          ...(text.trim() ? { caption: text.trim().slice(0, 1024) } : {}),
+        },
+        MessageAuthor.AI,
+      );
+      return;
+    }
+    await this.send(conversationId, text);
   }
 
   private async applyTag(conversationId: string, name: string): Promise<void> {
@@ -557,13 +860,148 @@ export class FlowEngineService {
     return outgoing[0]?.target ?? null;
   }
 
-  private evalCondition(node: FlowNode, text: string): string {
-    const t = text.toLowerCase();
-    const branches = node.data.branches ?? [];
-    const hit = branches.find((b) =>
-      b.keywords.some((k) => t.includes(k.toLowerCase())),
-    );
+  private evalCondition(node: FlowNode, ctx: CondCtx): string {
+    const hit = (node.data.branches ?? []).find((b) => this.branchMatches(b, ctx));
     return hit?.id ?? "else";
+  }
+
+  private async condCtx(conversationId: string, text: string, vars: Vars): Promise<CondCtx> {
+    const convo = await this.prisma.conversation.findUnique({
+      where: { id: conversationId },
+      include: { contact: { include: { tags: { include: { tag: { select: { name: true } } } } } } },
+    });
+    const empty: CondCtx = {
+      text,
+      vars,
+      contact: { name: null, phone: "", tags: [], sourceId: null, fields: {} },
+      convo: { status: "", assignedAgentId: null, channelId: null, aiMode: "" },
+      stageId: null,
+      inboundCount: 0,
+    };
+    if (!convo) return empty;
+    const [deal, inboundCount] = await Promise.all([
+      this.prisma.deal.findFirst({
+        where: { contactId: convo.contactId, discardedAt: null },
+        orderBy: { updatedAt: "desc" },
+        select: { stageId: true },
+      }),
+      this.prisma.message.count({ where: { conversationId, direction: "INBOUND" } }),
+    ]);
+    const fields: Record<string, string> = {};
+    for (const [k, v] of Object.entries((convo.contact.metadata as Record<string, unknown> | null) ?? {})) {
+      if (v != null) fields[k] = String(v);
+    }
+    return {
+      text,
+      vars,
+      contact: {
+        name: convo.contact.name,
+        phone: convo.contact.phone,
+        tags: convo.contact.tags.map((t) => t.tag.name),
+        sourceId: convo.contact.sourceId,
+        fields,
+      },
+      convo: {
+        status: convo.status,
+        assignedAgentId: convo.assignedAgentId,
+        channelId: convo.channelId,
+        aiMode: convo.aiMode,
+      },
+      stageId: deal?.stageId ?? null,
+      inboundCount,
+    };
+  }
+
+  /** Reglas efectivas de una rama: las nuevas, o las palabras clave antiguas como "mensaje contiene". */
+  private rulesOf(b: FlowBranch): FlowRule[] {
+    if (b.rules?.length) return b.rules;
+    if (b.keywords?.length) return [{ id: "legacy", field: "message", op: "contains", value: b.keywords.join(",") }];
+    return [];
+  }
+
+  private branchMatches(b: FlowBranch, ctx: CondCtx): boolean {
+    const rules = this.rulesOf(b);
+    if (!rules.length) return false;
+    const results = rules.map((r) => this.ruleMatches(r, ctx));
+    return (b.match ?? "all") === "any" ? results.some(Boolean) : results.every(Boolean);
+  }
+
+  private ruleMatches(r: FlowRule, ctx: CondCtx): boolean {
+    const expectedRaw = this.interpolate(r.value ?? "", ctx.vars).trim();
+    const expected = expectedRaw.toLowerCase();
+    // La etiqueta se pregunta como "¿la tiene?", no como un valor.
+    if (r.field === "tag") {
+      const has = ctx.contact.tags.some((t) => t.toLowerCase() === expected);
+      return r.op === "is_not" || r.op === "not_contains" || r.op === "not_equals" ? !has : has;
+    }
+    const actualRaw = this.fieldValue(r, ctx);
+    const actual = actualRaw.trim().toLowerCase();
+    const options = expected.split(",").map((x) => x.trim()).filter(Boolean);
+    const num = (s: string) => Number(s.replace(",", "."));
+    switch (r.op) {
+      case "contains":
+        return options.some((k) => actual.includes(k));
+      case "not_contains":
+        return !options.some((k) => actual.includes(k));
+      case "equals":
+      case "is":
+        return options.length > 1 ? options.includes(actual) : actual === expected;
+      case "not_equals":
+      case "is_not":
+        return options.length > 1 ? !options.includes(actual) : actual !== expected;
+      case "starts_with":
+        return options.some((k) => actual.startsWith(k));
+      case "regex":
+        try {
+          return new RegExp(expectedRaw, "i").test(actualRaw);
+        } catch {
+          return false;
+        }
+      case "empty":
+        return !actual;
+      case "not_empty":
+        return !!actual;
+      case "gt":
+        return num(actual) > num(expected);
+      case "lt":
+        return num(actual) < num(expected);
+      default:
+        return false;
+    }
+  }
+
+  private fieldValue(r: FlowRule, ctx: CondCtx): string {
+    switch (r.field) {
+      case "message":
+        return ctx.text;
+      case "variable":
+        return ctx.vars[r.key ?? ""] ?? "";
+      case "contact_name":
+        return ctx.contact.name ?? "";
+      case "contact_phone":
+        return ctx.contact.phone;
+      case "contact_field":
+        return ctx.contact.fields[r.key ?? ""] ?? "";
+      case "source":
+        return ctx.contact.sourceId ?? "";
+      case "channel":
+        return ctx.convo.channelId ?? "";
+      case "status":
+        return ctx.convo.status;
+      case "ai_mode":
+        return ctx.convo.aiMode;
+      case "assigned":
+        // En el inspector "nadie" se guarda como "none".
+        return ctx.convo.assignedAgentId ?? "none";
+      case "stage":
+        return ctx.stageId ?? "";
+      case "is_new":
+        return ctx.inboundCount <= 1 ? "yes" : "no";
+      case "messages_count":
+        return String(ctx.inboundCount);
+      default:
+        return "";
+    }
   }
 
   private interpolate(text: string | undefined, vars: Vars): string {
@@ -622,12 +1060,16 @@ export class FlowEngineService {
   }
 
   private async lastInboundText(conversationId: string): Promise<string> {
+    return (await this.lastInbound(conversationId)).text;
+  }
+
+  private async lastInbound(conversationId: string): Promise<Inbound> {
     const m = await this.prisma.message.findFirst({
       where: { conversationId, direction: "INBOUND" },
-      orderBy: { createdAt: "desc" },
-      select: { type: true, content: true, transcript: true },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      select: { type: true, content: true, transcript: true, buttonPayload: true },
     });
-    return m ? MediaUnderstandingService.textOf(m) : "";
+    return m ? { text: MediaUnderstandingService.textOf(m), payload: m.buttonPayload ?? null } : { text: "", payload: null };
   }
 
   // ── Selección de flujo ──────────────────────────────────────

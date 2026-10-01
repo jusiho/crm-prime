@@ -29,15 +29,25 @@ Cada flujo puede aplicar a **un número** o a todos, y hay que marcarlo **Activo
 
 | Bloque | Para qué |
 |---|---|
-| **Enviar mensaje** | Un texto al contacto. Admite variables: `{{nombre_variable}}`. |
+| **Enviar mensaje** | Un texto al contacto, con una imagen o archivo opcional (el texto va de pie). Admite variables: `{{nombre_variable}}`. |
+| **Botones** | Un mensaje con hasta 3 botones de respuesta (20 caracteres cada uno). Cada botón es una salida; *otra respuesta* recoge lo que no sea un botón (si el contacto escribe el texto del botón o su número, cuenta como pulsado). Fuera de la ventana de 24 h va como texto con opciones numeradas. |
 | **Enviar plantilla** | Una plantilla aprobada por Meta. Es la única forma de escribirle a quien no te ha escrito o lleva más de 24 h sin hacerlo. Si tiene `{{1}}`, va el nombre del contacto. |
-| **Preguntar y guardar** | Envía una pregunta, espera la respuesta y la guarda en una variable. |
-| **Condición** | Ramifica según palabras clave del último mensaje. Cada rama es una salida; *en otro caso* es la salida por defecto. Gana la primera rama que coincide, en orden. |
-| **Acción** | Pasar al agente de IA, pasar a humano, poner etiqueta o mover en el embudo. |
+| **Preguntar y guardar** | Envía una pregunta, espera la respuesta y la guarda en una variable. Puede exigir que sea un teléfono, un correo, un número o un patrón; si no lo es, repite la pregunta hasta N intentos y luego sigue por la salida *si no es válida*. |
+| **Condición** | Ramifica por reglas. Cada rama es una salida con una o varias condiciones (todas o alguna) sobre: el **mensaje** del cliente (contiene, es igual, empieza por, regex, vacío…), una **variable**, el **contacto** (nombre, teléfono, campos personalizados, etiqueta, fuente), la **conversación** (estado, asignada a, modo de IA, número de WhatsApp, si es su primer mensaje, cuántos mensajes lleva) o la **etapa** de su oportunidad. *En otro caso* es la salida por defecto. Gana la primera rama que se cumple, en orden. |
+| **Acción** | Pasar al agente de IA, pasar a humano, poner o quitar una etiqueta, mover en el embudo o crear una oportunidad en una etapa (si ya tiene una abierta en ese embudo, no se duplica). |
+| **Horario** | Dos salidas: *en horario* y *fuera de horario*, según los días y horas que marques (con su zona horaria). |
+| **Dividir al azar** | Reparte a cada contacto entre varias variantes según su peso (A/B de mensajes, reparto entre vendedores). |
 | **Esperar** | Pausa de minutos u horas. Si el contacto escribe durante la espera, el flujo sigue con su mensaje. |
+| **Guardar en el contacto** | Escribe un valor (o una variable) en el nombre del contacto o en uno de sus campos personalizados. |
+| **Nota interna** | Deja una nota en la conversación, visible solo para el equipo. |
+| **Estado del chat** | Deja la conversación abierta, pendiente (esperando a una persona) o cerrada. |
 | **Petición HTTP** | Llama a una API o a n8n (GET/POST…), con cabeceras y cuerpo; puede guardar la respuesta en una variable. |
 | **Asignar a agente** | Asigna la conversación a una persona del equipo. |
 | **Ir a otro flujo** | Continúa en otro flujo. No tiene salida. |
+
+### Enlazar bloques
+
+Arrastra desde el punto ● de una salida y suelta **sobre cualquier parte del bloque** destino. Si sueltas en el vacío, aparece el menú de bloques y el que elijas queda conectado a esa salida. Cada salida admite una sola conexión; el «+» de cada salida y el «+» de cada conexión también añaden bloques ya enlazados.
 
 ## Variables
 

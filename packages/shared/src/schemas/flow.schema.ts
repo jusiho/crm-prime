@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { businessHoursSchema } from "./agent-config.schema.js";
 
 // Tipos de nodo del constructor visual.
 export const flowNodeTypes = [
@@ -12,6 +13,12 @@ export const flowNodeTypes = [
   "assign",
   "jumpToFlow",
   "sendTemplate",
+  "buttons", // mensaje con botones de respuesta; cada botón es una salida
+  "setField", // guardar un valor en la ficha del contacto
+  "addNote", // nota interna en la conversación
+  "setStatus", // abrir / pendiente / cerrar la conversación
+  "split", // dividir al azar (A/B) entre varias salidas
+  "schedule", // en horario / fuera de horario
 ] as const;
 export type FlowNodeType = (typeof flowNodeTypes)[number];
 
@@ -22,14 +29,83 @@ export const delayUnits = ["minutes", "hours"] as const;
 export type DelayUnit = (typeof delayUnits)[number];
 
 // Acciones del nodo "action".
-export const flowActionTypes = ["ai", "handoff", "tag", "move_deal"] as const;
+export const flowActionTypes = ["ai", "handoff", "tag", "untag", "move_deal", "create_deal"] as const;
 export type FlowActionType = (typeof flowActionTypes)[number];
 
-// Rama del nodo "condition" (cada una es un sourceHandle de salida).
+// Validación de la respuesta en "askQuestion".
+export const answerValidations = ["any", "phone", "email", "number", "regex"] as const;
+export type AnswerValidation = (typeof answerValidations)[number];
+
+// Botón de respuesta rápida (WhatsApp admite hasta 3, de 20 caracteres).
+export const flowButtonSchema = z.object({
+  id: z.string(),
+  title: z.string().max(20),
+});
+export type FlowButton = z.infer<typeof flowButtonSchema>;
+
+// Salida del nodo "split": peso relativo (porcentaje) de cada rama.
+export const flowSplitSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  weight: z.number().min(0).max(100),
+});
+export type FlowSplit = z.infer<typeof flowSplitSchema>;
+
+export const flowStatuses = ["OPEN", "PENDING", "CLOSED"] as const;
+
+// Qué puede mirar una regla de "condition".
+export const conditionFields = [
+  "message", // el último mensaje del cliente
+  "variable", // una variable del flujo (key = nombre)
+  "contact_name",
+  "contact_phone",
+  "contact_field", // campo personalizado (key = clave del campo)
+  "tag", // el contacto tiene la etiqueta (value = nombre)
+  "source", // fuente del contacto (value = id; "" = sin fuente)
+  "channel", // número de WhatsApp (value = id)
+  "status", // OPEN | PENDING | CLOSED
+  "ai_mode", // OFF | COPILOT | AUTOPILOT
+  "assigned", // agente asignado (value = id; "none" = nadie)
+  "stage", // etapa de su oportunidad abierta (value = id)
+  "is_new", // es su primer mensaje ("yes" | "no")
+  "messages_count", // mensajes que ha enviado el contacto
+] as const;
+export type ConditionField = (typeof conditionFields)[number];
+
+export const conditionOps = [
+  "contains", // alguna de las palabras (separadas por comas)
+  "not_contains",
+  "equals", // igual a (admite varias opciones separadas por comas)
+  "not_equals",
+  "starts_with",
+  "regex",
+  "empty",
+  "not_empty",
+  "gt",
+  "lt",
+  "is", // para los campos de opción (estado, fuente, etapa…)
+  "is_not",
+] as const;
+export type ConditionOp = (typeof conditionOps)[number];
+
+export const flowRuleSchema = z.object({
+  id: z.string(),
+  field: z.enum(conditionFields),
+  key: z.string().optional(), // variable o clave de campo
+  op: z.enum(conditionOps),
+  value: z.string().optional(), // admite {{variables}}
+});
+export type FlowRule = z.infer<typeof flowRuleSchema>;
+
+// Rama del nodo "condition" (cada una es un sourceHandle de salida). Las
+// `keywords` son el formato antiguo (mensaje contiene alguna); si hay
+// `rules`, mandan ellas.
 export const flowBranchSchema = z.object({
   id: z.string(),
   label: z.string(),
-  keywords: z.array(z.string()),
+  keywords: z.array(z.string()).default([]),
+  rules: z.array(flowRuleSchema).max(10).default([]),
+  match: z.enum(["all", "any"]).default("all"),
 });
 export type FlowBranch = z.infer<typeof flowBranchSchema>;
 
@@ -64,6 +140,30 @@ export const flowNodeDataSchema = z.object({
   // jumpToFlow: continuar en otro flujo
   flowId: z.string().optional(),
   flowName: z.string().optional(), // solo para mostrar en el lienzo
+  // sendMessage: adjunto opcional (imagen o documento ya subido)
+  mediaUrl: z.string().optional(),
+  mediaKind: z.enum(["IMAGE", "DOCUMENT"]).optional(),
+  mediaName: z.string().optional(), // solo para mostrar
+  // askQuestion: validación de la respuesta; tras agotar los intentos sale
+  // por la salida "invalid" (o por la normal si no está conectada)
+  validate: z.enum(answerValidations).optional(),
+  pattern: z.string().optional(), // regex cuando validate = "regex"
+  retryText: z.string().optional(), // qué decir si la respuesta no vale
+  maxRetries: z.number().int().min(0).max(5).optional(),
+  // buttons: texto en `text`; cada botón es un sourceHandle; "else" = otra respuesta
+  buttons: z.array(flowButtonSchema).max(3).optional(),
+  footer: z.string().max(60).optional(),
+  // setField: clave del campo ("name" = nombre del contacto) y valor (admite {{variables}})
+  fieldKey: z.string().optional(),
+  value: z.string().optional(),
+  // setStatus
+  status: z.enum(flowStatuses).optional(),
+  // split: cada salida es un sourceHandle con su peso
+  splits: z.array(flowSplitSchema).max(5).optional(),
+  // schedule: salidas "in" / "out"
+  hours: businessHoursSchema.optional(),
+  // action create_deal: título (admite {{variables}}); la etapa va en stageId
+  dealTitle: z.string().optional(),
 });
 export type FlowNodeData = z.infer<typeof flowNodeDataSchema>;
 
