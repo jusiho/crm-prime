@@ -111,6 +111,8 @@ export const botSchema = z.object({
   channel: botChannelRefSchema.nullable(),
   // Automatización
   autopilotByDefault: z.boolean(),
+  /** Segundos de espera desde el último mensaje del cliente antes de responder (0 = al instante). */
+  replyDelaySec: z.number().int().min(0).max(60),
   welcomeEnabled: z.boolean(),
   welcomeMessage: z.string().nullable(),
   businessHoursEnabled: z.boolean(),
@@ -141,6 +143,8 @@ const botFields = {
   isActive: z.boolean(),
   channelId: z.string().nullable(),
   autopilotByDefault: z.boolean(),
+  /** Segundos de espera desde el último mensaje del cliente antes de responder (0 = al instante). */
+  replyDelaySec: z.number().int().min(0).max(60),
   welcomeEnabled: z.boolean(),
   welcomeMessage: z.string().max(2000).nullable(),
   businessHoursEnabled: z.boolean(),
@@ -161,6 +165,7 @@ export const createBotSchema = z.object({
   isActive: botFields.isActive.default(true),
   channelId: botFields.channelId.default(null),
   autopilotByDefault: botFields.autopilotByDefault.default(false),
+  replyDelaySec: botFields.replyDelaySec.default(4),
   welcomeEnabled: botFields.welcomeEnabled.default(false),
   welcomeMessage: botFields.welcomeMessage.default(null),
   businessHoursEnabled: botFields.businessHoursEnabled.default(false),
@@ -182,6 +187,7 @@ export const updateBotSchema = z.object({
   isActive: botFields.isActive.optional(),
   channelId: botFields.channelId.optional(),
   autopilotByDefault: botFields.autopilotByDefault.optional(),
+  replyDelaySec: botFields.replyDelaySec.optional(),
   welcomeEnabled: botFields.welcomeEnabled.optional(),
   welcomeMessage: botFields.welcomeMessage.optional(),
   businessHoursEnabled: botFields.businessHoursEnabled.optional(),

@@ -128,7 +128,11 @@ export const es: Messages = {
     haveAccount: "¿Ya tienes cuenta?",
     signUpFailed: "No se pudo registrar",
   },
+  alerts: {
+    newMessage: "Nuevo mensaje de {name}",
+  },
   inbox: {
+    aiSees: "Lo que entendió la IA",
     copilotMenu: "Copiloto: mejorar o traducir el borrador",
     copilotImprove: "Mejorar redacción",
     copilotFriendly: "Más cordial",

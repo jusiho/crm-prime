@@ -6,6 +6,7 @@ import { NavIcon, type IconName } from "./NavIcons";
 import { useT } from "@/i18n/I18nProvider";
 import type { MessageKey } from "@/i18n/translate";
 import { OnboardingNavCard } from "@/features/onboarding/OnboardingNavCard";
+import { useRealtimeCtx } from "./RealtimeProvider";
 
 export type NavKey =
   | "gettingStarted"
@@ -122,6 +123,7 @@ export function SideNav({
   platformUrl?: string;
 }) {
   const t = useT();
+  const { unread } = useRealtimeCtx();
   const [collapsed, setCollapsed] = useState(initialCollapsed);
 
   function toggle() {
@@ -187,6 +189,11 @@ export function SideNav({
                 >
                   <NavIcon name={it.icon} />
                   {!collapsed && t(it.labelKey)}
+                  {it.key === "inbox" && unread > 0 && (
+                    <span className={`nav-badge${collapsed ? " nav-badge--dot" : ""}`} aria-label={`${unread}`}>
+                      {collapsed ? "" : unread > 99 ? "99+" : unread}
+                    </span>
+                  )}
                 </Link>
               ))}
             </div>

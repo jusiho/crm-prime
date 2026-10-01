@@ -1,6 +1,7 @@
 import { Global, Module } from "@nestjs/common";
 import { BullModule } from "@nestjs/bullmq";
 import {
+  QUEUE_AI_REPLY,
   QUEUE_CAMPAIGN,
   QUEUE_FLOW,
   QUEUE_INBOUND,
@@ -71,6 +72,18 @@ import {
           backoff: { type: "exponential", delay: 5000 },
           removeOnComplete: 1000,
           removeOnFail: 5000,
+        },
+      },
+      {
+        // Respuesta del autopilot con unos segundos de espera (varios mensajes
+        // seguidos → una sola respuesta). Un turno perdido no se reintenta
+        // mucho: el siguiente mensaje del cliente trae el suyo.
+        name: QUEUE_AI_REPLY,
+        defaultJobOptions: {
+          attempts: 2,
+          backoff: { type: "fixed", delay: 2000 },
+          removeOnComplete: 1000,
+          removeOnFail: 1000,
         },
       },
       {

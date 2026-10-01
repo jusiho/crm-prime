@@ -618,6 +618,9 @@ model Message {
   author         MessageAuthor
   content        String? // texto o caption
   mediaUrl       String?
+  // Lo que la IA entendió del medio: transcripción del audio o descripción de
+  // la imagen/sticker. Null = sin procesar; "" = no se pudo.
+  transcript     String?
   // Botones enviados (mensaje interactivo) o botón que pulsó el contacto.
   interactive    Json?
   buttonPayload  String?
@@ -942,6 +945,7 @@ model AgentConfig {
 
   // ── Automatización ─────────────────────────────────────────
   autopilotByDefault   Boolean @default(false) // conversaciones nuevas arrancan en AUTOPILOT
+  replyDelaySec        Int     @default(4) // espera desde el último mensaje del cliente antes de responder (0 = al instante)
   welcomeEnabled       Boolean @default(false)
   welcomeMessage       String? // saludo automático al primer mensaje
   businessHoursEnabled Boolean @default(false)

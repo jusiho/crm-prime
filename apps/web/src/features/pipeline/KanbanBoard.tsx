@@ -24,7 +24,7 @@ import {
   updateDeal,
   updateStage,
 } from "@/lib/bff";
-import { useRealtime } from "@/hooks/useRealtime";
+import { useRealtimeCtx } from "@/components/RealtimeProvider";
 import { dangerBtn, ghostBtn, primaryBtn, smBtn } from "@/components/ui";
 
 function money(value: number | null, currency: string): string {
@@ -44,9 +44,8 @@ export function KanbanBoard() {
   // `["pipeline"]` como prefijo invalida todas a la vez.
   const qk = ["pipeline", pipelineId ?? "default", view] as const;
 
-  const { connected } = useRealtime({
-    "pipeline.changed": () => queryClient.invalidateQueries({ queryKey: ["pipeline"] }),
-  });
+  // La conexión es global (RealtimeProvider): ya refresca el embudo al cambiar.
+  const { connected } = useRealtimeCtx();
 
   const { data, isPending, isError, error, refetch } = useQuery({
     queryKey: qk,

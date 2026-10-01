@@ -10,6 +10,8 @@ import { FlowAssistantService } from "./flow-assistant.service";
 import { PromptAssistantService } from "./prompt-assistant.service";
 import { FlowEngineService } from "./flow-engine.service";
 import { FlowTriggersService } from "./flow-triggers.service";
+import { AiReplyProcessor } from "./ai-reply.processor";
+import { MediaUnderstandingService } from "./media-understanding.service";
 import { FlowProcessor } from "./flow.processor";
 import { AiController } from "./ai.controller";
 import { BotsController } from "./bots.controller";
@@ -44,6 +46,8 @@ import { OnboardingModule } from "../onboarding/onboarding.module";
     FlowEngineService,
     FlowTriggersService,
     FlowProcessor,
+    AiReplyProcessor,
+    MediaUnderstandingService,
     CopilotService,
   ],
 })

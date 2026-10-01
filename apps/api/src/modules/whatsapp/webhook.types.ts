@@ -140,7 +140,10 @@ interface MetaMessage {
   type: string;
   text?: { body: string };
   image?: { id: string; caption?: string };
-  document?: { id: string; caption?: string };
+  document?: { id: string; caption?: string; filename?: string };
+  audio?: { id: string; mime_type?: string; voice?: boolean };
+  video?: { id: string; caption?: string; mime_type?: string };
+  sticker?: { id: string; mime_type?: string; animated?: boolean };
   reaction?: { message_id: string; emoji?: string };
   // Respuesta a un botón de plantilla.
   button?: { text?: string; payload?: string };
@@ -290,8 +293,8 @@ export function normalizeWebhook(body: MetaWebhookBody): InboundJob[] {
           name: nameByWaId.get(m.from),
           waMessageId: m.id,
           type,
-          text: m.text?.body ?? buttonText,
-          mediaId: m.image?.id ?? m.document?.id,
+          text: m.text?.body ?? buttonText ?? m.image?.caption ?? m.video?.caption ?? m.document?.caption,
+          mediaId: m.image?.id ?? m.document?.id ?? m.audio?.id ?? m.video?.id ?? m.sticker?.id,
           ...(buttonPayload ? { buttonPayload } : {}),
           channelPhoneNumberId,
           ...(m.referral ? { referral: m.referral } : {}),

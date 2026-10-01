@@ -65,6 +65,7 @@ type Form = {
   minConfidence: number;
   keywords: string;
   autopilotByDefault: boolean;
+  replyDelaySec: number;
   welcomeEnabled: boolean;
   welcomeMessage: string;
   businessHoursEnabled: boolean;
@@ -136,6 +137,7 @@ function toForm(bot: BotDto | null): Form {
       minConfidence: 0.75,
       keywords: "humano, persona, asesor, reclamo",
       autopilotByDefault: false,
+      replyDelaySec: 4,
       welcomeEnabled: false,
       welcomeMessage: "¡Hola! 👋 Gracias por escribirnos. ¿En qué te ayudamos?",
       businessHoursEnabled: false,
@@ -157,6 +159,7 @@ function toForm(bot: BotDto | null): Form {
     minConfidence: bot.escalationRules.minConfidence ?? 0.6,
     keywords: (bot.escalationRules.keywords ?? []).join(", "),
     autopilotByDefault: bot.autopilotByDefault,
+    replyDelaySec: bot.replyDelaySec ?? 4,
     welcomeEnabled: bot.welcomeEnabled,
     welcomeMessage: bot.welcomeMessage ?? "",
     businessHoursEnabled: bot.businessHoursEnabled,
@@ -179,6 +182,7 @@ const FIELD_LABELS: [RegExp, (m: RegExpMatchArray) => string, Tab][] = [
   [/^systemPrompt$/, () => "Cómo debe atender", "dice"],
   [/^enabledTools/, () => "Qué puede hacer", "hace"],
   [/^welcomeMessage$/, () => "Saludo automático", "cuando"],
+  [/^replyDelaySec$/, () => "Antes de responder", "cuando"],
   [/^businessHours\.outOfHoursMessage$/, () => "Mensaje fuera de horario", "cuando"],
   [/^businessHours/, () => "Horario de atención", "cuando"],
   [/^keywordTriggers\.(\d+)\.keywords/, (m) => `Respuesta fija ${Number(m[1]) + 1} › palabras`, "cuando"],
@@ -291,6 +295,7 @@ export function BotEditor({
         isActive: form.isActive,
         channelId: form.channelId,
         autopilotByDefault: form.autopilotByDefault,
+        replyDelaySec: Number(form.replyDelaySec),
         welcomeEnabled: form.welcomeEnabled,
         welcomeMessage: form.welcomeMessage.trim() || null,
         businessHoursEnabled: form.businessHoursEnabled,
@@ -511,6 +516,31 @@ export function BotEditor({
         {/* ── Cuándo responde ── */}
         {tab === "cuando" && (
           <>
+            <Card
+              title="Antes de responder"
+              subtitle="Si el cliente escribe en varios mensajes seguidos, espera a que termine y responde una sola vez a todo."
+            >
+              <div className="agent-chips" role="radiogroup" aria-label="Espera antes de responder">
+                {[0, 3, 5, 10, 20].map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    role="radio"
+                    aria-checked={form.replyDelaySec === s}
+                    className={`agent-chip${form.replyDelaySec === s ? " is-on" : ""}`}
+                    onClick={() => set("replyDelaySec", s)}
+                  >
+                    {s === 0 ? "Al instante" : `${s} segundos`}
+                  </button>
+                ))}
+              </div>
+              <Hint>
+                {form.replyDelaySec === 0
+                  ? "Contesta cada mensaje nada más llegar. Si el cliente escribe en partes, puede responder a medias o varias veces."
+                  : `Cuenta ${form.replyDelaySec} segundos desde el último mensaje del cliente y responde a todo junto. Recomendado: entre 3 y 5.`}
+              </Hint>
+            </Card>
+
             <Card title="Saludo automático" subtitle="Un mensaje fijo al primer mensaje del cliente, al instante y sin usar IA.">
               <Switch checked={form.welcomeEnabled} onChange={(v) => set("welcomeEnabled", v)} label={form.welcomeEnabled ? "Activado" : "Desactivado"} />
               {form.welcomeEnabled && (

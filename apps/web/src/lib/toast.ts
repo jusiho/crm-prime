@@ -8,6 +8,8 @@ export interface ToastItem {
   id: number;
   kind: ToastKind;
   message: string;
+  /** Al pulsarlo se navega aquí (p. ej. el chat del mensaje nuevo). */
+  href?: string;
 }
 
 type Listener = (toasts: ToastItem[]) => void;
@@ -33,9 +35,9 @@ export function dismissToast(id: number): void {
   emit();
 }
 
-function push(kind: ToastKind, message: string, ms: number): number {
+function push(kind: ToastKind, message: string, ms: number, href?: string): number {
   const id = ++seq;
-  toasts = [...toasts, { id, kind, message }];
+  toasts = [...toasts, { id, kind, message, ...(href ? { href } : {}) }];
   emit();
   if (ms > 0 && typeof window !== "undefined") {
     window.setTimeout(() => dismissToast(id), ms);
@@ -46,5 +48,5 @@ function push(kind: ToastKind, message: string, ms: number): number {
 export const toast = {
   success: (message: string) => push("success", message, 3500),
   error: (message: string) => push("error", message, 6000),
-  info: (message: string) => push("info", message, 4000),
+  info: (message: string, opts: { href?: string; ms?: number } = {}) => push("info", message, opts.ms ?? 4000, opts.href),
 };

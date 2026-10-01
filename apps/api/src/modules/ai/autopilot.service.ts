@@ -1,5 +1,8 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
+import { InjectQueue } from "@nestjs/bullmq";
+import { Queue } from "bullmq";
+import { QUEUE_AI_REPLY } from "../../infra/queue/queue.constants";
 import {
   AiMode,
   ConversationStatus,
@@ -34,7 +37,61 @@ export class AutopilotService {
     @Inject(WHATSAPP_PROVIDER) private readonly wa: WhatsAppProvider,
     private readonly webhooks: WebhookOutService,
     private readonly events: EventEmitter2,
+    @InjectQueue(QUEUE_AI_REPLY) private readonly replyQueue: Queue,
   ) {}
+
+  /** Conversaciones en las que el modelo está redactando ahora mismo. */
+  private readonly inFlight = new Set<string>();
+
+  /**
+   * Pide un turno de respuesta para un mensaje entrante. Con espera, el turno
+   * se encola para dentro de `delaySec`; si mientras tanto llega otro
+   * mensaje, el suyo gana y este se descarta al vencer (ver runIfLatest).
+   * Así, a un cliente que escribe en tres partes se le responde una vez, a
+   * las tres, en vez de tres respuestas a medias o ninguna.
+   */
+  async schedule(
+    conversationId: string,
+    messageId: string | null,
+    delaySec: number,
+    orgId: string,
+  ): Promise<void> {
+    if (!messageId || delaySec <= 0) {
+      await this.runIfLatest(conversationId, messageId);
+      return;
+    }
+    await this.replyQueue.add(
+      "reply",
+      { conversationId, orgId, messageId },
+      { delay: Math.min(60, delaySec) * 1000, jobId: `ai-reply-${messageId}` },
+    );
+  }
+
+  /**
+   * Corre el turno solo si ese mensaje sigue siendo el último del cliente.
+   * Si el modelo ya está redactando en esta conversación (un mensaje llegó a
+   * mitad de la respuesta anterior), se vuelve a intentar en dos segundos:
+   * así la segunda respuesta ve la primera y no se pisan.
+   */
+  async runIfLatest(conversationId: string, messageId: string | null): Promise<void> {
+    if (messageId) {
+      const last = await this.prisma.message.findFirst({
+        where: { conversationId, direction: "INBOUND" },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        select: { id: true, conversation: { select: { orgId: true } } },
+      });
+      if (!last || last.id !== messageId) return; // llegó otro: su turno manda
+      if (this.inFlight.has(conversationId)) {
+        await this.replyQueue.add(
+          "reply",
+          { conversationId, orgId: last.conversation.orgId, messageId },
+          { delay: 2000, jobId: `ai-reply-${messageId}-${Date.now()}` },
+        );
+        return;
+      }
+    }
+    await this.run(conversationId);
+  }
 
   /**
    * Enciende o apaga «la IA está escribiendo» en la bandeja. Solo mientras
@@ -73,6 +130,7 @@ export class AutopilotService {
    */
   async run(conversationId: string): Promise<void> {
     let redactando: { orgId: string | undefined } | null = null;
+    this.inFlight.add(conversationId);
     try {
       const convo = await this.prisma.conversation.findUnique({
         where: { id: conversationId },
@@ -123,6 +181,7 @@ export class AutopilotService {
         `Autopilot falló en ${conversationId}: ${(e as Error).message}`,
       );
     } finally {
+      this.inFlight.delete(conversationId);
       if (redactando) this.typing(conversationId, redactando.orgId, false);
     }
   }

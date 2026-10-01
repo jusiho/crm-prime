@@ -7,7 +7,7 @@ import { NavIcon, type IconName } from "@/components/NavIcons";
 const ICON: Record<ToastItem["kind"], IconName> = {
   success: "check",
   error: "x",
-  info: "alert",
+  info: "bell",
 };
 
 export function Toaster() {
@@ -20,8 +20,12 @@ export function Toaster() {
         <div
           key={t.id}
           className={`toast toast-${t.kind}`}
-          onClick={() => dismissToast(t.id)}
+          onClick={() => {
+            dismissToast(t.id);
+            if (t.href) window.location.assign(t.href);
+          }}
           role="alert"
+          style={t.href ? { cursor: "pointer" } : undefined}
         >
           <span className={`toast-icon toast-icon-${t.kind}`}>
             <NavIcon name={ICON[t.kind]} size={13} />

@@ -703,6 +703,10 @@ code {
   background: rgba(8, 5, 16, 0.55) !important;
 }
 
+/* Mensajes sin leer, junto a «Bandeja» en el menú. */
+.nav-badge { margin-left: auto; min-width: 20px; padding: 1px 6px; border-radius: 999px; background: var(--accent); color: #fff; font-size: 11px; font-weight: 700; line-height: 16px; text-align: center; }
+.nav-badge--dot { position: absolute; top: 6px; right: 6px; min-width: 0; width: 8px; height: 8px; padding: 0; }
+
 /* ── Toasts ──────────────────────────────────────────────────── */
 /* Arriba a la derecha, bajo la cabecera: abajo taparían las barras de
    guardar y los cuadros de mensaje. */

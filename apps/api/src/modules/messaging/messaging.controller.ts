@@ -55,6 +55,11 @@ export class MessagingController {
     return this.messaging.getMessages(id);
   }
 
+  @Get("conversations/unread-count")
+  unreadCount() {
+    return this.messaging.unreadCount();
+  }
+
   @Post("messages")
   send(@Body(new ZodValidationPipe(sendMessageSchema)) body: SendMessageInput) {
     return this.messaging.queueOutbound(body, MessageAuthor.HUMAN);

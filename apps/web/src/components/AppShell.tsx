@@ -7,6 +7,8 @@ import { SideNav, type NavKey } from "./SideNav";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { MobileMenuButton } from "./MobileMenuButton";
 import { HelpMenu } from "./HelpMenu";
+import { AlertsBell } from "./AlertsBell";
+import { RealtimeProvider } from "./RealtimeProvider";
 import { TourHost } from "@/features/onboarding/TourHost";
 import { platformConsoleUrl } from "@/lib/org";
 import { getTranslator } from "@/i18n/server";
@@ -56,6 +58,7 @@ export async function AppShell({
   const platformAdmin = (session?.user as { platformAdmin?: boolean } | undefined)?.platformAdmin === true;
 
   return (
+    <RealtimeProvider>
     <div style={shell}>
       <SideNav
         role={role}
@@ -77,6 +80,7 @@ export async function AppShell({
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <AlertsBell />
             <HelpMenu />
             <span className="topbar-lang">
               <LanguageSwitcher />
@@ -114,6 +118,7 @@ export async function AppShell({
         <TourHost />
       </div>
     </div>
+    </RealtimeProvider>
   );
 }
 

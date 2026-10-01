@@ -45,3 +45,7 @@ Si un contacto escribe **BAJA**, **STOP** o **CANCELAR**, queda marcado como *si
 - **Sin leer y espera**: cada fila muestra el último mensaje, un contador azul con los mensajes nuevos y, si el cliente espera respuesta, cuánto lleva esperando (en rojo a partir de una hora). El botón **Esperando** ordena la lista por quien más tiempo lleva.
 - **Atajos**: ↑ / ↓ cambian de conversación; **Cerrar y siguiente** cierra la que tienes abierta y pasa a la siguiente; en el celular, Esc vuelve a la lista.
 - **Asignación automática**: si el embudo tiene activada la entrada automática, la conversación queda asignada al mismo vendedor que recibe la oportunidad y aparece en su filtro **Mías**.
+
+## Avisos de mensajes nuevos
+
+Estés en la pantalla que estés, cuando un cliente escribe verás un aviso con su nombre y el texto; al pulsarlo se abre ese chat. Suena un tono corto (la campana de la cabecera lo apaga o lo enciende) y, si la pestaña está en segundo plano, llega una notificación del navegador: la primera vez que enciendes la campana, el navegador te pide permiso. El total de mensajes sin leer aparece junto a **Bandeja** en el menú y en el título de la pestaña. Del chat que tienes abierto no se avisa.

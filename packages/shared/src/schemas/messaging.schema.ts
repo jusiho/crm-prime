@@ -73,6 +73,8 @@ export const messageDtoSchema = z.object({
   author: z.nativeEnum(MessageAuthor),
   content: z.string().nullable(),
   mediaUrl: z.string().nullable(),
+  /** Transcripción del audio o descripción de la imagen/sticker, si la IA ya lo leyó. */
+  transcript: z.string().nullable().optional(),
   reaction: z.string().nullable(),
   status: z.nativeEnum(MessageStatus),
   createdAt: z.string(),
@@ -201,3 +203,9 @@ export const agentDtoSchema = z.object({
   email: z.string(),
 });
 export type AgentDto = z.infer<typeof agentDtoSchema>;
+
+/** Mensajes sin leer en toda la bandeja. */
+export interface UnreadCount {
+  unread: number;
+  conversations: number;
+}

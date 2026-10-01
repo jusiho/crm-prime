@@ -1,21 +1,12 @@
 "use client";
 
-import { useQueryClient } from "@tanstack/react-query";
-import { useRealtime } from "./useRealtime";
-import { setAiTyping } from "@/features/inbox/aiTyping";
+import { useRealtimeCtx } from "@/components/RealtimeProvider";
 
-/** Refresca bandeja y chat en tiempo real ante cada `inbox.changed`. */
+/**
+ * Estado de la conexión en tiempo real. La conexión vive en RealtimeProvider
+ * (una para toda la app); aquí solo se consulta.
+ */
 export function useInboxSocket(): { connected: boolean } {
-  const queryClient = useQueryClient();
-  return useRealtime({
-    "inbox.changed": (payload) => {
-      const { conversationId } = payload as { conversationId: string };
-      queryClient.invalidateQueries({ queryKey: ["conversations"] });
-      queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
-    },
-    "ai.typing": (payload) => {
-      const { conversationId, on } = payload as { conversationId: string; on: boolean };
-      setAiTyping(conversationId, on);
-    },
-  });
+  const { connected } = useRealtimeCtx();
+  return { connected };
 }

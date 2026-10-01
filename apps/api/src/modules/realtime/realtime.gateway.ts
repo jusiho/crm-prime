@@ -16,6 +16,8 @@ export interface InboxChangedPayload {
   conversationId: string;
   /** Empresa a la que pertenece el cambio. Decide a qué sala se emite. */
   orgId?: string;
+  /** Solo cuando entró un mensaje del cliente: para avisar con nombre y texto. */
+  inbound?: { contactName: string; preview: string };
 }
 
 /** La IA empieza (on) o termina (off) de redactar en una conversación. */

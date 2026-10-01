@@ -795,7 +795,7 @@ function MessageBubble({
           </div>
         )}
         {m.mediaUrl && (
-          <MediaBubble mediaUrl={m.mediaUrl} type={m.type} caption={m.content} />
+          <MediaBubble mediaUrl={m.mediaUrl} type={m.type} caption={m.content} transcript={m.transcript ?? null} />
         )}
         {m.content ? (
           <MessageText text={m.content} highlight={highlight} />

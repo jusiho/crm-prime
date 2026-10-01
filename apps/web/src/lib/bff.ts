@@ -133,6 +133,7 @@ import type {
   SendTemplateMessageInput,
   ConnectTicketResult,
   ConnectHubStatus,
+  UnreadCount,
 } from "@crm/shared";
 
 // Fetchers del lado del cliente: llaman al BFF (mismo origen, cookie httpOnly).
@@ -305,6 +306,12 @@ export async function requestWhatsappConnectTicket(): Promise<ConnectTicketResul
     throw new Error(b?.message ?? "No se pudo iniciar la conexión");
   }
   return (await res.json()) as ConnectTicketResult;
+}
+
+export async function fetchUnreadCount(): Promise<UnreadCount> {
+  const res = await bffFetch("/api/bff/conversations/unread-count");
+  if (!res.ok) throw new Error("No se pudo contar lo pendiente");
+  return res.json();
 }
 
 export async function fetchWhatsappConnectStatus(): Promise<ConnectHubStatus> {

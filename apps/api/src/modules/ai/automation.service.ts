@@ -13,6 +13,7 @@ import { PrismaService } from "../../infra/prisma/prisma.service";
 import { MessagingService } from "../messaging/messaging.service";
 import { BotService } from "./bot.service";
 import { AutopilotService } from "./autopilot.service";
+import { MediaUnderstandingService } from "./media-understanding.service";
 import { FlowEngineService } from "./flow-engine.service";
 
 // getDay(): 0=domingo … 6=sábado.
@@ -35,6 +36,7 @@ export class AutomationService {
     private readonly messaging: MessagingService,
     private readonly autopilot: AutopilotService,
     private readonly flows: FlowEngineService,
+    private readonly media: MediaUnderstandingService,
   ) {}
 
   // ── Conversación nueva: bienvenida + autopilot por defecto ──
@@ -87,6 +89,10 @@ export class AutomationService {
       });
       if (!convo || !convo.contact.optIn) return;
 
+      // Un audio, una imagen o un sticker: primero entenderlos, para que las
+      // palabras clave, los flujos y la IA trabajen con lo que dicen.
+      await this.media.enrichLatest(conversationId);
+
       // Prioridad máxima: si hay un flujo activo/disparado, lo maneja el motor.
       if (await this.flows.onInbound(conversationId)) return;
 
@@ -97,7 +103,7 @@ export class AutomationService {
         where: { conversationId, direction: "INBOUND" },
         orderBy: { createdAt: "desc" },
       });
-      const text = (lastInbound?.content ?? "").toLowerCase();
+      const text = (lastInbound ? MediaUnderstandingService.textOf(lastInbound) : "").toLowerCase();
 
       // 1) Disparadores por palabra clave (tienen prioridad).
       if (bot && text) {
@@ -146,8 +152,14 @@ export class AutomationService {
         if (inboundCount <= 1) return;
       }
 
-      // 3) Autopilot normal (el servicio aplica sus propios guardrails).
-      await this.autopilot.run(conversationId);
+      // 3) Autopilot. Con unos segundos de espera: si el cliente escribe en
+      // varias partes, se le responde una sola vez a todo (replyDelaySec).
+      await this.autopilot.schedule(
+        conversationId,
+        lastInbound?.id ?? null,
+        bot?.replyDelaySec ?? 4,
+        convo.orgId,
+      );
     } catch (e) {
       this.logger.error(
         `onInbound falló en ${conversationId}: ${(e as Error).message}`,

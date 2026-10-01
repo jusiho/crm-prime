@@ -20,6 +20,7 @@ import { QUEUE_FLOW } from "../../infra/queue/queue.constants";
 import { MessagingService } from "../messaging/messaging.service";
 import { AutopilotService } from "./autopilot.service";
 import { parseTriggerConfig } from "./flow.service";
+import { MediaUnderstandingService } from "./media-understanding.service";
 
 const MAX_STEPS = 50; // cortafuegos anti-bucle
 
@@ -624,9 +625,9 @@ export class FlowEngineService {
     const m = await this.prisma.message.findFirst({
       where: { conversationId, direction: "INBOUND" },
       orderBy: { createdAt: "desc" },
-      select: { content: true },
+      select: { type: true, content: true, transcript: true },
     });
-    return m?.content ?? "";
+    return m ? MediaUnderstandingService.textOf(m) : "";
   }
 
   // ── Selección de flujo ──────────────────────────────────────

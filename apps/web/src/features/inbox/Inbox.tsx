@@ -10,7 +10,7 @@ import {
 } from "@crm/shared";
 import { fetchConversations, setConversationStatus } from "@/lib/bff";
 import { useInboxSocket } from "@/hooks/useInboxSocket";
-import { useInboxNotifications } from "@/hooks/useInboxNotifications";
+import { useRealtimeCtx } from "@/components/RealtimeProvider";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { NavIcon } from "@/components/NavIcons";
 import { useT } from "@/i18n/I18nProvider";
@@ -40,6 +40,7 @@ export function Inbox() {
   const t = useT();
   const queryClient = useQueryClient();
   const { connected } = useInboxSocket();
+  const { setOpenConversation } = useRealtimeCtx();
   const isMobile = useMediaQuery("(max-width: 900px)");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   // En móvil solo cabe un panel: la lista o el chat.
@@ -103,7 +104,19 @@ export function Inbox() {
 
   const nombreDe = useCallback((c: ConversationDto) => c.contact.name ?? c.contact.phone, []);
   const previewDe = useCallback((c: ConversationDto) => previewOf(c, t).text, [t]);
-  const notify = useInboxNotifications(conversations, selected?.id ?? null, nombreDe, previewDe);
+  // Para que los avisos globales callen en el chat que se está viendo.
+  useEffect(() => {
+    setOpenConversation(selected?.id ?? null);
+    return () => setOpenConversation(null);
+  }, [selected?.id, setOpenConversation]);
+  // Llegar desde un aviso: /?c=<id> abre ese chat.
+  useEffect(() => {
+    const c = new URLSearchParams(window.location.search).get("c");
+    if (!c) return;
+    setSelectedId(c);
+    setMobilePane("chat");
+    window.history.replaceState(null, "", window.location.pathname);
+  }, []);
 
   function select(c: ConversationDto) {
     setSelectedId(c.id);
@@ -171,21 +184,6 @@ export function Inbox() {
               )}
             </span>
             <span style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-              <button
-                type="button"
-                onClick={() => (notify.enabled ? notify.disable() : void notify.enable())}
-                title={
-                  notify.enabled
-                    ? t("inbox.notifyOn")
-                    : notify.permission === "denied"
-                      ? t("inbox.notifyBlocked")
-                      : t("inbox.notifyEnable")
-                }
-                aria-pressed={notify.enabled}
-                style={bellBtn(notify.enabled)}
-              >
-                <NavIcon name={notify.enabled ? "bell" : "bell-off"} size={13} />
-              </button>
               {/* El estado no se comunica solo con color: punto + palabra. */}
               <span style={liveChip(connected)}>
                 <span style={liveDot(connected)} />
@@ -391,21 +389,6 @@ const paneHeader: React.CSSProperties = {
   fontWeight: 600,
 };
 
-function bellBtn(on: boolean): React.CSSProperties {
-  return {
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    width: 26,
-    height: 22,
-    borderRadius: 999,
-    border: `1px solid ${on ? "var(--accent)" : "var(--border)"}`,
-    background: on ? "var(--accent-soft)" : "transparent",
-    color: on ? "var(--accent)" : "var(--muted)",
-    cursor: "pointer",
-    padding: 0,
-  };
-}
 
 function liveChip(connected: boolean): React.CSSProperties {
   return {

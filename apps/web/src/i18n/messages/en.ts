@@ -129,7 +129,11 @@ export const en = {
     haveAccount: "Already have an account?",
     signUpFailed: "Could not create the account",
   },
+  alerts: {
+    newMessage: "New message from {name}",
+  },
   inbox: {
+    aiSees: "What the AI understood",
     copilotMenu: "Copilot: improve or translate the draft",
     copilotImprove: "Improve wording",
     copilotFriendly: "Friendlier",

@@ -157,6 +157,7 @@ export function AgentSetupWizard({
         isActive: true,
         channelId: bot?.channelId ?? null,
         autopilotByDefault: a.autopilot,
+        replyDelaySec: bot?.replyDelaySec ?? 4,
         welcomeEnabled: bot?.welcomeEnabled ?? false,
         welcomeMessage: bot?.welcomeMessage ?? null,
         businessHoursEnabled: bot?.businessHoursEnabled ?? false,

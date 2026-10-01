@@ -26,7 +26,7 @@ Debajo, cinco pestañas:
 
 - **Qué dice**: el nombre y **cómo debe atender**, lo más importante del agente: qué vendes y a quién, el tono de tu marca, qué no debe hacer y cuándo pasarte el chat. Si todavía tiene las instrucciones genéricas, te lo avisa y el asistente te las redacta.
 - **Qué puede hacer**: lo que puede consultar para responder bien (productos y precios, tu información, la ficha del cliente) y lo que puede hacer en el CRM para ahorrarte trabajo (etiquetar, mover en el embudo, enviar fotos…).
-- **Cuándo responde**: saludo automático, horario de atención y respuestas fijas por palabra clave.
+- **Cuándo responde**: cuántos segundos espera antes de contestar (si el cliente escribe en varios mensajes seguidos, responde una sola vez a todo; recomendado 3 a 5), saludo automático, horario de atención y respuestas fijas por palabra clave.
 - **Cuándo te pasa el chat**: palabras que lo pasan a tu equipo al momento y cuánta señal necesita para apartarse por su cuenta.
 - **Modelo y gasto**: qué IA usa, con lo que cuesta cada 1.000 respuestas, y un **límite de gasto al mes en dólares**. En *Ajustes avanzados*, cuánto piensa antes de responder y cuántas consultas puede hacer por respuesta.
 
@@ -98,6 +98,14 @@ El catálogo sirve para productos, servicios, talleres o lo que vendas. En **Pro
 - **Importar por CSV**: añade una columna con el nombre del campo; la plantilla de ejemplo ya la incluye. Las fechas aceptan `31/12/2026`, los sí / no aceptan `si` o `no`, y en las listas se rechaza un valor que no esté entre las opciones.
 - **Agente de IA**: recibe los campos visibles en `search_products` y también encuentra productos por ellos (por ejemplo, «taller los jueves»). Los campos internos no se le envían ni se usan para buscar.
 - Si borras un campo, sus valores no se pierden: reaparecen al volver a crearlo con el mismo nombre.
+
+## Audios, imágenes y stickers
+
+Cuando un cliente manda un **audio**, Driony lo transcribe; una **imagen** o un **sticker**, los describe (si es un comprobante, un pedido o una captura, saca los datos que se leen). Eso se guarda bajo el mensaje en la bandeja, con el icono de la IA, y el agente lo lee como parte de la conversación: responde a lo que dijo el audio o a lo que muestra la foto, en vez de ignorarlo.
+
+- La transcripción usa tu clave de **OpenAI**. Con solo Anthropic, los audios no se transcriben; las imágenes sí se describen con cualquiera de los dos.
+- Se cobra en tu cuenta del proveedor y aparece en **Consumo de IA** como «Audios e imágenes de clientes». Un audio de un minuto cuesta menos de un centavo de dólar.
+- Los videos y documentos no se interpretan todavía; el agente ve que llegaron.
 
 ## Base de conocimiento
 

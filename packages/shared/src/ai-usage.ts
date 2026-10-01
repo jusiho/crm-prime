@@ -18,6 +18,7 @@ export const AI_FEATURES = [
   "flow_assistant",
   "knowledge_gaps",
   "knowledge_index",
+  "media",
 ] as const;
 export type AiFeature = (typeof AI_FEATURES)[number];
 
@@ -30,6 +31,7 @@ export const AI_FEATURE_LABELS: Record<AiFeature, string> = {
   flow_assistant: "Asistente de flujos",
   knowledge_gaps: "Preguntas sin respuesta",
   knowledge_index: "Indexar y buscar conocimiento",
+  media: "Audios e imágenes de clientes",
 };
 
 /** Mes de la última revisión de la tabla de precios. */
@@ -42,6 +44,9 @@ export const AI_PRICES_REVIEWED = "2026-09";
  * decir "sin precio" que inventar una cifra.
  */
 const PRICES: Array<[RegExp, number, number]> = [
+  // Transcripción: tokens de audio de entrada y de texto de salida.
+  [/^gpt-4o-mini-transcribe/i, 1.25, 5],
+  [/^gpt-4o-transcribe/i, 2.5, 10],
   [/^gpt-4o-mini/i, 0.15, 0.6],
   [/^gpt-4o/i, 2.5, 10],
   [/^gpt-4\.1-nano/i, 0.1, 0.4],

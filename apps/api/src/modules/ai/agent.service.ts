@@ -10,6 +10,7 @@ import type {
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { currentOrgId } from "../../infra/tenant/tenant.context";
+import { MediaUnderstandingService } from "./media-understanding.service";
 import { KnowledgeService } from "../knowledge/knowledge.service";
 import { AgentActionsService } from "./agent-actions.service";
 import { BotService } from "./bot.service";
@@ -780,9 +781,11 @@ export class AgentService {
       orderBy: { createdAt: "asc" },
       take: 40,
     });
+    // Un audio o una imagen entran con lo que la IA entendió de ellos
+    // (transcripción o descripción), no como un «[audio]» mudo.
     const msgs: LlmMessage[] = rows.map((m) => ({
       role: m.direction === "INBOUND" ? "user" : "assistant",
-      content: m.content ?? `[${m.type.toLowerCase()}]`,
+      content: MediaUnderstandingService.textOf(m) || `[${m.type.toLowerCase()}]`,
     }));
     // La API exige que el primer mensaje sea del usuario.
     while (msgs.length && msgs[0]!.role === "assistant") msgs.shift();

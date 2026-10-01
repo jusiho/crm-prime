@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { InjectQueue } from "@nestjs/bullmq";
+import type { UnreadCount } from "@crm/shared";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { Queue } from "bullmq";
 import {
@@ -89,6 +90,16 @@ export interface InboundMessage {
   buttonPayload?: string;
 }
 
+/** Cómo se anuncia un mensaje sin texto en un aviso. */
+const PREVIEW_LABEL: Record<string, string> = {
+  IMAGE: "📷 Imagen",
+  AUDIO: "🎤 Audio",
+  VIDEO: "🎥 Video",
+  STICKER: "Sticker",
+  DOCUMENT: "📄 Documento",
+  LOCATION: "📍 Ubicación",
+};
+
 @Injectable()
 export class MessagingService {
   private readonly logger = new Logger("Messaging");
@@ -111,10 +122,11 @@ export class MessagingService {
     this.events.emit("message.outbound", { orgId, conversationId, messageId, author });
   }
 
-  private notify(conversationId: string): void {
+  private notify(conversationId: string, extra: Record<string, unknown> = {}): void {
     this.events.emit("inbox.changed", {
       conversationId,
       orgId: currentOrgId() ?? undefined,
+      ...extra,
     });
   }
 
@@ -312,7 +324,13 @@ export class MessagingService {
       message: { type: msg.type, text: text ?? null },
       isNewConversation,
     });
-    this.notify(conversation.id);
+    // Con quién y qué dijo: la app avisa esté donde esté la persona.
+    this.notify(conversation.id, {
+      inbound: {
+        contactName: contact.name ?? contact.phone,
+        preview: (text ?? PREVIEW_LABEL[msg.type] ?? msg.type.toLowerCase()).slice(0, 120),
+      },
+    });
     // Conversación nueva: dispara la automatización de bienvenida / autopilot
     // por defecto (AutomationService) antes del flujo normal de entrante.
     if (isNewConversation) {
@@ -1154,6 +1172,16 @@ export class MessagingService {
     return rows.map((m) => this.toMessageDto(m));
   }
 
+  /** Mensajes sin leer en la bandeja (y en cuántas conversaciones). */
+  async unreadCount(): Promise<UnreadCount> {
+    const agg = await this.prisma.conversation.aggregate({
+      where: { status: { not: "CLOSED" }, unreadCount: { gt: 0 } },
+      _sum: { unreadCount: true },
+      _count: { _all: true },
+    });
+    return { unread: agg._sum.unreadCount ?? 0, conversations: agg._count._all };
+  }
+
   private toMessageDto(m: {
     id: string;
     direction: string;
@@ -1161,6 +1189,7 @@ export class MessagingService {
     author: string;
     content: string | null;
     mediaUrl: string | null;
+    transcript?: string | null;
     replyTo?: {
       id: string;
       content: string | null;
@@ -1182,6 +1211,7 @@ export class MessagingService {
       author: m.author as MessageAuthor,
       content: m.content,
       mediaUrl: m.mediaUrl,
+      transcript: m.transcript ?? null,
       buttons: interactive?.buttons?.length ? interactive.buttons : null,
       replyTo: m.replyTo
         ? {

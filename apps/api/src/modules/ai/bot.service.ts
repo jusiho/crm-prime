@@ -116,6 +116,7 @@ export class BotService {
         isActive: input.isActive,
         channelId: input.channelId,
         autopilotByDefault: input.autopilotByDefault,
+        replyDelaySec: input.replyDelaySec,
         welcomeEnabled: input.welcomeEnabled,
         welcomeMessage: input.welcomeMessage,
         businessHoursEnabled: input.businessHoursEnabled,
@@ -163,6 +164,7 @@ export class BotService {
         ...(input.autopilotByDefault !== undefined
           ? { autopilotByDefault: input.autopilotByDefault }
           : {}),
+        ...(input.replyDelaySec !== undefined ? { replyDelaySec: input.replyDelaySec } : {}),
         ...(input.welcomeEnabled !== undefined
           ? { welcomeEnabled: input.welcomeEnabled }
           : {}),
@@ -233,6 +235,7 @@ export class BotService {
     isActive: boolean;
     channelId: string | null;
     autopilotByDefault: boolean;
+    replyDelaySec: number;
     welcomeEnabled: boolean;
     welcomeMessage: string | null;
     businessHoursEnabled: boolean;
@@ -270,6 +273,7 @@ export class BotService {
           }
         : null,
       autopilotByDefault: c.autopilotByDefault,
+      replyDelaySec: c.replyDelaySec,
       welcomeEnabled: c.welcomeEnabled,
       welcomeMessage: c.welcomeMessage,
       businessHoursEnabled: c.businessHoursEnabled,
